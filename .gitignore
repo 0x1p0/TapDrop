@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+
+# Swift / Mac app
+mac/.build/
+mac/build/
+*.xcodeproj/xcuserdata/
+
+# Android / Gradle
+android/.gradle/
+android/.kotlin/
+android/build/
+android/*/build/
+android/local.properties
+*.apk
+*.aab
+
+# Signing (kept locally, never committed)
+*.keystore
+*.jks
+android/keystore.properties
+
+# IDEs
+.idea/
+*.iml
+.vscode/
