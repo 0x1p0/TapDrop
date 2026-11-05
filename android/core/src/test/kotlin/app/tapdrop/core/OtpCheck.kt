@@ -2,27 +2,52 @@ package app.tapdrop.core
 
 import kotlin.system.exitProcess
 
+/**
+ * Runs [Otp.find] over [otpCodes] and [otpNotCodes] and reports precision and recall. Fails on any number shown
+ * for a message without a code, any wrong code, or recall under 97%.
+ */
 fun main() {
-    val samples = listOf(
-        "Your Uber code: 4821. Never share this code." to "4821",
-        "731904 is your OTP for HDFC NetBanking login. Valid for 5 mins." to "731904",
-        "Your Google verification code is G-482915. Don't share it." to "482915",
-        "Use 559 012 to verify your sign-in to Amazon." to "559012",
-        "WhatsApp code 123-456. You can also tap this link to verify your phone" to "123456",
-        "Microsoft account security code: 2944133" to "2944133",
-        "PIN for your card is 4417. Do not share" to "4417",
-        "Your OTP is 6789 for transaction of Rs. 2,500.00 at AMAZON on 11/10/26" to "6789",
-        "Rs. 4,500.00 debited from A/c XX1234 on 11-10-2026. Avl Bal Rs 12,345.67. Call 18002586161" to null,
-        "Your bill of 1299.00 is due. Use code SAVE20 for 10% off" to null,
-        "Dinner at 7:30? call me at 2026" to null,
-        "Order #4471 has shipped! Track with code TRK" to null,
-    )
-    var ok = 0
-    for ((t, want) in samples) {
-        val got = Otp.find(t)
-        println((if (got == want) "  PASS " else "  FAIL ") + "got=$got want=$want  | $t")
-        if (got == want) ok++
+    fun one(s: String) = s.replace("\n", " / ")
+    fun label(c: OtpCase) = (if (c.from == Otp.From.SMS) "" else "${c.from.name.lowercase()} [${c.title}] ") + one(c.text)
+
+    var found = 0
+    var missed = 0
+    var wrong = 0
+    var falses = 0
+    for (c in otpCodes) {
+        val got = Otp.find(c.text, c.from, c.title)
+        when (got) {
+            c.want -> found++
+            null -> { missed++; println("  MISS  want=${c.want}  | ${label(c)}") }
+            else -> { wrong++; println("  WRONG got=$got want=${c.want}  | ${label(c)}") }
+        }
     }
-    println("$ok/${samples.size}")
-    exitProcess(if (ok == samples.size) 0 else 1)
+    for (c in otpNotCodes) {
+        val got = Otp.find(c.text, c.from, c.title) ?: continue
+        falses++
+        println("  FALSE got=$got  | ${label(c)}")
+    }
+
+    // The rest of the rules the phone relies on.
+    val rules = listOf(
+        "same code spaced or not" to (Otp.digits("123 456") == "123456" && Otp.digits("123-456") == Otp.digits("123456")),
+        "chat title never gives a code" to (Otp.find("lol", Otp.From.CHAT, "OTP 482913") == null),
+        "notification title never gives a code" to (Otp.find("New message", Otp.From.NOTIFICATION, "Code 482913") == null),
+        "title can name a bare code" to (Otp.find("482913", Otp.From.NOTIFICATION, "Your verification code") == "482913"),
+        "chat title can't name a bare code" to (Otp.find("482913", Otp.From.CHAT, "Verification code") == null),
+        "WhatsApp is a chat app" to (Otp.isChatApp("com.whatsapp") && Otp.isChatApp("org.telegram.messenger")),
+        "SMS apps aren't chat apps" to (!Otp.isChatApp("com.google.android.apps.messaging") && !Otp.isChatApp("com.samsung.android.messaging")),
+    )
+    var broken = 0
+    for ((name, ok) in rules) if (!ok) { broken++; println("  RULE  $name") }
+
+    val shown = found + wrong + falses
+    val precision = if (shown == 0) 100.0 else 100.0 * found / shown
+    val recall = 100.0 * found / otpCodes.size
+    println()
+    println("Messages with a code: ${otpCodes.size} (found $found, missed $missed, wrong $wrong)")
+    println("Messages without one: ${otpNotCodes.size} (showed a number for $falses)")
+    println("Rules: ${rules.size - broken}/${rules.size}")
+    println("Precision %.1f%%, recall %.1f%%".format(precision, recall))
+    exitProcess(if (wrong == 0 && falses == 0 && broken == 0 && recall >= 97.0) 0 else 1)
 }

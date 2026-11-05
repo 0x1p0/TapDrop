@@ -213,6 +213,9 @@ final class KeyRounds: @unchecked Sendable {
         var light: Double?
         /// The brightest reading while its light was on (grab + 40 ms until key-off).
         var peak = 0.0
+        /// The rise window's end (key-on + 900 ms, longer while the light is still climbing), and the last new high.
+        var seeUntil: TimeInterval?
+        var climbedAt: TimeInterval?
         /// When the notch saw its light ("key-seen" went out).
         var seenAt: TimeInterval?
         var keyOff: TimeInterval?
@@ -312,6 +315,13 @@ final class KeyRounds: @unchecked Sendable {
                 if TestMode.on { NSLog("TapDrop[test]: knock from %@ ignored: the notch sensor isn't running", p.name) }
                 return
             }
+            // A round no phone answered (every phone declined: the room's light changed, a hand passed) is only
+            // waiting for the light to settle, which it may never do (the lights went off). A knock is a phone at the
+            // notch now: it ends that round.
+            if let r = round, r.winner == nil, r.candidate == nil,
+               r.phones.values.allSatisfy({ if case .declined = $0.verdict { return $0.keyOn == nil } else { return false } }) {
+                release(r, why: "a knock")
+            }
             guard canStart(at: t) else {
                 if TestMode.on { NSLog("TapDrop[test]: knock from %@ ignored: a round is running or just ran", p.name) }
                 return
@@ -329,9 +339,10 @@ final class KeyRounds: @unchecked Sendable {
         start(.knock, phones: [p], t0: t)
         if sensor.simulated {
             // Simulated: the phone's screen content on the notch (an open notch: brighter than 0.3·B). Read once
-            // the round has frozen B, and inside P's window.
+            // the round has frozen B, and inside P's window. The ramp modes are a dark room, where the screen is at
+            // its dimmest: its content barely registers.
             simPhoneAtNotch = true
-            sensor.simulate(300)
+            sensor.simulate(testKey.hasPrefix("ramp") ? 3 : 300)
         }
         let level = sensor.latest(atOrBefore: Self.now)?.lux ?? sensor.baseline ?? 0
         let name = p.name
@@ -547,14 +558,31 @@ final class KeyRounds: @unchecked Sendable {
         p.need = p.calibrating
             ? max(r.room + LightKey.calibrateOverRoom, LightKey.calibrateFloor)
             : max(LightKey.seenFloor, min(LightKey.lightFraction * e, r.pre + LightKey.riseFraction * e))
+        p.seeUntil = on + LightKey.seeWithin
         r.phones[id] = p
         // The light may already be in readings taken while key-on was on its way.
         for s in sensor.samples(from: r.tGrab + LightKey.seeFromGrab, to: Self.now) where see(r, id, s) {
             return
         }
-        r.phones[id]?.deadline = after(r, at: on + LightKey.seeWithin) { [weak self] in
+        armSee(r, id, on: on, at: on + LightKey.seeWithin)
+    }
+
+    /// The end of the rise window: seen if the light reached its level, more time if it's still climbing (a dim
+    /// screen ramping up to full), not-seen otherwise.
+    private func armSee(_ r: Round, _ id: UUID, on: TimeInterval, at: TimeInterval) {
+        r.phones[id]?.deadline = after(r, at: at) { [weak self] in
             guard let self, self.round === r, let p = r.phones[id], p.verdict == nil, p.seenAt == nil else { return }
-            // A light that reached its level and was still climbing when the window ended counts as seen.
+            // Still climbing: more time, so the phone is measured at full brightness (key-seen comes from `see` once
+            // the readings level off).
+            let now = Self.now
+            if r.winner == nil, r.candidate == nil, let climbed = p.climbedAt, now - climbed <= LightKey.rampQuiet,
+               now < on + LightKey.rampWithin {
+                let next = min(climbed + LightKey.rampQuiet, on + LightKey.rampWithin)
+                r.phones[id]?.seeUntil = next
+                self.armSee(r, id, on: on, at: max(next, now + 0.05))
+                return
+            }
+            // A light that reached its level counts as seen when the window ends.
             if p.overAt != nil, r.winner == nil, r.candidate == nil {
                 self.seen(r, id, p.peak)
                 return
@@ -567,12 +595,14 @@ final class KeyRounds: @unchecked Sendable {
     @discardableResult
     private func see(_ r: Round, _ id: UUID, _ s: LightSample) -> Bool {
         guard var p = r.phones[id], p.verdict == nil, p.seenAt == nil, p.keyOff == nil, let on = p.keyOn,
-              let need = p.need, s.t >= r.tGrab + LightKey.seeFromGrab, s.t <= on + LightKey.seeWithin else { return false }
+              let need = p.need, s.t >= r.tGrab + LightKey.seeFromGrab,
+              s.t <= (p.seeUntil ?? on + LightKey.seeWithin) else { return false }
         // A calibration hold measures the white screen itself: what the phone showed before (bright content on the
         // notch can reach the lower calibration level) isn't a sample.
         if p.calibrating, s.t < on + LightKey.calibrateFrom { return false }
         let before = p.lastLux
         p.lastLux = s.lux
+        if s.t >= on, s.lux >= p.peak + LightKey.rampRise, s.lux >= p.peak * 1.04 { p.climbedAt = s.t }
         p.peak = max(p.peak, s.lux)
         r.phones[id] = p
         guard s.lux >= need, r.winner == nil, r.candidate == nil else { return false }
@@ -795,9 +825,24 @@ final class KeyRounds: @unchecked Sendable {
     /// - stay: the bright reading, but it stays when the phone goes dark (a lamp, not the phone).
     /// - fail: 6-lux readings, so the window runs out.
     /// - uncover: the notch reads the room again (the hand that covered it left, as the phone lit up elsewhere).
+    /// - ramp: a dim screen brightening to full, as in a dark room: from 8 lux, a quarter more every 100 ms, to 330
+    ///   (past the first 900 ms), dark at key-off. rampstay: the same rise, but it stays (a lamp fading up).
     private func simulateLight(_ r: Round, _ id: UUID) {
         let first = max(Self.now, r.tGrab + LightKey.preAfterGrab + 0.002)
         switch testKey {
+        case "ramp", "rampstay":
+            var lux = 8.0
+            var t = max(first, Self.now + 0.12)
+            while true {
+                let v = lux
+                after(r, at: t) { [weak self] in
+                    guard let self, self.round === r, let p = r.phones[id], p.keyOff == nil, p.verdict == nil else { return }
+                    self.sensor.simulate(v)
+                }
+                if lux >= 330 { break }
+                lux = min(330, (lux * 1.25).rounded())
+                t += 0.1
+            }
         case "fail":
             after(r, at: first) { [weak self] in
                 guard let self, self.round === r else { return }
@@ -820,7 +865,7 @@ final class KeyRounds: @unchecked Sendable {
 
     /// Test mode: a phone's light went off.
     private func simulateDark(_ r: Round, _ id: UUID) {
-        guard testKey != "stay" else { return }
+        guard testKey != "stay", testKey != "rampstay" else { return }
         if r.candidate == id || r.winner == id {
             // The phone the notch saw is the one on it: its black screen leaves the sensor (almost) dark.
             sensor.simulate(simPhoneAtNotch ? 1 : NotchSensor.simulatedRoom)

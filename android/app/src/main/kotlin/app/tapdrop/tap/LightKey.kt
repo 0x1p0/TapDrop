@@ -32,6 +32,8 @@ class LightKey(svc: AccessibilityService) {
     private val view = View(svc)
     /** On [thread]: the window is added. */
     private var added = false
+    /** On [thread]: the window is only brightening the screen ahead of a round (see-through, see [brighten]). */
+    private var ahead = false
     @Volatile private var showing = false
     /** Bumped by [off]: a white or black switch asked for before it never runs after it. */
     private val generation = AtomicInteger()
@@ -52,20 +54,23 @@ class LightKey(svc: AccessibilityService) {
                 done.complete(false)
                 return@post
             }
-            if (added) {
+            if (added && !ahead) {
                 lit()
                 done.complete(true)
                 return@post
             }
             view.setBackgroundColor(Color.WHITE)
-            try {
-                wm.addView(view, params())
-            } catch (e: Exception) {
-                Log.w("TapDrop", "light key: can't show the screen light", e)
-                done.complete(false)
-                return@post
+            if (!added) {
+                try {
+                    wm.addView(view, params())
+                } catch (e: Exception) {
+                    Log.w("TapDrop", "light key: can't show the screen light", e)
+                    done.complete(false)
+                    return@post
+                }
             }
             added = true
+            ahead = false
             showing = true
             val t0 = SystemClock.uptimeMillis()
             // Registered before the first traversal runs (it's posted), so it fires for the very first frame.
@@ -105,6 +110,35 @@ class LightKey(svc: AccessibilityService) {
         }
     }
 
+    /**
+     * Full brightness now, with the screen unchanged: the same window, see-through, with the brightness override.
+     * Android ramps a dim screen up to full over a second or more (in a dark room it starts from its dimmest), so a
+     * knock starts the ramp while the screenshot is taken, and the white screen is at full brightness when the Mac
+     * looks. Goes after [ms] unless the light key takes the window over.
+     */
+    fun brighten(ms: Long) {
+        val gen = generation.get()
+        handler.post {
+            if (added || gen != generation.get()) return@post
+            view.setBackgroundColor(Color.TRANSPARENT)
+            try {
+                wm.addView(view, params())
+            } catch (e: Exception) {
+                Log.w("TapDrop", "light key: can't brighten ahead", e)
+                return@post
+            }
+            added = true
+            ahead = true
+            Log.i("TapDrop", "light key: brightening ahead")
+        }
+        handler.postDelayed({
+            if (ahead && gen == generation.get()) {
+                ahead = false
+                remove()
+            }
+        }, ms)
+    }
+
     /** Everything off, as soon as the light thread gets to it (it has nothing else to do). */
     fun off() {
         generation.incrementAndGet()
@@ -121,6 +155,7 @@ class LightKey(svc: AccessibilityService) {
     private fun remove() {
         if (!added) return
         added = false
+        ahead = false
         runCatching { wm.removeViewImmediate(view) }
     }
 
@@ -132,7 +167,8 @@ class LightKey(svc: AccessibilityService) {
             WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-        PixelFormat.OPAQUE,
+        // See-through while it only brightens ahead; the white and black frames are opaque colours either way.
+        PixelFormat.TRANSLUCENT,
     ).apply {
         screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL
         layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS

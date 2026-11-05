@@ -98,6 +98,7 @@ class MediaMatcher(
      */
     suspend fun find(
         screen: Bitmap, labels: List<String>, hit: MediaDetector.Hit?, allowVideos: Boolean = true, picked: Boolean = false,
+        gallery: Boolean = false,
     ): Outcome =
         withContext(Dispatchers.Default) {
         if (!hasAccess()) return@withContext Outcome.NoAccess
@@ -115,7 +116,11 @@ class MediaMatcher(
 
         // Length + time agree on exactly one video → that's it, no pixels needed.
         if (video && byLength.size == 1) return@withContext Outcome.Found(byLength[0])
-        if (strong.size == 1 && (byLength.isNotEmpty() || time?.windowMs == 61_000L)) return@withContext Outcome.Found(strong[0])
+        // (A time alone only counts with a picture on screen, or in a gallery: a chat or an app showing "9:55 PM" says
+        // nothing about a photo taken that minute.)
+        if (strong.size == 1 && (byLength.isNotEmpty() || (time?.windowMs == 61_000L && (hit != null || gallery)))) {
+            return@withContext Outcome.Found(strong[0])
+        }
 
         val small = Bitmap.createScaledBitmap(screen, max(9, screen.width / 4), max(8, screen.height / 4), true)
         val bands = buildList {
@@ -226,9 +231,10 @@ class MediaMatcher(
             // anything else on screen. (Thousands of frames are compared, so a near miss isn't enough.)
             indexed != null && indexed.second <= (if (video) 40 else good) && indexed.third - indexed.second >= 16 &&
                 indexed.second + (if (video) 0 else 8) <= (best?.second ?: BITS) -> indexed.first
-            // Nothing on screen looks like a photo/video: only an unmistakable match counts, and never a saved
-            // screenshot (an app screen looks just like an old screenshot of it; a fresh one is what's wanted).
-            hit == null -> best?.takeIf { it.second <= 20 && !isScreenshot(it.first) }?.first
+            // Nothing on screen looks like a photo/video: that's an app's own screen, and a fresh screenshot is what's
+            // wanted. A picture of a similar screen (an old screenshot, or one someone sent in a chat) must never stand
+            // in for it. Only a gallery showing a photo full screen, unmistakably, sends the photo.
+            hit == null -> best?.takeIf { gallery && it.second <= 20 && !isScreenshot(it.first) }?.first
             best != null && best.second <= 36 -> best.first
             // A picture the user pointed at: a little looser, as long as it clearly beats every other photo.
             picked && best != null && best.second <= 52 && (ranked.getOrNull(1)?.second ?: BITS) - best.second >= 16 -> best.first

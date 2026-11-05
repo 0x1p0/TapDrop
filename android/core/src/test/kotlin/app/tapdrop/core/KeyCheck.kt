@@ -71,6 +71,15 @@ fun main(args: Array<String>) {
     println("Rounds — sun on the notch (B 2000): the phone covers it and its screen reads a steady 650 lux")
     TestMac(bin, port + 6, dir, "pass", room = 2000, peak = 650).use { sunRounds(it) }
 
+    println("Rounds — a dark room (B 0): the phone's screen brightens slowly from its dimmest (TAPDROP_TEST_KEY=ramp)")
+    TestMac(bin, port + 7, dir, "ramp", room = 0).use { rampRounds(it, lamp = false) }
+
+    println("Rounds — a dark room: a lamp fades up as the phone knocks, and stays (TAPDROP_TEST_KEY=rampstay)")
+    TestMac(bin, port + 8, dir, "rampstay", room = 0).use { rampRounds(it, lamp = true) }
+
+    println("Rounds — the lights go off (every phone declines that round), then a phone knocks (TAPDROP_TEST_KEY=pass)")
+    TestMac(bin, port + 9, dir, "pass").use { declinedThenKnock(it) }
+
     println("Live link — the newest link per phone wins; a silent link is dropped (silence limit 3 s)")
     TestMac(bin, port + 5, dir, "pass", env = mapOf("TAPDROP_TEST_WATCH_SILENCE" to "3")).use { liveness(it) }
 
@@ -146,7 +155,7 @@ private fun msg(vararg pairs: Pair<String, Any?>) = JSONObject().apply { for ((k
 private fun answers() {
     // The Mac: key-on within 2 s of the grab; the rise until key-on + 900 ms; key-off within 1 s of key-seen; the fall
     // within 450 ms of key-off. The phone's light must outlast each answer it waits for.
-    check("the phone's white screen outlasts the Mac's rise window (key-on + 900 ms)", LightKeyRules.WHITE_MAX_MS >= 900 + 300,
+    check("the phone's white screen outlasts the Mac's rise window (key-on + 2.5 s while brightening)", LightKeyRules.WHITE_MAX_MS >= 2500 + 300,
         "${LightKeyRules.WHITE_MAX_MS} ms")
     check("the phone's black screen outlasts the Mac's whole echo (key-off ≤ 1 s after key-seen, then the 450 ms fall)",
         LightKeyRules.DARK_MAX_MS >= 1000 + 450 + 100, "${LightKeyRules.DARK_MAX_MS} ms")
@@ -599,6 +608,67 @@ private fun sunRounds(mac: TestMac) {
         val (seen, v) = hold(p, mac, wait = 600) { gid -> p.s.grabAck(gid, true, "screenshot") }
         check("sun (B 2000), covered: its light 650 in the shade, black blocks the sun → key-ok (needs white − black ≥ 135)",
             seen.desc() == "key-seen" && v.desc() == "key-ok" && v?.optDouble("need") == 135.0, "${seen.desc()} ${seen} / ${v.desc()} $v")
+    }
+}
+
+/**
+ * A dark room: a knock starts the round, and the light climbs from 8 lux past the first 900 ms (Android ramping a dim
+ * screen up to full). The window stretches while it climbs: the phone's light passes; a lamp that stays doesn't.
+ */
+private fun rampRounds(mac: TestMac, lamp: Boolean) {
+    val ep = Endpoint("127.0.0.1", mac.port)
+    Phone("Ramp Pixel", ep, caps = LightKeyRules.VERSION).use { p ->
+        p.expect("room", 2500)
+        Thread.sleep(1700)
+        p.s.knock()
+        val g = p.expect("grab", 1500)
+        p.s.keyOn(g.id(), Src.SCREEN)
+        val t = now()
+        val (seen, v) = p.key(g.id(), 3500)
+        val after = now() - t
+        if (lamp) {
+            check("dark room, a lamp fading up as the phone knocks: seen, but it stays lit when the phone goes black → " +
+                "key-fail stayed-lit", seen.desc() == "key-seen" && v.desc() == "key-fail stayed-lit", "${seen.desc()} / ${v.desc()}")
+            p.s.grabAck(g.id(), false, "none", "no-light")
+        } else {
+            check("dark room, a screen still brightening at 900 ms: the window stretches while it climbs → key-seen, " +
+                "then black → key-ok", seen.desc() == "key-seen" && v.desc() == "key-ok" && after > 1000,
+                "${seen.desc()} / ${v.desc()} after $after ms")
+            p.s.grabAck(g.id(), true, "screenshot")
+        }
+        mac.signal("USR2")
+        Thread.sleep(500)
+    }
+    Thread.sleep(300)
+    if (lamp) check("nothing was sent", mac.save.listFiles().isNullOrEmpty(), "${mac.save.list()?.toList()}")
+}
+
+/**
+ * The room goes dark around the notch (the lights going off look like a cover): the phone isn't moving, so it
+ * declines. That round would wait up to 6 s for the room's light to come back, which it never does in the dark; a
+ * knock meanwhile is a phone on the notch, and must start its own round at once.
+ */
+private fun declinedThenKnock(mac: TestMac) {
+    val ep = Endpoint("127.0.0.1", mac.port)
+    Phone("Knock Pixel", ep, caps = LightKeyRules.VERSION).use { p ->
+        p.expect("room", 2500)
+        Thread.sleep(400)
+        mac.signal("USR1")
+        val g = p.expect("grab", 1500)
+        p.s.grabAck(g.id(), false, "none", "still")
+        Thread.sleep(1800)
+        p.s.knock()
+        val gk = p.expect("grab", 1200)
+        check("lights off, the phone declined; a knock 1.8 s later ends that round and starts its own → grab",
+            gk != null && gk.id() != g.id(), "$gk")
+        if (gk != null) {
+            p.s.keyOn(gk.id(), Src.SCREEN)
+            val (_, ok) = p.key(gk.id())
+            check("…and the knock's tap passes → key-ok", ok.desc() == "key-ok", ok.desc())
+            p.s.grabAck(gk.id(), true, "screenshot")
+        }
+        mac.signal("USR2")
+        Thread.sleep(500)
     }
 }
 

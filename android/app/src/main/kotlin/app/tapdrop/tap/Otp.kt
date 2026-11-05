@@ -18,17 +18,26 @@ import app.tapdrop.core.Otp
 
 /** Copies a detected code on the phone, sends it to the Mac's clipboard, and shows a pill. */
 object OtpRelay {
-    private var last: Pair<String, Long>? = null
+    /** Codes sent lately (digits only) → when, so one code never shows twice. */
+    private val recent = HashMap<String, Long>()
 
-    fun handle(ctx: Context, text: String, source: String) {
+    /**
+     * [text] is the message alone. [title] is a notification's title: it can say "Verification code" above a
+     * bare number but never gives a code itself. [from] says how sure the wording has to be (chat apps: very).
+     */
+    fun handle(ctx: Context, text: String, source: String, from: Otp.From = Otp.From.SMS, title: String? = null) {
         val app = TapDropApp.instance
         if (!app.prefs.smartOtp.value) return
-        val code = Otp.find(text) ?: return
+        val code = Otp.find(text, from, title) ?: return
         val now = SystemClock.elapsedRealtime()
         synchronized(this) {
-            val l = last
-            if (l != null && l.first == code && now - l.second < 120_000) return  // same code via SMS + notification
-            last = code to now
+            recent.entries.removeAll { now - it.value >= 120_000 }
+            // The same code by SMS and by the Messages notification, or a notification updated in place.
+            // "123 456" and "123456" are one code.
+            val key = Otp.digits(code)
+            val seen = key in recent
+            recent[key] = now
+            if (seen) return
         }
         app.scope.launch {
             if (app.prefs.otpCopyOnPhone.value) {

@@ -28,6 +28,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 import app.tapdrop.R
 import app.tapdrop.TapDropApp
 import app.tapdrop.core.LightKeyRules
+import app.tapdrop.core.Otp
 import app.tapdrop.core.OutItem
 import app.tapdrop.core.UnreachableException
 import app.tapdrop.core.WatchSession
@@ -263,17 +264,28 @@ class NotchTapService : AccessibilityService() {
                 if (pkg == packageName) return
                 val n = event.parcelableData as? Notification ?: return
                 if (n.flags and Notification.FLAG_ONGOING_EVENT != 0) return
+                // A group's summary only repeats its messages ("3 new messages").
+                if (n.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
+                // An old notification posted again (a later update to it) shouldn't bring back a code long used.
+                if (n.`when` > 0 && System.currentTimeMillis() - n.`when` > 10 * 60_000L) return
                 val ex = n.extras
                 val title = ex.getCharSequence(Notification.EXTRA_TITLE)?.toString()
-                val text = listOfNotNull(
-                    title,
-                    ex.getCharSequence(Notification.EXTRA_TEXT)?.toString(),
-                    ex.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString(),
-                    event.text.joinToString(" ").takeIf { it.isNotBlank() },
-                ).joinToString("\n")
-                if (text.isNotBlank()) {
+                val chat = Otp.isChatApp(pkg)
+                // Only the message itself. The title is a sender, a person or a group ("+91 98765 43210",
+                // "Flat 302"): it names where a code came from but never holds one.
+                val big = ex.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString().orEmpty()
+                val short = ex.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty()
+                val body = when {
+                    big.isBlank() -> short
+                    short.isBlank() || short in big -> big
+                    else -> "$short\n$big"
+                }.ifBlank {
+                    // Some apps only set a ticker, often "Sender: message". Chat tickers are always someone's words.
+                    if (chat) "" else event.text.joinToString(" ").let { t -> title?.let { t.removePrefix(it).trimStart(':', ' ') } ?: t }
+                }
+                if (body.isNotBlank()) {
                     val source = title?.takeIf { it.length in 1..32 }?.let(OtpRelay::cleanSender) ?: appName(pkg)
-                    OtpRelay.handle(applicationContext, text, source)
+                    OtpRelay.handle(applicationContext, body, source, if (chat) Otp.From.CHAT else Otp.From.NOTIFICATION, title)
                 }
             }
         }
@@ -459,6 +471,8 @@ class NotchTapService : AccessibilityService() {
         if (!LightKeyRules.knock(state(now), live = _live.value, lastKnock = lastKnock, farFor = farFor)) return
         lastKnock = now
         Log.i("TapDrop", "knock (gz=%.1f, far for %s)".format(gz, if (farFor > 60_000) "over a minute" else "$farFor ms"))
+        // Start the screen's brightness ramp now, so it's at full when the white screen goes up.
+        if (::light.isInitialized) light.brighten(BRIGHTEN_AHEAD_MS)
         scope.launch(Dispatchers.IO) { runCatching { s.knock() } }
     }
 
@@ -562,6 +576,7 @@ class NotchTapService : AccessibilityService() {
             return
         }
         val src = LightKeyRules.Src.SCREEN
+        light.brighten(BRIGHTEN_AHEAD_MS)  // while the screen is captured (a no-op if the knock already did)
         keying = true
         val inbox = Inbox(s, id)
         rounds[id] = inbox
@@ -796,6 +811,7 @@ class NotchTapService : AccessibilityService() {
                                 shot, labels, hit,
                                 allowVideos = AppRules.isGallery(pkg) || AppRules.isChat(pkg) || AppRules.isVideoPlayer(pkg) ||
                                     hit?.kind == MediaDetector.Kind.VIDEO,
+                                gallery = AppRules.isGallery(pkg),
                             ).also { matchNote = matcher.lastNote }) {
                                 is MediaMatcher.Outcome.Found -> Plan.Media(o.media)
                                 MediaMatcher.Outcome.NoAccess -> Plan.Shot(false, if (hit != null) "Allow photo access in TapDrop to send the $what itself" else null)
@@ -1233,6 +1249,8 @@ class NotchTapService : AccessibilityService() {
 
         /** How long a round waits for its echo once it hears key-seen (the light thread gives up on a frame long before). */
         private const val DARK_WAIT_MS = 600L
+        /** How long a knock's early brightening lasts if no round follows. */
+        private const val BRIGHTEN_AHEAD_MS = 2_500L
 
         private val _running = MutableStateFlow(false)
         /** The accessibility service is enabled and connected. */

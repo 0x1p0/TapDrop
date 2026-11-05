@@ -60,6 +60,13 @@ enum LightKey {
     /// brightness ramps up to full over a few hundred ms from a dim setting).
     static let seeFromGrab = 0.040
     static let seeWithin = 0.900
+    /// A screen still brightening when that window ends (in a dark room Android ramps a dim screen up to full over a
+    /// second or more): the window stretches while the readings keep setting new highs, by up to `rampQuiet` past
+    /// the last one, until `rampWithin` after key-on. A rise of at least `rampRise` (and 4 %) counts as a new high.
+    /// Room light that happens to rise can't pass: the verdict is still the echo (white − black).
+    static let rampWithin = 2.5
+    static let rampQuiet = 0.35
+    static let rampRise = 2.0
     /// Covered: a lit room and P ≤ max(2, 0.30·B) — something sits on the sensor (logged, and how release is judged).
     static let coverFloor = 2.0
     static let coverFraction = 0.30

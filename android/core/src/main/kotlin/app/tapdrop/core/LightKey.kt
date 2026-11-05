@@ -60,9 +60,9 @@ object LightKeyRules {
 
     /**
      * The white screen stays on at most this long after key-on without an answer from the Mac (its rise window ends
-     * 900 ms after key-on)…
+     * 900 ms after key-on, or up to 2.5 s while a dim screen is still brightening)…
      */
-    const val WHITE_MAX_MS = 1300L
+    const val WHITE_MAX_MS = 3000L
     /**
      * …and the black one at most this long after key-off. It covers the Mac's whole echo with room to spare: key-off
      * may arrive up to 1 s after key-seen, and the fall is judged within 450 ms of it.
