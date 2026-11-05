@@ -1,0 +1,12 @@
+---
+// One button style for the site: a black pill that lights up white from the top, like a screen at full brightness.
+interface Props { href: string; solid?: boolean; down?: boolean; class?: string; [key: string]: unknown }
+const { href, solid = false, down = false, class: cls = '', ...rest } = Astro.props;
+---
+<a class:list={['btn', solid && 'btn--solid', cls]} href={href} data-light data-down={down ? '' : undefined} {...rest}>
+  <span class="btn__fill" aria-hidden="true"></span>
+  <slot />
+  <svg class="btn__arrow" viewBox="0 0 14 14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    {down ? <path d="M7 2v10M3 8l4 4 4-4" /> : <path d="M2 7h10M8 3l4 4-4 4" />}
+  </svg>
+</a>

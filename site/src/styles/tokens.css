@@ -1,0 +1,112 @@
+/* TapDrop tokens. Values from docs/DESIGN.md; white and black are events, the aurora is only ever light. */
+
+@font-face {
+  font-family: 'Geist';
+  src: url('/fonts/geist-100_900-normal.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/fonts/geist-mono-400_600-normal.woff2') format('woff2');
+  font-weight: 400 600;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* Metric-matched fallback so the swap to Geist does not shift layout. */
+@font-face {
+  font-family: 'Geist Fallback';
+  src: local('Arial');
+  size-adjust: 104%;
+  ascent-override: 92%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
+
+:root {
+  /* Color by role */
+  --ground: #0a0a0f;
+  --black: #000000;
+  --surface: #121218;
+  --surface-2: #1a1a22;
+  --ink-light: #f5f5fa;
+  --ink-dark: #0a0a0f;
+  --muted-light: #a0a2b4;
+  --muted-dark: #4b4d5c;
+  --accent: #8561ff;
+  --blue: #409eff;
+  --violet: #8561ff;
+  --orchid: #f26bd9;
+  --ok: #2ed17a;
+  --no: #ff7a7e;
+
+  /* The one global ink: flips when the page turns white (the key-on frame). */
+  --ink: var(--ink-light);
+  --muted: var(--muted-light);
+  --line: rgb(245 245 250 / 0.11);
+  --bar-bg: rgb(10 10 15 / 0.86);
+  --c-bg: var(--ground);
+  --c-fg: var(--ink);
+  --c-muted: var(--muted);
+  --c-line: var(--line);
+  --c-accent: var(--accent);
+  --c-curtain: var(--black);
+
+  /* Type */
+  --f-display: 'Geist', 'Geist Fallback', system-ui, sans-serif;
+  --f-body: 'Geist', 'Geist Fallback', system-ui, sans-serif;
+  --f-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --t-mega: clamp(5.25rem, 1.2rem + 13.4vw, 15.5rem);
+  --t-xl: clamp(2.75rem, 1.2rem + 5.6vw, 6.75rem);
+  --t-l: clamp(1.75rem, 1.15rem + 2.3vw, 3.25rem);
+  --t-m: clamp(1.25rem, 1.08rem + 0.7vw, 1.75rem);
+  --t-body: clamp(1rem, 0.97rem + 0.15vw, 1.0625rem);
+  --t-s: 0.875rem;
+  --t-xs: 0.8125rem;
+
+  /* Space */
+  --u: clamp(0.5rem, 0.35rem + 0.6vw, 1rem);
+  --gutter: clamp(1rem, 0.55rem + 1.9vw, 2.5rem);
+  --cols: 12;
+  --col-gap: clamp(0.75rem, 0.4rem + 1.2vw, 1.5rem);
+
+  /* Shape */
+  --radius: 28px;
+  --pill: 999px;
+
+  /* The notch. The island captures are 2x images of a 208 pt notch. */
+  --bar-h: 36px;
+  --notch-w: 200px;
+  --notch-h: 36px;
+
+  /* Motion */
+  --e-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --e-soft: cubic-bezier(0.165, 0.84, 0.44, 1);
+  --e-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
+
+  /* Layers */
+  --z-content: 1;
+  --z-header: 50;
+  --z-island: 60;
+  --z-menu: 70;
+  --z-curtain: 90;
+}
+
+html.is-white {
+  --ink: var(--ink-dark);
+  --muted: var(--muted-dark);
+  --line: rgb(10 10 15 / 0.14);
+  --bar-bg: rgb(255 255 255 / 0.82);
+}
+
+@media (max-width: 767px) {
+  :root {
+    --bar-h: 48px;
+    --notch-w: 118px;
+    --notch-h: 30px;
+  }
+}

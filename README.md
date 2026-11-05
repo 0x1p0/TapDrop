@@ -18,6 +18,7 @@ one-time codes. Everything stays on your own Wi-Fi, end-to-end encrypted.
 ![MIT License](https://img.shields.io/badge/license-MIT-2ea44f)
 ![Free](https://img.shields.io/badge/price-free-2ea44f)
 
+**[Website](https://0x1p0.github.io/TapDrop/)** ·
 **[Download for Mac and Android](https://github.com/0x1p0/TapDrop/releases/latest)** ·
 **[Step-by-step install guide](docs/INSTALL.md)**
 
@@ -282,6 +283,7 @@ scripts/             release.sh (the release downloads), release-notes.sh (a ver
 .github/workflows/   Checks on every push; releases on every version tag
 VERSION              The version of both apps
 CHANGELOG.md         What's new in each version
+site/                The website (Astro), published to GitHub Pages
 docs/INSTALL.md      Step-by-step install guide
 docs/DESIGN.md       Design system for both apps (color, type, motion, components, copy)
 PROTOCOL.md          Wire protocol, pairing, the light key, live link

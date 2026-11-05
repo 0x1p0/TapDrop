@@ -1,0 +1,9 @@
+---
+// A command to type, with a copy button.
+interface Props { code: string; label?: string }
+const { code, label = 'Copy' } = Astro.props;
+---
+<div class="code">
+  <pre><code>{code}</code></pre>
+  <button type="button" class="code__copy" data-copy={code} aria-label={`${label}: ${code.split('\n')[0]}`}><span>Copy</span></button>
+</div>

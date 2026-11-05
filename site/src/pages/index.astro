@@ -1,0 +1,205 @@
+---
+import { to } from '../data/url';
+import { Picture, Image } from 'astro:assets';
+import Base from '../layouts/Base.astro';
+import Btn from '../components/Btn.astro';
+import PhoneBack from '../components/PhoneBack.astro';
+import Trace from '../components/Trace.astro';
+import TapSends from '../components/TapSends.astro';
+import { hero, lightKey, more, film, privacy, requirements, getIt, links } from '../data/site';
+import sunset from '../assets/photo/Sunset.jpg';
+
+---
+<Base page="home">
+  <!-- ───────── Hero: the tap ───────── -->
+  <section class="hero" data-hero aria-labelledby="hero-title">
+    <div class="hero__stage" data-hero-stage>
+      <div class="hero__flood" data-flood aria-hidden="true"></div>
+      <div class="hero__screen">
+      <p class="hero__meta css-in" style="--d:0.45s"><b>TapDrop 2.0</b> for Android and Mac</p>
+
+      <div class="phone" data-phone aria-hidden="true">
+        <div class="phone__idle" data-phone-idle>
+          <div class="phone__spill" data-spill></div>
+          <div class="phone__glow" data-glow></div>
+          <div class="phone__white" data-white></div>
+          <PhoneBack />
+        </div>
+      </div>
+
+      <h1 class="hero__title display" id="hero-title" data-title>
+        <span class="sr-only">TapDrop. </span>
+        <span class="hero__line rise"><span style="--d:0.05s">Touch.</span></span>
+        <span class="hero__line rise"><span style="--d:0.14s">It’s there.</span></span>
+      </h1>
+
+      <p class="hero__title hero__title--key display" aria-hidden="true" data-title-key>
+        <span class="hero__line rise"><span>Touch.</span></span>
+        <span class="hero__line rise"><span>It’s there.</span></span>
+      </p>
+
+      <div class="hero__aside" data-aside>
+        <p class="hero__lede css-in" style="--d:0.3s">
+          <strong>Touch the top of your Android phone’s screen to your Mac’s notch</strong> and hold it until it buzzes. The page, photo, video or PDF on it lands on your Mac.
+        </p>
+        <p class="hero__open css-in" style="--d:0.36s">{hero.open}</p>
+        <div class="hero__ctas css-in" style="--d:0.4s">
+          <Btn href={links.releases} solid>Download for Mac</Btn>
+          <Btn href={links.repo}>View on GitHub</Btn>
+        </div>
+      </div>
+      </div>
+
+      <div class="hero__dark" data-dark aria-hidden="true"></div>
+
+      <div class="hero__seq">
+        <ol class="steps" data-steps aria-label="One tap, step by step">
+          {hero.steps.map((s, i) => (
+            <li data-step={i}>
+              <span class="mono">{s.lux.toLocaleString('en-US')} lux</span>
+              <p>{s.text}</p>
+            </li>
+          ))}
+        </ol>
+        <figure class="landed" data-landed>
+          <div class="landed__island" data-landed-island style={`--liw:${hero.landed.island.width / 2}px`}>
+            <div class="landed__clip" data-landed-clip>
+              <Image src={hero.landed.island} alt={hero.landed.islandAlt} widths={[441, 882]} sizes="441px" format="webp" loading="eager" />
+              <span class="landed__veil" data-landed-veil aria-hidden="true"></span>
+            </div>
+          </div>
+          <div class="landed__photo" data-landed-photo>
+            <Picture src={sunset} alt="The photo that arrived: a violet sunset over still water, the sun on the horizon" widths={[640, 960, 1400]} sizes="(max-width: 767px) 88vw, 54vw" formats={['avif', 'webp']} />
+          </div>
+          <figcaption data-landed-cap><b>Sunset.jpg</b>, the original file in full quality. Not a screenshot of it.</figcaption>
+        </figure>
+      </div>
+      <p class="hero__hint" data-hint aria-hidden="true"><i></i>Scroll to tap</p>
+    </div>
+  </section>
+
+  <!-- ───────── What a tap sends ───────── -->
+  <TapSends />
+
+  <!-- ───────── The light key ───────── -->
+  <section class="section key" id="light-key" aria-labelledby="key-title">
+    <div class="grid section__head">
+      <h2 class="h-xl" id="key-title" data-split="lines">{lightKey.title}</h2>
+      <p class="lede" data-reveal="up">{lightKey.intro}</p>
+    </div>
+    <div class="grid key__body" data-key>
+      <Trace id="home-trace" />
+      <ol class="chapters">
+        {lightKey.chapters.map((c, i) => (
+          <li class="chapter" data-chapter={i}>
+            <span class="chapter__label"><span class="mono">{String(i + 1).padStart(2, '0')}</span>{c.label}</span>
+            <p>{c.text}</p>
+          </li>
+        ))}
+      </ol>
+    </div>
+    <div class="grid cant">
+      <h3 data-split="lines">What can’t send</h3>
+      <ul>
+        {lightKey.cant.map((c) => (
+          <li>
+            <span>{c.what}</span>
+            <span class="chip"><svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="8" cy="8" r="6.5" stroke-opacity="0.5" /><path d="M5.8 5.8l4.4 4.4M10.2 5.8l-4.4 4.4" /></svg>{c.why}</span>
+          </li>
+        ))}
+        <li>
+          <span>Your phone’s screen, on the notch</span>
+          <span class="chip chip--ok"><svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5" stroke-opacity="0.5" /><path d="M5.2 8.2l2 2 3.8-4.2" /></svg>Sent</span>
+        </li>
+      </ul>
+      <p class="cant__more">The rules, the timings and every verdict: <a class="link link--pad" href={to('/how-it-works/')}>how the light key works</a>.</p>
+    </div>
+  </section>
+
+  <!-- ───────── Everything else ───────── -->
+  <section class="section more" aria-labelledby="more-title">
+    <div class="grid section__head">
+      <h2 class="h-xl" id="more-title" data-split="lines">{more.title}</h2>
+    </div>
+    <div class="grid wall">
+      {more.tiles.map((t) => (
+        <article class:list={['tile', `tile--${t.id}`]} data-reveal="up">
+          <div class="tile__media">
+            {t.island && (
+              <div class="tile__island"><Image src={t.island} alt={t.islandAlt} widths={[441, 882]} sizes="(max-width: 767px) 90vw, 40vw" format="webp" loading="lazy" /></div>
+            )}
+            {t.mac && (
+              <div class="tile__mac"><Image src={t.mac} alt={t.macAlt} widths={[480, 960]} sizes="(max-width: 767px) 80vw, 36vw" format="webp" loading="lazy" /></div>
+            )}
+            <div class="tile__phone"><Image src={t.phone} alt={t.phoneAlt} widths={[320, 640]} sizes="(max-width: 767px) 50vw, 18vw" format="webp" loading="lazy" /></div>
+          </div>
+          <div>
+            <h3>{t.title}</h3>
+            <p>{t.text}</p>
+          </div>
+        </article>
+      ))}
+    </div>
+  </section>
+
+  <!-- ───────── The film ───────── -->
+  <section class="section film" id="film" aria-labelledby="film-title">
+    <div class="grid film__head">
+      <h2 class="h-xl" id="film-title" data-split="lines">{film.title}</h2>
+      <p data-reveal="up">{film.text}</p>
+    </div>
+    <div class="film__frame" data-film data-reveal="notch">
+      <img src={film.poster} alt="A frame from the film: a phone pressed to a MacBook's notch, light spilling around it, beside a live light graph" width="1920" height="1080" loading="lazy" decoding="async" />
+      <button class="btn film__play" type="button" data-film-play data-light aria-label={`Play the film, ${film.length}, with sound`}>
+        <span class="btn__fill" aria-hidden="true"></span>
+        <span class="playdot" aria-hidden="true"><svg viewBox="0 0 14 14"><path d="M3 1.5v11l9.5-5.5z" fill="currentColor" /></svg></span>
+        Play the film <span class="mono">{film.length}</span>
+      </button>
+      <template data-film-tpl>
+        <video controls playsinline preload="auto" poster={film.poster} width="1920" height="1080">
+          <source src={film.src} type="video/mp4" />
+        </video>
+      </template>
+    </div>
+  </section>
+
+  <!-- ───────── Privacy ───────── -->
+  <section class="section" aria-labelledby="privacy-title">
+    <div class="grid privacy">
+      <h2 class="display" id="privacy-title" data-split="lines">{privacy.title}</h2>
+      <p class="lede privacy__text" data-reveal="up">{privacy.text}</p>
+      <ul class="facts">
+        {privacy.facts.map((f, i) => (
+          <li data-reveal="up" data-delay={String(i * 0.06)}><b>{f.value}</b><span>{f.label}</span></li>
+        ))}
+      </ul>
+      <p class="privacy__note">{privacy.note}</p>
+    </div>
+  </section>
+
+  <!-- ───────── Get it ───────── -->
+  <section class="section get grid" id="get" aria-labelledby="get-title">
+    <h2 class="h-xl" id="get-title" data-split="lines">{getIt.title}</h2>
+    <p class="lede get__path" data-reveal="up">{getIt.path}</p>
+    <ul class="reqs" aria-label="Requirements">
+      {requirements.map((r) => (
+        <li data-reveal="up"><strong>{r.what}</strong><span>{r.detail}</span></li>
+      ))}
+    </ul>
+    <ol class="howto">
+      {getIt.steps.map((s) => (
+        <li data-reveal="up">
+          <h3>{s.title}</h3>
+          <p>{s.text}</p>
+          <a class="link link--pad howto__more" href={s.href}>{s.more}</a>
+        </li>
+      ))}
+    </ol>
+    <div class="get__cta">
+      <Btn href={links.releases} solid>Download for Mac</Btn>
+      <Btn href={to('/get-started/')}>Read the install guide</Btn>
+      <Btn href={links.repo}>Source code</Btn>
+    </div>
+    <p class="get__note">Android 13 or newer: the phone gets its app from your Mac’s setup QR code, or as an APK from <a class="link" href={links.releases}>Releases</a>.</p>
+  </section>
+</Base>

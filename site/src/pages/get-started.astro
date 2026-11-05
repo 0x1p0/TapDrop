@@ -1,0 +1,349 @@
+---
+import { to } from '../data/url';
+// The install guide, step by step. Every step, label and dialog follows docs/INSTALL.md in this repository.
+import { Image } from 'astro:assets';
+import Base from '../layouts/Base.astro';
+import Btn from '../components/Btn.astro';
+import PageIsland from '../components/PageIsland.astro';
+import Ui from '../components/Ui.astro';
+import MenuPath from '../components/MenuPath.astro';
+import Code from '../components/Code.astro';
+import { links, requirements } from '../data/site';
+import macPanel from '../assets/mac/mac-panel.png';
+import androidHome from '../assets/phone/android-home.png';
+
+const toc = [
+  { id: 'what-you-need', label: 'What you need', dev: '' },
+  { id: 'part-1-the-mac-app', label: '1. The Mac app', dev: 'Mac' },
+  { id: 'part-2-the-android-app', label: '2. The Android app', dev: 'Phone' },
+  { id: 'part-3-pair', label: '3. Pair them', dev: 'Both' },
+  { id: 'part-4-turn-on-tap-to-send', label: '4. Turn on tap to send', dev: 'Phone' },
+  { id: 'part-5-optional', label: '5. Optional extras', dev: 'Phone' },
+  { id: 'part-6-your-first-tap', label: '6. Your first tap', dev: 'Both' },
+  { id: 'everyday-use', label: 'Everyday use', dev: '' },
+  { id: 'updating', label: 'Updating', dev: '' },
+  { id: 'troubleshooting', label: 'Troubleshooting', dev: '' },
+  { id: 'uninstalling', label: 'Uninstalling', dev: '' },
+  { id: 'building-it-yourself', label: 'Building it yourself', dev: '' },
+];
+---
+<Base
+  page="start"
+  title="Install guide"
+  description="Install TapDrop step by step: the Mac app from GitHub, the Android app from your Mac's QR code, pairing, and every macOS and Android prompt on the way."
+>
+  <div class="guide-progress" aria-hidden="true"><i data-guide-progress></i></div>
+  <header class="grid page-head guide-head">
+    <PageIsland title="MacBook Air" sub="Connected, ready to tap" tone="live" />
+    <h1 class="display rise"><span style="--d:0.05s">Install it, step by step.</span></h1>
+    <div class="page-head__side">
+      <p class="page-head__kicker css-in" style="--d:0.25s">Install guide, about ten minutes</p>
+      <p class="lede css-in" style="--d:0.3s">
+        TapDrop is <strong>free and open source</strong>. This guide goes from nothing to your first tap, through every click and every warning macOS and Android show on the way, and why they appear.
+      </p>
+      <div class="guide-head__ctas css-in" style="--d:0.4s">
+        <Btn href={links.releases} solid>Download for Mac</Btn>
+        <Btn href={links.repo}>View on GitHub</Btn>
+      </div>
+    </div>
+  </header>
+
+  <div class="grid doc guide">
+    <nav class="doc__index guide__index" aria-label="Steps" data-toc>
+      <span class="guide__rail" aria-hidden="true"><i data-guide-rail></i></span>
+      {toc.map((t) => <a href={`#${t.id}`}><span>{t.label}</span>{t.dev && <em>{t.dev}</em>}</a>)}
+    </nav>
+
+    <div class="doc__body guide__body" data-guide>
+      <nav class="guide__chips" aria-label="Jump to a part">
+        {toc.slice(1, 7).map((t) => <a href={`#${t.id}`}>{t.label}</a>)}
+      </nav>
+
+      <section id="what-you-need" aria-labelledby="h-need">
+        <h2 id="h-need"><a class="anchor" href="#what-you-need" aria-hidden="true" tabindex="-1">#</a>What you need</h2>
+        <ul class="needs">
+          {requirements.map((r) => <li><strong>{r.what}.</strong> {r.detail}</li>)}
+        </ul>
+        <p>A Mac without a notch can still share files, links, the clipboard and codes. It just can’t take taps. A guest network, or one with “client isolation”, keeps the two apart.</p>
+      </section>
+
+      <section id="part-1-the-mac-app" class="part" aria-labelledby="h-p1">
+        <p class="part__tag"><span>Part 1</span> On your Mac</p>
+        <h2 id="h-p1"><a class="anchor" href="#part-1-the-mac-app" aria-hidden="true" tabindex="-1">#</a>The Mac app</h2>
+
+        <h3 id="download-it"><a class="anchor" href="#download-it" aria-hidden="true" tabindex="-1">#</a><span class="stepno">1.1</span>Download it</h3>
+        <ol class="steps-list">
+          <li>Open the <a class="link" href={links.releases}>latest release</a> on your Mac.</li>
+          <li>Under <Ui>Assets</Ui>, click <Ui>TapDrop-<em>version</em>-mac.zip</Ui>.</li>
+          <li>Open your <Ui>Downloads</Ui> folder and double-click the zip. You get <Ui>TapDrop.app</Ui>.</li>
+          <li>Drag <Ui>TapDrop.app</Ui> into your <Ui>Applications</Ui> folder.</li>
+        </ol>
+        <p class="aside-note">Prefer to build it yourself? See <a class="link" href="#building-it-yourself">Building it yourself</a>. A copy you build on your own Mac opens without the warning in the next step.</p>
+
+        <h3 id="open-it-the-first-time"><a class="anchor" href="#open-it-the-first-time" aria-hidden="true" tabindex="-1">#</a><span class="stepno">1.2</span>Open it the first time</h3>
+        <p class="honest"><strong>TapDrop is free, so it isn’t notarized by Apple</strong> (that costs a yearly fee). The first time you open it, macOS stops it once. You allow it once, and it opens normally after that.</p>
+        <ol class="steps-list">
+          <li>Double-click <Ui>TapDrop</Ui> in Applications.</li>
+          <li>macOS says <span class="say">“TapDrop” Not Opened: Apple could not verify “TapDrop” is free of malware…</span> Click <Ui>Done</Ui>, not Move to Trash.</li>
+          <li>Open <MenuPath items={['System Settings', 'Privacy & Security']} />.</li>
+          <li>Scroll down to <Ui>Security</Ui>. You’ll see <span class="say">“TapDrop” was blocked to protect your Mac.</span> Click <Ui>Open Anyway</Ui>.</li>
+          <li>Confirm with Touch ID or your password, then click <Ui>Open Anyway</Ui> once more.</li>
+        </ol>
+        <details class="extra">
+          <summary>Or do it in Terminal</summary>
+          <div>
+            <p>This removes the “downloaded from the internet” flag, which is what makes macOS ask:</p>
+            <Code code={'xattr -dr com.apple.quarantine /Applications/TapDrop.app\nopen /Applications/TapDrop.app'} />
+          </div>
+        </details>
+
+        <h3 id="allow-your-local-network"><a class="anchor" href="#allow-your-local-network" aria-hidden="true" tabindex="-1">#</a><span class="stepno">1.3</span>Allow your local network</h3>
+        <p>macOS asks <span class="say">“Allow “TapDrop” to find devices on local networks?”</span> Click <Ui>Allow</Ui>. That’s how your phone and your Mac reach each other over your Wi-Fi.</p>
+        <p class="aside-note">Clicked Don’t Allow? Open <MenuPath items={['System Settings', 'Privacy & Security', 'Local Network']} /> and switch <Ui>TapDrop</Ui> on.</p>
+
+        <h3 id="find-it-in-the-menu-bar"><a class="anchor" href="#find-it-in-the-menu-bar" aria-hidden="true" tabindex="-1">#</a><span class="stepno">1.4</span>Find it in the menu bar</h3>
+        <div class="with-shot">
+          <div>
+            <p>TapDrop lives in the menu bar, at the top right of your screen: the <Ui icon="tapdrop">TapDrop</Ui> icon. Click it to open the panel.</p>
+            <ul>
+              <li>It isn’t in the Dock or Command-Tab unless one of its windows (Settings, Set Up a Phone) is open. Closing the window keeps TapDrop running in the menu bar.</li>
+              <li>It opens at login. To change that: menu bar icon, then <MenuPath items={['Settings', 'General', 'Open at login']} />. If it says it needs approval, click <Ui>Allow…</Ui> and switch TapDrop on under <Ui>Login Items &amp; Extensions</Ui>.</li>
+              <li>The first time, a <Ui>Set Up a Phone</Ui> window opens by itself. Keep it open for Part 2. You can always get back to it: menu bar icon, then <MenuPath items={['Settings', 'Phones', 'Set Up a New Phone']} />.</li>
+            </ul>
+          </div>
+          <figure class="shot">
+            <Image src={macPanel} alt="The TapDrop panel from the menu bar: Tap to send, Send Files, Send Clipboard and recent transfers" widths={[480, 860]} sizes="(max-width: 767px) 90vw, 22vw" format="webp" loading="lazy" />
+            <figcaption>The panel, from the menu bar icon.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="part-2-the-android-app" class="part" aria-labelledby="h-p2">
+        <p class="part__tag is-phone"><span>Part 2</span> On your phone</p>
+        <h2 id="h-p2"><a class="anchor" href="#part-2-the-android-app" aria-hidden="true" tabindex="-1">#</a>The Android app</h2>
+        <p>Your Mac hands the Android app to your phone over your Wi-Fi. You can also download it from GitHub.</p>
+
+        <h3 id="download-it-to-your-phone"><a class="anchor" href="#download-it-to-your-phone" aria-hidden="true" tabindex="-1">#</a><span class="stepno">2.1</span>Download it to your phone</h3>
+        <p class="sub"><strong>From your Mac (easiest)</strong></p>
+        <ol class="steps-list">
+          <li>On the Mac, the <Ui>Set Up a Phone</Ui> window shows <span class="say">“Step 1 of 3, Install TapDrop on your phone”</span> with a QR code.</li>
+          <li>On your phone, open the <Ui>Camera</Ui> app, point it at the QR code and tap the link that appears.</li>
+          <li>A <Ui>Get TapDrop</Ui> page opens, served by your Mac. It shows the version you’re installing. Tap <Ui>Download TapDrop</Ui>.</li>
+        </ol>
+        <p>The Mac shows <span class="say">“Opened on your phone”</span> and then <span class="say">“Downloaded. Open TapDrop.apk on your phone.”</span></p>
+        <p class="sub"><strong>Or from GitHub:</strong> on your phone, open the <a class="link" href={links.releases}>latest release</a> and tap <Ui>TapDrop-<em>version</em>-android.apk</Ui>.</p>
+        <p class="aside-note">If your browser warns that <span class="say">“this type of file can harm your device”</span>, tap <Ui>Download anyway</Ui>.</p>
+
+        <h3 id="install-it"><a class="anchor" href="#install-it" aria-hidden="true" tabindex="-1">#</a><span class="stepno">2.2</span>Install it</h3>
+        <ol class="steps-list">
+          <li>Open the downloaded file. Tap the <Ui>TapDrop.apk</Ui> download notification, or open <MenuPath items={['Files', 'Downloads', 'TapDrop.apk']} />.</li>
+          <li>Android says <span class="say">“For your security, your phone currently isn’t allowed to install unknown apps from this source.”</span> Tap <Ui>Settings</Ui>, switch on <Ui>Allow from this source</Ui>, then go back.</li>
+          <li>Tap <Ui>Install</Ui>.</li>
+        </ol>
+
+        <h3 id="if-google-play-protect-stops-it"><a class="anchor" href="#if-google-play-protect-stops-it" aria-hidden="true" tabindex="-1">#</a><span class="stepno">2.3</span>If Google Play Protect stops it</h3>
+        <p class="honest"><strong>TapDrop is free, so it isn’t on the Play Store.</strong> Play Protect warns about apps it hasn’t seen there, so you may see one of these:</p>
+        <ul>
+          <li><span class="say">“Unsafe app blocked”</span> or <span class="say">“Play Protect doesn’t recognise this app”</span>: tap <Ui>More details</Ui>, then <Ui>Install anyway</Ui>.</li>
+          <li><span class="say">“Send app for a security scan?”</span>: either choice is fine. <Ui>Don’t send</Ui> skips it.</li>
+        </ul>
+        <p>If it’s blocked with no <Ui>Install anyway</Ui> button, pause Play Protect’s scanning for the install:</p>
+        <ol class="steps-list">
+          <li>Open the <Ui>Play Store</Ui> app and tap your <Ui>profile picture</Ui> (top right).</li>
+          <li>Tap <Ui>Play Protect</Ui>, then <Ui icon="gear">Settings</Ui> (top right).</li>
+          <li>Switch off <Ui>Scan apps with Play Protect</Ui>, and confirm.</li>
+          <li>Install TapDrop (<a class="link" href="#install-it">step 2.2</a>).</li>
+          <li>Go back and switch <Ui>Scan apps with Play Protect</Ui> on again. TapDrop keeps working with it on.</li>
+        </ol>
+        <details class="extra">
+          <summary>Samsung: Auto Blocker</summary>
+          <div><p>Samsung phones (One UI 6 and newer) can block every app that doesn’t come from an app store. If nothing happens when you open the APK, go to <MenuPath items={['Settings', 'Security and privacy', 'Auto Blocker']} />, switch it off, install TapDrop, then switch it back on.</p></div>
+        </details>
+        <details class="extra">
+          <summary>Xiaomi, Redmi and POCO</summary>
+          <div><p>MIUI and HyperOS scan the app first. Wait for the scan, then tap <Ui>Continue installation</Ui> or <Ui>Install anyway</Ui>.</p></div>
+        </details>
+        <details class="extra">
+          <summary>Installing from a computer with adb</summary>
+          <div><p>With USB debugging on:</p><Code code="adb install TapDrop-<version>-android.apk" /></div>
+        </details>
+      </section>
+
+      <section id="part-3-pair" class="part" aria-labelledby="h-p3">
+        <p class="part__tag is-both"><span>Part 3</span> On both</p>
+        <h2 id="h-p3"><a class="anchor" href="#part-3-pair" aria-hidden="true" tabindex="-1">#</a>Pair your phone with your Mac</h2>
+        <p>Pairing happens once. It exchanges encryption keys, and you compare a code like you would with Bluetooth.</p>
+        <ol class="steps-list">
+          <li>On your phone, open <Ui>TapDrop</Ui> and tap <Ui>Pair with your Mac</Ui>.</li>
+          <li>It shows <span class="say">“Looking for Macs…”</span> and then your Mac by name. Tap it.</li>
+          <li>Your phone and your Mac each show a <strong>six-digit code</strong>. Check that they match.</li>
+          <li>On the Mac, click <Ui>Pair</Ui>.</li>
+        </ol>
+        <p>The Mac’s setup window moves on to <span class="say">“Step 3 of 3”</span>, and your phone shows your Mac as connected.</p>
+        <p class="aside-note"><strong>Your Mac isn’t listed?</strong> Tap <Ui>Can’t see your Mac?</Ui>, then <Ui>Edit address</Ui>. Type the address shown under the QR code in the Mac’s <Ui>Set Up a Phone</Ui> window (like <code>192.168.1.20:47914</code>) and tap <Ui>Connect</Ui>. If that fails too, see <a class="link" href="#the-phone-cant-find-the-mac">The phone can’t find the Mac</a>.</p>
+      </section>
+
+      <section id="part-4-turn-on-tap-to-send" class="part" aria-labelledby="h-p4">
+        <p class="part__tag is-phone"><span>Part 4</span> On your phone</p>
+        <h2 id="h-p4"><a class="anchor" href="#part-4-turn-on-tap-to-send" aria-hidden="true" tabindex="-1">#</a>Turn on tap to send</h2>
+        <p>Tap to send needs TapDrop’s <strong>accessibility service</strong>. That’s how it can see what’s on your screen at the moment you tap. It only looks when a tap passes, and what it sends goes only to your Mac, encrypted, over your Wi-Fi.</p>
+        <p>On your phone’s TapDrop home screen, find <Ui>Tap your Mac to send</Ui> and tap <Ui>Turn on tap to send</Ui>. A checklist walks you through these steps, and each has a button that opens the right screen.</p>
+
+        <h3 id="allow-restricted-settings"><a class="anchor" href="#allow-restricted-settings" aria-hidden="true" tabindex="-1">#</a><span class="stepno">4.1</span>Allow restricted settings <span class="if">only if Android asks</span></h3>
+        <p>Android 13 and newer lock accessibility for apps installed from a file until you allow it. If the checklist shows <Ui>Allow restricted settings</Ui>:</p>
+        <ol class="steps-list">
+          <li>Tap <Ui>App info</Ui>.</li>
+          <li>Tap <Ui icon="dots">More</Ui> (the three dots, top right).</li>
+          <li>Tap <Ui>Allow restricted settings</Ui> and confirm with your PIN, pattern or fingerprint.</li>
+          <li>Go back to TapDrop.</li>
+        </ol>
+        <p class="aside-note">Don’t see the three dots or the option? First try to switch TapDrop on in Accessibility (the next step). Android then shows <span class="say">“Restricted setting”</span>, and the option appears under the three dots after that.</p>
+
+        <h3 id="turn-on-tapdrop-in-accessibility"><a class="anchor" href="#turn-on-tapdrop-in-accessibility" aria-hidden="true" tabindex="-1">#</a><span class="stepno">4.2</span>Turn on TapDrop in Accessibility</h3>
+        <ol class="steps-list">
+          <li>Tap <Ui>Open</Ui> next to <Ui>Turn on TapDrop in Accessibility</Ui>.</li>
+          <li>If you land on a list, TapDrop is under <Ui>Downloaded apps</Ui> (some phones: <Ui>Installed apps</Ui>).</li>
+          <li>Tap <Ui>TapDrop <span class="dash"></span> tap your Mac to send</Ui> and switch on <Ui>Use TapDrop</Ui>.</li>
+          <li>Android asks <span class="say">“Allow TapDrop to have full control of your device?”</span> Tap <Ui>Allow</Ui>.</li>
+          <li>Go back to TapDrop.</li>
+        </ol>
+
+        <h3 id="let-it-run-in-the-background"><a class="anchor" href="#let-it-run-in-the-background" aria-hidden="true" tabindex="-1">#</a><span class="stepno">4.3</span>Let it run in the background</h3>
+        <div class="with-shot">
+          <div>
+            <p>Some brands (Samsung, Xiaomi, OnePlus, OPPO, vivo, Huawei and others) stop apps in the background to save battery, which turns tap to send off. If the checklist shows <Ui>Let it run in the background</Ui>, tap <Ui>Allow</Ui>, then allow it in the dialog.</p>
+            <p>You can also do it by hand: <MenuPath items={['App info', 'Battery', 'Unrestricted']} />. In TapDrop, <MenuPath items={['Settings', 'Compatibility']} /> lists the extra steps for your brand.</p>
+            <p>When every step is ticked, you’ll see <span class="say">“You’re all set”</span>.</p>
+          </div>
+          <figure class="shot shot--phone">
+            <Image src={androidHome} alt="TapDrop’s home screen on the phone: MacBook Air, Ready to tap, with Photos, Files, Clipboard and Mac clipboard below" widths={[300, 495]} sizes="(max-width: 767px) 60vw, 15vw" format="webp" loading="lazy" />
+            <figcaption>Paired and ready to tap.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="part-5-optional" class="part" aria-labelledby="h-p5">
+        <p class="part__tag is-phone"><span>Part 5</span> Optional, on your phone</p>
+        <h2 id="h-p5"><a class="anchor" href="#part-5-optional" aria-hidden="true" tabindex="-1">#</a>Get the most out of TapDrop</h2>
+        <p>On the phone’s home screen, open <Ui>Get the most out of TapDrop</Ui>. Each permission is optional:</p>
+        <div class="table-wrap">
+          <table class="verdicts perms">
+            <thead><tr><th scope="col">Permission</th><th scope="col">What it does</th><th scope="col">What to tap</th></tr></thead>
+            <tbody>
+              <tr><td><Ui>Original photos &amp; videos</Ui></td><td>A tap on a photo or video sends the original file, not a screenshot.</td><td><Ui>Allow</Ui>, then <Ui>Allow all</Ui>. If you pick only some photos, TapDrop can’t find the rest.</td></tr>
+              <tr><td><Ui>Codes from texts</Ui></td><td>One-time codes from text messages appear in the notch and land on your Mac’s clipboard.</td><td><Ui>Allow</Ui></td></tr>
+              <tr><td><Ui>Any file</Ui></td><td>A tap on a PDF, ZIP or document in Files or a chat sends the file itself.</td><td><Ui>Allow</Ui>, then switch on <Ui>Allow access to manage all files</Ui></td></tr>
+              <tr><td><Ui>Run in the background</Ui></td><td>Keeps tap to send alive on brands that stop apps (only shown where it matters).</td><td><Ui>Allow</Ui></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="part-6-your-first-tap" class="part" aria-labelledby="h-p6">
+        <p class="part__tag is-both"><span>Part 6</span> On both</p>
+        <h2 id="h-p6"><a class="anchor" href="#part-6-your-first-tap" aria-hidden="true" tabindex="-1">#</a>Your first tap</h2>
+        <ol class="steps-list">
+          <li>Open anything on your phone: a web page, a photo, a PDF.</li>
+          <li>Hold the phone <strong>screen toward the Mac’s display</strong> and touch the <strong>top edge of its screen</strong> to the <strong>notch</strong>.</li>
+          <li>Keep it there until the phone <strong>buzzes</strong>. That takes about half a second. The screen flashes white, then black, right against the notch.</li>
+          <li>Whatever was on screen lands on the Mac: web pages open in your browser; photos, videos and files go to <Ui>Downloads</Ui>; text goes to the clipboard.</li>
+        </ol>
+        <p><strong>Practice first, if you like:</strong> on the phone, <MenuPath items={['Settings', 'Test your tap']} />; on the Mac, menu bar icon, then <MenuPath items={['Settings', 'Tap to Send', 'Test your tap']} />. Both show a live graph of what the notch sees and say in plain words why a tap did or didn’t count. <Ui>Calibrate</Ui> measures your phone’s brightness up front, though TapDrop also learns it as you tap.</p>
+        <p class="aside-note"><Ui>Pick before sending</Ui> (phone Settings) freezes the screen for a moment after the tap. Tap one photo or drag over an area to send just that part.</p>
+      </section>
+
+      <section id="everyday-use" aria-labelledby="h-every">
+        <h2 id="h-every"><a class="anchor" href="#everyday-use" aria-hidden="true" tabindex="-1">#</a>Everyday use</h2>
+        <ul>
+          <li><strong>Phone to Mac:</strong> tap the notch, or use the share sheet: <MenuPath items={['Share', 'Send to Mac']} />.</li>
+          <li><strong>Mac to phone:</strong> drag files onto the menu bar icon, or open the panel and click <Ui>Send Files</Ui> or <Ui>Send Clipboard</Ui>. Your phone picks them up.</li>
+          <li><strong>One-time codes</strong> slide out of the notch and are copied, ready to paste.</li>
+          <li><strong>Where things go:</strong> menu bar icon, then <MenuPath items={['Settings', 'General', 'Received files']} />.</li>
+        </ul>
+      </section>
+
+      <section id="updating" aria-labelledby="h-upd">
+        <h2 id="h-upd"><a class="anchor" href="#updating" aria-hidden="true" tabindex="-1">#</a>Updating</h2>
+        <p class="sub"><strong>Mac</strong></p>
+        <ol class="steps-list">
+          <li>Download the new <Ui>TapDrop-<em>version</em>-mac.zip</Ui> from <a class="link" href={links.releases}>Releases</a>.</li>
+          <li>Quit TapDrop: menu bar icon, then <MenuPath items={['Settings', 'Quit TapDrop']} /> (or Command-Q while a TapDrop window is open).</li>
+          <li>Unzip it and drag the new <Ui>TapDrop.app</Ui> into Applications. Choose <Ui>Replace</Ui>.</li>
+          <li>Open it. If macOS asks again, repeat <a class="link" href="#open-it-the-first-time">Open it the first time</a>.</li>
+          <li>If your phone can’t connect afterwards, see <a class="link" href="#the-phone-cant-find-the-mac">The phone can’t find the Mac</a>. macOS sometimes treats an updated app as new.</li>
+        </ol>
+        <p class="sub"><strong>Phone:</strong> menu bar icon, then <MenuPath items={['Settings', 'Phones', 'Set Up a New Phone']} />, scan the code and install, or install the new APK from Releases. It installs over the old one and stays paired. You only need to turn accessibility back on if Android asks.</p>
+      </section>
+
+      <section id="troubleshooting" aria-labelledby="h-help">
+        <h2 id="h-help"><a class="anchor" href="#troubleshooting" aria-hidden="true" tabindex="-1">#</a>Troubleshooting</h2>
+        <details class="extra" id="the-phone-cant-find-the-mac">
+          <summary>The phone can’t find the Mac</summary>
+          <div>
+            <ul>
+              <li>Both must be on the <strong>same Wi-Fi</strong>, not a guest network.</li>
+              <li>On the Mac, open <MenuPath items={['System Settings', 'Privacy & Security', 'Local Network']} /> and switch <Ui>TapDrop</Ui> off, then on. This fixes most cases, especially after an update. The switch can show on while macOS is still blocking it.</li>
+              <li>Still nothing? Quit and reopen TapDrop, then try <Ui>Can’t see your Mac?</Ui> on the phone with the Mac’s address.</li>
+            </ul>
+          </div>
+        </details>
+        <details class="extra" id="too-many-retries">
+          <summary>The setup page won’t open on the phone, or says “too many retries”</summary>
+          <div><p>Same fix: switch <Ui>Local Network</Ui> off and on for TapDrop on the Mac, then scan again. Make sure the phone isn’t using mobile data instead of Wi-Fi.</p></div>
+        </details>
+        <details class="extra" id="taps-dont-count">
+          <summary>Taps don’t count</summary>
+          <div>
+            <ul>
+              <li>Use the <strong>screen side</strong> of the phone, its top edge, flat on the notch, and hold until the buzz.</li>
+              <li>Open <Ui>Test your tap</Ui> (<a class="link" href="#part-6-your-first-tap">Part 6</a>). The verdict says what happened. <span class="say">“Turn your phone around”</span> means the back was facing the notch.</li>
+              <li>Very bright sun on the notch, or a phone dimmed because it’s hot, can make taps harder. Try <Ui>Calibrate</Ui>.</li>
+            </ul>
+          </div>
+        </details>
+        <details class="extra" id="tap-to-send-stopped">
+          <summary>“Tap to send stopped” on the phone</summary>
+          <div><p>Android stopped the accessibility service, usually to save battery. Open TapDrop and tap the banner, or switch TapDrop off and on in <MenuPath items={['Settings', 'Accessibility']} />. Then do <a class="link" href="#let-it-run-in-the-background">Let it run in the background</a>.</p></div>
+        </details>
+        <details class="extra" id="screenshot-instead">
+          <summary>A tap sent a screenshot instead of the photo, video or file</summary>
+          <div>
+            <ul>
+              <li>Allow <Ui>Original photos &amp; videos</Ui> and <Ui>Any file</Ui> (<a class="link" href="#part-5-optional">Part 5</a>).</li>
+              <li>Videos are fingerprinted in the background while the phone is unlocked and cool. <MenuPath items={['Settings', 'Videos for tap']} /> on the phone shows how many are ready.</li>
+              <li>Streaming apps (YouTube, Instagram, Netflix) don’t keep videos as files, so they always send a screenshot.</li>
+            </ul>
+          </div>
+        </details>
+        <details class="extra" id="app-not-installed">
+          <summary>“App not installed” on the phone</summary>
+          <div><p>An app with the same name but a different signature is already installed (for example, one you built yourself). Uninstall the old TapDrop first, then install, then pair again.</p></div>
+        </details>
+      </section>
+
+      <section id="uninstalling" aria-labelledby="h-uninst">
+        <h2 id="h-uninst"><a class="anchor" href="#uninstalling" aria-hidden="true" tabindex="-1">#</a>Uninstalling</h2>
+        <ul>
+          <li><strong>Mac:</strong> quit TapDrop and drag <Ui>TapDrop.app</Ui> from Applications to the Bin. To remove its settings and history too, delete this folder:<Code code="~/Library/Application Support/TapDrop" /></li>
+          <li><strong>Phone:</strong> long-press <Ui>TapDrop</Ui>, then <MenuPath items={['App info', 'Uninstall']} />.</li>
+        </ul>
+      </section>
+
+      <section id="building-it-yourself" aria-labelledby="h-build">
+        <h2 id="h-build"><a class="anchor" href="#building-it-yourself" aria-hidden="true" tabindex="-1">#</a>Building it yourself</h2>
+        <p>Everything is in the <a class="link" href={links.repo}>repository</a>. A copy you build yourself opens without Gatekeeper’s warning.</p>
+        <p class="sub"><strong>Mac</strong> (Xcode 16 or newer, or its Command Line Tools):</p>
+        <Code code={'git clone https://github.com/0x1p0/TapDrop.git\ncd TapDrop/mac\n./scripts/build-app.sh'} />
+        <p class="aside-note"><code>build-app.sh</code> builds TapDrop, installs it to Applications and opens it.</p>
+        <p class="sub"><strong>Android</strong> (JDK 17 and the Android SDK, for example from Android Studio):</p>
+        <Code code={'cd TapDrop/android\n./gradlew :app:assembleDebug'} />
+        <p>Build the Android app <strong>before</strong> the Mac app if you want the Mac’s setup page to offer it: <code>build-app.sh</code> bundles <code>app-release.apk</code> when it exists. Release builds and signing are covered in the <a class="link" href={`${links.repo}#build-from-source`}>README</a>.</p>
+      </section>
+
+      <div class="next-page">
+        <p>Curious why a hand can’t send?</p>
+        <Btn href={to('/how-it-works/')}>How the light key works</Btn>
+      </div>
+    </div>
+  </div>
+</Base>

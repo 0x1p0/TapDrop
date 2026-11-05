@@ -1,0 +1,60 @@
+---
+import { to } from '../data/url';
+// The page's top edge is a Mac menu bar with the notch in the middle. The notch, its light sensor and the island
+// persist across pages; the readout on the right is what the notch "sees" (src/motion/notch.ts).
+interface Props { page: string }
+const { page } = Astro.props;
+const links = [
+  { href: to('/how-it-works/'), label: 'How it works', key: 'how' },
+  { href: to('/get-started/'), label: 'Get started', key: 'start' },
+];
+const repo = 'https://github.com/0x1p0/TapDrop';
+---
+<header class="bar">
+  <nav class="bar__left" aria-label="Main">
+    <a class="bar__brand" href={to('/')} aria-current={page === 'home' ? 'page' : undefined}>
+      <img src={to('/icon-64.png')} alt="" width="18" height="18" />
+      <span>TapDrop</span>
+    </a>
+    <ul class="bar__menu">
+      {links.map((l) => (
+        <li>
+          <a class="roll" href={l.href} aria-current={page === l.key ? 'page' : undefined}>
+            <span>{l.label}</span><span class="roll__dup" aria-hidden="true" data-text={l.label}></span>
+          </a>
+        </li>
+      ))}
+      <li>
+        <a class="roll" href={repo}><span>GitHub</span><span class="roll__dup" aria-hidden="true" data-text="GitHub"></span></a>
+      </li>
+    </ul>
+  </nav>
+  <div class="bar__right">
+    <div class="bar__lux mono" aria-hidden="true" title="What the notch sees">
+      <svg viewBox="0 0 46 14" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="luxgrad" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0" stop-color="#409EFF" /><stop offset="0.6" stop-color="#8561FF" /><stop offset="1" stop-color="#F26BD9" />
+          </linearGradient>
+        </defs>
+        <polyline data-spark points="0,9 46,9" />
+      </svg>
+      <span><b data-lux>112</b> <span class="unit">lux</span></span>
+    </div>
+    <span class="bar__clock" data-clock aria-hidden="true"></span>
+    <button class="bar__menu-btn" type="button" aria-expanded="false" aria-controls="menu" data-menu-btn>Menu</button>
+  </div>
+</header>
+<div class="notch" transition:persist="notch" aria-hidden="true"><span class="notch__als" data-als></span><span class="notch__cam"></span></div>
+<div class="island" transition:persist="island" aria-hidden="true" data-island>
+  <div class="island__clip" data-island-clip><img data-island-img alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" width="441" height="110" /><span class="island__veil" data-island-veil></span></div>
+</div>
+<nav id="menu" class="menu" hidden aria-label="Menu" data-menu>
+  <ul>
+    <li><a href={to('/')} aria-current={page === 'home' ? 'page' : undefined}>Tap</a></li>
+    {links.map((l) => <li><a href={l.href} aria-current={page === l.key ? 'page' : undefined}>{l.label}</a></li>)}
+    <li><a href={to('/#film')}>The film</a></li>
+    <li><a href={repo}>GitHub</a></li>
+  </ul>
+  <p class="menu__foot">Free and open source. Android 13 or newer, and a Mac with a notch on Apple silicon.</p>
+</nav>

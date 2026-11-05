@@ -1,0 +1,106 @@
+---
+// "What a tap sends", the centrepiece. With motion: one pinned stage, five taps. Each one, as you scroll: the phone
+// shows its real screen, turns around and touches the notch, the light key flashes white then black, the island
+// blooms out of the notch with that item's real capture, and the real result lands on the page (your Mac's
+// screen). The whole stage is a pure function of scroll progress (src/motion/tapsends.ts).
+// Without motion: the same five taps as a still grid, each phone screen beside its island and its result.
+import { Image } from 'astro:assets';
+import PhoneBack from './PhoneBack.astro';
+import ResultWindow from './ResultWindow.astro';
+import { sends, pickArea } from '../data/site';
+const rows = sends.rows;
+const num = (i: number) => String(i + 1).padStart(2, '0');
+---
+<section class="sends" id="sends" aria-labelledby="sends-title" data-sends>
+  <div class="ts" data-ts style={`--n:${rows.length}`}>
+    <div class="ts__stage" id="ts-stage">
+      <div class="ts__flash" data-ts-flash aria-hidden="true"></div>
+      <div class="ts__dark" data-ts-dark aria-hidden="true"></div>
+
+      <div class="ts__side">
+        <h2 class="ts__title" id="sends-title">{sends.title}</h2>
+        <p class="ts__intro">{sends.intro}</p>
+        <ol class="ts__index" aria-label="What a tap sends">
+          {rows.map((r, i) => (
+            <li>
+              <button type="button" class:list={['ts__item', i === 0 && 'is-on']} data-ts-go={i} aria-label={`${num(i)}: ${r.what}`} aria-current={i === 0 ? 'step' : undefined}>
+                <span class="ts__num mono">{num(i)}</span>
+                <span class="ts__label">{r.what}</span>
+                <span class="ts__bar" aria-hidden="true"><i data-ts-fill></i></span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <div class="ts__phone" data-ts-phone aria-hidden="true">
+        <div class="ts__glow" data-ts-glow></div>
+        <div class="ts__white" data-ts-white></div>
+        <div class="ts__flip" data-ts-flip>
+          <div class="ts__front">
+            {rows.map((r, i) => (
+              <div class:list={['ts__screen', i === 0 && 'is-on', (r.kind === 'photo' || r.kind === 'video') && 'ts__screen--zoom']} data-ts-screen={i}>
+                <Image src={r.phone} alt="" widths={[300, 600]} sizes="(max-width: 767px) 36vw, 19vw" format="webp" loading="lazy" />
+              </div>
+            ))}
+            <div class="ts__screen ts__pick" data-ts-pick><Image src={pickArea} alt="" widths={[300, 600]} sizes="(max-width: 767px) 36vw, 19vw" format="webp" loading="lazy" /></div>
+            <svg class="ts__lasso" viewBox="0 0 1080 2400" data-ts-lasso aria-hidden="true">
+              <defs>
+                <linearGradient id="ts-lasso-g" x1="0" x2="1" y1="0" y2="0">
+                  <stop offset="0" stop-color="#409EFF" /><stop offset="0.5" stop-color="#8561FF" /><stop offset="1" stop-color="#F26BD9" />
+                </linearGradient>
+              </defs>
+              <rect data-ts-lasso-fill x="20" y="1712" width="880" height="200" rx="60" fill="#8561FF" opacity="0" />
+              <path data-ts-lasso-path pathLength="1" d="M905 1748 C 975 1870, 640 1950, 430 1942 C 170 1932, 4 1882, 18 1798 C 32 1712, 300 1676, 530 1684 C 770 1692, 940 1726, 878 1806" fill="none" stroke="url(#ts-lasso-g)" stroke-width="16" stroke-linecap="round" stroke-dasharray="1" stroke-dashoffset="1" />
+            </svg>
+          </div>
+          <div class="ts__back"><PhoneBack uid="tsb" /></div>
+        </div>
+      </div>
+
+      <div class="ts__island" data-ts-island aria-hidden="true">
+        {rows.map((r, i) => (
+          <div class="ts__iwrap" data-ts-isl={i} style={`--w:${r.island.width / 2}px`}>
+            <div class="ts__iclip">
+              <Image src={r.island} alt="" widths={[441, 882]} sizes="441px" format="webp" loading="lazy" />
+              <span class="ts__iveil"></span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div class="ts__results" data-ts-results>
+        {rows.map((r, i) => <ResultWindow kind={r.kind} i={i} />)}
+      </div>
+
+      <ol class="ts__caps" aria-hidden="true">
+        {rows.map((r, i) => <li class:list={['ts__cap', i === 0 && 'is-on']} data-ts-cap={i}><span class="mono">{num(i)}</span>{r.lands}</li>)}
+      </ol>
+    </div>
+  </div>
+
+  <!-- Still version: shown when motion is reduced, and without JavaScript. -->
+  <div class="ts-still">
+    <ol class="ts-still__list">
+      {rows.map((r, i) => (
+        <li class="ts-still__row">
+          <div class="ts-still__text">
+            <span class="mono">{num(i)}</span>
+            <h3>{r.what}</h3>
+            <p>{r.gets}</p>
+          </div>
+          <figure class="ts-still__phone">
+            <Image src={r.kind === 'text' ? pickArea : r.phone} alt={r.phoneAlt} widths={[260, 520]} sizes="(max-width: 767px) 40vw, 14vw" format="webp" loading="lazy" />
+            <figcaption>On your phone</figcaption>
+          </figure>
+          <figure class="ts-still__mac">
+            <Image class="ts-still__island" src={r.island} alt={r.islandAlt} widths={[441, 882]} sizes="(max-width: 767px) 90vw, 30vw" format="webp" loading="lazy" />
+            <ResultWindow kind={r.kind} i={i} still />
+            <figcaption>On your Mac</figcaption>
+          </figure>
+        </li>
+      ))}
+    </ol>
+  </div>
+  <p class="sends__foot">{sends.footnote}</p>
+</section>

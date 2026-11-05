@@ -1,0 +1,8 @@
+---
+// A path through settings: each stop set like a key, with a chevron between.
+interface Props { items: string[]; label?: string }
+const { items, label } = Astro.props;
+---
+<span class="mpath" aria-label={label ?? items.join(', then ')}>{items.map((it, i) => (
+  <>{i > 0 && <svg class="mpath__chev" viewBox="0 0 8 12" aria-hidden="true"><path d="M2 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>}<kbd class="ui">{it}</kbd></>
+))}</span>

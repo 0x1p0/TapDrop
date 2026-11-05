@@ -1,0 +1,37 @@
+---
+import { to } from '../data/url';
+// What lands on the Mac, shown as the real outcome. The window frame is plain chrome; what's inside is real:
+// the page as the Mac rendered it, the photo and video files themselves, the PDF page, the copied words.
+import { Image } from 'astro:assets';
+import article from '../assets/mac/article_mac.png';
+import lagoon from '../assets/photo/Lagoon.jpg';
+import pass from '../assets/mac/boarding-pass-page.png';
+interface Props { kind: 'page' | 'photo' | 'video' | 'pdf' | 'text'; still?: boolean; i: number }
+const { kind, still = false, i } = Astro.props;
+const lazy = 'lazy';
+const titles = { page: 'stories.design', photo: 'IMG_20261104_181203.jpg', video: 'VID-20261105-WA0012.mp4', pdf: 'Boarding pass.pdf', text: 'Clipboard' } as const;
+---
+<div class:list={['win', `win--${kind}`]} data-ts-result={still ? undefined : i}>
+  <div class="win__bar">
+    <span class="win__lights" aria-hidden="true"><i></i><i></i><i></i></span>
+    {kind === 'page'
+      ? <span class="win__url"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3.5 5.5V4a2.5 2.5 0 015 0v1.5M2.8 5.5h6.4v4.2H2.8z" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>{titles.page}</span>
+      : <span class="win__title">{titles[kind]}</span>}
+  </div>
+  <div class="win__body">
+    {kind === 'page' && <Image src={article} alt="The article The Quiet Web, open in the Mac's browser at stories.design" widths={[560, 1100]} sizes="(max-width: 767px) 92vw, 34vw" format="webp" loading={lazy} />}
+    {kind === 'photo' && <Image src={lagoon} alt="The original photo on the Mac: a still lake under mountains at sunrise" widths={[560, 1100]} sizes="(max-width: 767px) 92vw, 34vw" format="webp" loading={lazy} />}
+    {kind === 'video' && (still
+      ? <img src={to('/media/sunset-loop.jpg')} alt="The original video on the Mac: a sunset over water" width="960" height="540" loading="lazy" decoding="async" />
+      : <video muted loop playsinline preload="none" poster={to('/media/sunset-loop.jpg')} width="960" height="540" data-ts-video aria-label="The original video on the Mac, playing: a sunset over water"><source src={to('/media/sunset-loop.mp4')} type="video/mp4" /></video>)}
+    {kind === 'video' && <span class="win__scrub" aria-hidden="true"><i data-ts-scrub></i></span>}
+    {kind === 'pdf' && <Image src={pass} alt="The PDF on the Mac: an Aurora Air boarding pass, SFO to JFK, flight AU 482, gate B32, seat 14A" widths={[500, 1000]} sizes="(max-width: 767px) 80vw, 28vw" format="webp" loading={lazy} />}
+    {kind === 'text' && (
+      <div class="win__clip">
+        <span class="win__chip">Copied from Android phone</span>
+        <p class="win__words">Gate B32, boarding at 7:40. Seat 14A, window. Bags go to belt 6.</p>
+        <span class="win__paste">⌘V to paste</span>
+      </div>
+    )}
+  </div>
+</div>

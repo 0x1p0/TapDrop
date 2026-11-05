@@ -1,0 +1,124 @@
+---
+import { to } from '../data/url';
+import { Image } from 'astro:assets';
+import Base from '../layouts/Base.astro';
+import Btn from '../components/Btn.astro';
+import Trace from '../components/Trace.astro';
+import PageIsland from '../components/PageIsland.astro';
+import testTap from '../assets/phone/android-test-your-tap.png';
+import macTap from '../assets/mac/mac-tap-to-send.png';
+
+const toc = [
+  { id: 'round', label: 'One round' },
+  { id: 'math', label: 'The math' },
+  { id: 'cant', label: 'What can’t send' },
+  { id: 'verdicts', label: 'When a tap doesn’t count' },
+  { id: 'originals', label: 'Finding the original' },
+  { id: 'privacy', label: 'Privacy and security' },
+];
+---
+<Base
+  page="how"
+  title="How the light key works"
+  description="How TapDrop proves a tap: the notch’s light sensor must see your phone’s screen turn white, then black, pressed against it. The rules and the math."
+>
+  <header class="grid page-head">
+    <PageIsland title="Light key passed" sub="Screen 3 → 1,480 lux, dark again at 2 lux" tone="ok" />
+    <h1 class="display rise"><span style="--d:0.05s">The light key.</span></h1>
+    <div class="page-head__side">
+      <p class="page-head__kicker css-in" style="--d:0.25s">How it works</p>
+      <p class="lede css-in" style="--d:0.3s">
+      A tap only counts when your Mac’s notch sees <strong>your phone’s own screen light up and go dark</strong>, pressed right against it. This is how, exactly.
+    </p>
+    </div>
+  </header>
+
+  <div class="grid doc">
+    <div class="figure-trace" data-reveal="up"><Trace id="how-trace" /></div>
+
+    <nav class="doc__index" aria-label="On this page" data-toc>
+      {toc.map((t) => <a href={`#${t.id}`}>{t.label}</a>)}
+    </nav>
+
+    <div class="doc__body">
+      <section id="round" aria-labelledby="round-h">
+        <h2 id="round-h">One round, about half a second</h2>
+        <p>The notch on a MacBook holds an ambient light sensor. TapDrop reads it many times a second. When your phone touches the notch, a round begins, and nothing is sent unless every step passes.</p>
+        <ol class="round">
+          <li><span class="mono">touch</span><span><b>Your phone lands on the notch.</b> Its proximity sensor, or the notch going dark under it, starts the round.</span></li>
+          <li><span class="mono">grab</span><span><b>The Mac asks for light.</b> The phone captures its screen first, so your Mac never receives a white frame.</span></li>
+          <li><span class="mono">key-on</span><span><b>The screen turns white</b> at full brightness, facing the notch.</span></li>
+          <li><span class="mono">key-seen</span><span><b>The notch sees it arrive,</b> at a level only a screen pressed on it can give.</span></li>
+          <li><span class="mono">key-off</span><span><b>The screen turns black.</b></span></li>
+          <li><span class="mono">key-ok</span><span><b>The notch goes dark with it,</b> within a fraction of a second. In a lit room it has to drop below the room, because the phone is covering it.</span></li>
+          <li><span class="mono">sent</span><span><b>The phone buzzes.</b> You can lift it off while it sends what was on screen.</span></li>
+        </ol>
+      </section>
+
+      <section id="math" aria-labelledby="math-h">
+        <h2 id="math-h">The math</h2>
+        <p>While the screen is white, the notch reads the phone’s light plus a little room light leaking in around it. Once it’s black, it reads only that leak. <strong>White − black is the phone’s own light, whatever the room:</strong> at night, in daylight, or with sun on the notch.</p>
+        <p>Light falls off fast with distance, so white − black must reach <strong>55% of what this phone gives pressed on the notch.</strong> A phone held a few centimetres away can’t.</p>
+        <p>That level is learned from your own taps, the middle of the last twelve that passed, so it follows your phone, its brightness, a case and the room. There is nothing to set. Calibrating in Settings just measures it up front.</p>
+      </section>
+
+      <section id="cant" aria-labelledby="cant-h">
+        <h2 id="cant-h">What can’t send</h2>
+        <p>None of these can light the notch and go dark on cue:</p>
+        <ul>
+          <li><strong>A hand or a shadow</strong> over the notch. It can darken the sensor, but it can’t make light.</li>
+          <li><strong>A lamp switching on, or the sun.</strong> They light the notch, but they don’t go dark when the phone says so.</li>
+          <li><strong>A phone held near the Mac.</strong> Its light is too weak by the time it reaches the sensor.</li>
+          <li><strong>A phone tapped anywhere else,</strong> such as your palm or the desk. The notch sees nothing at all.</li>
+          <li><strong>The back of the phone.</strong> Only the screen counts, so the phone asks you to turn it around.</li>
+        </ul>
+        <div class="shots2">
+          <figure class="shot">
+            <Image src={testTap} alt="Test your tap on the phone: a live graph of the notch’s light with the verdict That counted" widths={[400, 800]} sizes="(max-width: 767px) 90vw, 22vw" format="webp" loading="lazy" />
+            <figcaption>Test your tap on the phone. Taps here are only a test: nothing is sent.</figcaption>
+          </figure>
+          <figure class="shot">
+            <Image src={macTap} alt="Tap to Send settings on the Mac, with the Test your tap graph showing a covered dip, a light that wasn’t seen, and a tap that was sent" widths={[600, 1100]} sizes="(max-width: 767px) 90vw, 30vw" format="webp" loading="lazy" />
+            <figcaption>The same graph on the Mac, with a mark for every try.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="verdicts" aria-labelledby="verdicts-h">
+        <h2 id="verdicts-h">When a tap doesn’t count</h2>
+        <p>Both apps say the same thing, in plain words, and the notch shows a gentle hint at most every thirty seconds.</p>
+        <table class="verdicts">
+          <thead><tr><th scope="col">What happened</th><th scope="col">What you see</th></tr></thead>
+          <tbody>
+            <tr><td>The notch didn’t see the screen</td><td>Your Mac didn’t see your screen. Press the top of the screen flat on the notch.</td></tr>
+            <tr><td>The notch stayed lit</td><td>Keep your phone on the notch until it buzzes.</td></tr>
+            <tr><td>The back was facing the notch</td><td>Turn your phone around: its screen goes against the notch.</td></tr>
+            <tr><td>Anything else</td><td>That tap didn’t count. Try again.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="originals" aria-labelledby="originals-h">
+        <h2 id="originals-h">Finding the original</h2>
+        <p>Android doesn’t tell apps which file another app has open. TapDrop finds it by the name the viewer shows (documents) or by fingerprinting your library in the background (photos and videos): a 256-bit hash of each photo, and of about one frame per second of each video.</p>
+        <p>A match has to be close and clearly better than every other candidate. If it isn’t, <strong>you get a screenshot, never a guess.</strong> Streaming apps don’t keep videos as files, so they always send a screenshot.</p>
+      </section>
+
+      <section id="privacy" aria-labelledby="privacy-h">
+        <h2 id="privacy-h">Privacy and security</h2>
+        <ul>
+          <li><strong>Your network only.</strong> Phone and Mac talk directly over your Wi-Fi. No accounts, servers or cloud.</li>
+          <li><strong>End-to-end encrypted.</strong> Pairing uses P-256 ECDH with a six-digit code you compare on both screens. Every session derives a fresh key with HKDF-SHA256, and every frame is AES-256-GCM with counter nonces, so replayed or reordered frames fail.</li>
+          <li><strong>Only at the moment you tap.</strong> The phone looks at its screen only when a tap passes. Screens that block screenshots, such as banking apps, are never captured.</li>
+          <li><strong>Nothing for show.</strong> Test hooks exist only in debug builds.</li>
+          <li><strong>Open to read.</strong> All of it is open source under the MIT License: the protocol, the light key and the apps are on <a class="link" href="https://github.com/0x1p0/TapDrop">GitHub</a>.</li>
+        </ul>
+      </section>
+
+      <div class="next-page">
+        <p>Ready to try it?</p>
+        <Btn href={to('/get-started/')} solid>Get started</Btn>
+      </div>
+    </div>
+  </div>
+</Base>

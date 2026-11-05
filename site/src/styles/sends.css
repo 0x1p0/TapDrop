@@ -1,0 +1,178 @@
+/* ───────── What a tap sends: the pinned five-tap stage ───────── */
+
+.sends { position: relative; background: linear-gradient(var(--black), var(--ground) 320px); }
+.ts { position: relative; }
+.motion .ts { height: calc(var(--n) * 200svh + 100svh); }
+.ts__stage { position: relative; }
+.motion .ts__stage { position: sticky; top: 0; height: 100svh; overflow: clip; --tw: clamp(150px, min(19.5vw, 36svh), 310px); }
+
+.ts__flash, .ts__dark { position: absolute; inset: 0; pointer-events: none; opacity: 0; z-index: 1; }
+/* The key-on frame: the phone's white screen floods the display from the notch. */
+.ts__flash { background: radial-gradient(85% 95% at 50% 0%, #fff 0 34%, rgb(255 255 255 / 0.9) 52%, rgb(255 255 255 / 0) 86%); }
+.ts__dark { background: #000; }
+
+/* Side column: the title and the index of the five taps. */
+.ts__side { position: relative; z-index: 4; padding: clamp(6rem, 12vw, 10rem) var(--gutter) 2rem; }
+.motion .ts__side {
+  position: absolute; left: var(--gutter); top: calc(var(--bar-h) + 4.5svh); bottom: 4svh; padding: 0;
+  width: min(25rem, 27vw); display: flex; flex-direction: column;
+}
+.ts__title { font-size: clamp(2.1rem, 1.1rem + 2.6vw, 3.6rem); font-weight: 620; letter-spacing: -0.048em; line-height: 0.96; color: var(--ink); max-width: 11ch; }
+html:not(.motion) .ts__title { font-size: var(--t-xl); max-width: 14ch; }
+.ts__intro { margin-top: 1.1rem; color: var(--muted); font-size: var(--t-s); line-height: 1.5; max-width: 23rem; }
+html:not(.motion) .ts__intro { font-size: var(--t-m); max-width: 34rem; }
+html:not(.motion) .ts__index { display: none; }
+.ts__index { list-style: none; padding: 0; margin-top: auto; display: grid; }
+.ts__item {
+  position: relative; width: 100%; display: grid; grid-template-columns: 2.6rem minmax(0, 1fr); align-items: baseline;
+  text-align: left; padding: 0.72rem 0 0.82rem; color: #85879a; transition: color 0.7s var(--e-soft);
+}
+.ts__num { font-size: var(--t-xs); }
+.ts__label { font-size: clamp(1.25rem, 0.85rem + 0.95vw, 1.7rem); font-weight: 600; letter-spacing: -0.032em; line-height: 1.08; transition: translate 0.8s var(--e-out); }
+.ts__bar { position: absolute; left: 2.6rem; right: 0; bottom: 0; height: 2px; background: var(--line); overflow: clip; border-radius: 2px; transition: height 0.5s var(--e-out); }
+@media (hover: hover) { .ts__item:hover .ts__bar { height: 4px; } }
+.ts__item:focus-visible .ts__bar { height: 4px; }
+.ts__bar i { position: absolute; inset: 0; transform-origin: left; transform: scaleX(0); background: linear-gradient(90deg, var(--blue), var(--violet), var(--orchid)); }
+.ts__item.is-done { color: #a6a8b8; }
+.ts__bar i { transition: opacity 0.7s var(--e-soft); }
+.ts__item.is-done .ts__bar i { opacity: 0.35; }
+.ts__item.is-on { color: var(--ink); }
+.ts__item.is-on .ts__label { translate: 0.35rem 0; }
+@media (hover: hover) {
+  .ts__item:hover { color: var(--ink); }
+  .ts__item:hover .ts__label { translate: 0.35rem 0; }
+}
+.ts__item:focus-visible { color: var(--ink); outline-offset: 2px; }
+.is-white .ts__item { color: #5c5e70; }
+.is-white .ts__item.is-on { color: var(--ink); }
+
+/* The phone: front shows the real screen, back is what you see while it taps (screen facing the Mac). */
+.ts__phone, .ts__island, .ts__results, .ts__caps, .ts__flash, .ts__dark { display: none; }
+.motion .ts__phone, .motion .ts__island, .motion .ts__results, .motion .ts__caps, .motion .ts__flash, .motion .ts__dark { display: block; }
+.ts__phone {
+  position: absolute; z-index: 3; left: 50%; top: calc(var(--bar-h) + 7svh);
+  width: var(--tw); aspect-ratio: 300 / 640; translate: -50% 0;
+  perspective: 1500px; pointer-events: none;
+}
+.ts__flip { position: absolute; inset: 0; transform-style: preserve-3d; will-change: transform; }
+.ts__front, .ts__back { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.ts__front {
+  border-radius: 15.6% / 7.3%; background: #0c0c11; overflow: hidden;
+  box-shadow: inset 0 0 0 1.5px rgb(255 255 255 / 0.22), 0 40px 90px -30px rgb(0 0 0 / 0.8), 0 0 70px -10px rgb(133 97 255 / 0.25);
+}
+.ts__screen, .ts__lasso { position: absolute; left: 3.4%; top: 1.6%; width: 93.2%; height: 96.8%; border-radius: 12.4% / 5.6%; }
+.ts__screen { overflow: hidden; opacity: 0; background: #000; }
+.ts__screen img { width: 100%; height: 100%; object-fit: cover; }
+/* Photos and videos fill the screen the way you'd look at them: zoomed to the picture, not letterboxed. */
+.ts__screen--zoom img { scale: 2.05; }
+.motion .ts__screen.is-on { opacity: 0; }
+.ts__lasso { overflow: visible; filter: drop-shadow(0 0 6px rgb(133 97 255 / 0.8)); }
+.ts__back { transform: rotateY(180deg); }
+.ts__back .phone__buzz { opacity: var(--buzz, 0); }
+.ts__glow, .ts__white { position: absolute; border-radius: 30%; filter: blur(calc(var(--tw) * 0.17)); opacity: 0; }
+.ts__glow {
+  inset: -8% -20% -4% -20%;
+  background:
+    radial-gradient(46% 16% at 50% 5%, rgb(255 255 255 / 0.85), transparent 75%),
+    radial-gradient(62% 34% at 50% 24%, rgb(242 107 217 / 0.95), transparent 72%),
+    radial-gradient(74% 46% at 50% 56%, rgb(133 97 255 / 1), transparent 72%),
+    radial-gradient(72% 36% at 50% 92%, rgb(64 158 255 / 0.95), transparent 75%);
+}
+.ts__white { inset: -12% -22%; background: #fff; }
+
+/* The island under the notch, one real capture per tap. */
+.ts__island { position: absolute; z-index: 5; top: 0; left: 50%; width: 0; pointer-events: none; }
+.ts__iwrap {
+  position: absolute; top: 0; left: 0; translate: -50% 0; width: calc(var(--w) * var(--ik, 0.96));
+  visibility: hidden; filter: drop-shadow(0 22px 34px rgb(0 0 0 / 0.6));
+}
+.ts__iclip { position: relative; }
+.ts__iclip img { display: block; width: 100%; height: auto; }
+.ts__iveil { position: absolute; inset: 0 2.6%; background: #000; border-radius: 0 0 26px 26px; }
+
+/* Results: what lands on the Mac. Windows pile up like they would on a desktop. */
+.ts__results { position: absolute; z-index: 2; right: var(--gutter); top: calc(var(--bar-h) + 9svh); bottom: 12svh; width: min(39vw, 40rem); }
+.ts__results .win { position: absolute; left: 50%; top: 50%; translate: -50% -50%; opacity: 0; will-change: transform, opacity; }
+
+.win {
+  width: 100%; border-radius: 12px; overflow: clip; background: #16161d;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12), 0 40px 80px -24px rgb(0 0 0 / 0.85), 0 12px 30px -12px rgb(133 97 255 / 0.25);
+}
+.win__bar { position: relative; height: 30px; display: flex; align-items: center; justify-content: center; padding: 0 66px; background: #24242c; border-bottom: 1px solid rgb(0 0 0 / 0.5); }
+.win__lights { position: absolute; left: 11px; top: 50%; translate: 0 -50%; display: flex; gap: 7px; }
+.win__lights i { width: 11px; height: 11px; border-radius: 50%; background: #ff5f57; }
+.win__lights i + i { background: #febc2e; }
+.win__lights i + i + i { background: #28c840; }
+.win__title { font-size: 12px; font-weight: 600; color: #c9cad6; letter-spacing: -0.005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.win__url { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #c9cad6; background: #16161d; padding: 3px 14px; border-radius: 7px; min-width: 46%; max-width: 100%; justify-content: center; white-space: nowrap; }
+.win__url svg { width: 11px; height: 11px; }
+.win__body { position: relative; }
+.win__body img, .win__body video { display: block; width: 100%; height: auto; }
+.win--pdf { width: 74%; background: #6b6b74; }
+.win--pdf .win__body { padding: 6% 6% 0; background: #55555e; }
+.win--pdf .win__body img { box-shadow: 0 6px 20px rgb(0 0 0 / 0.35); }
+.win__scrub { position: absolute; left: 4%; right: 4%; bottom: 8px; height: 3px; border-radius: 3px; background: rgb(255 255 255 / 0.25); overflow: clip; }
+.win__scrub i { position: absolute; inset: 0; background: #fff; transform-origin: left; transform: scaleX(0.3); }
+.win--text { width: 88%; background: #111117; }
+.win__clip { padding: 1.4rem 1.5rem 1.5rem; display: grid; gap: 0.8rem; }
+.win__chip { justify-self: start; font-size: 12px; font-weight: 600; color: var(--ok); background: rgb(46 209 122 / 0.14); padding: 0.28rem 0.7rem; border-radius: 999px; }
+.win__words { font-size: clamp(1.25rem, 0.9rem + 1vw, 1.75rem); font-weight: 560; letter-spacing: -0.025em; line-height: 1.22; color: #f5f5fa; }
+.win__paste { font-size: 12px; color: #9fa1b3; }
+
+/* Captions under the stage: what just landed. */
+.ts__caps { position: absolute; z-index: 4; right: var(--gutter); bottom: 4.2svh; width: min(39vw, 40rem); height: 1.6em; list-style: none; padding: 0; }
+.ts__cap { position: absolute; inset: 0; text-align: center; font-size: var(--t-s); color: var(--muted); opacity: 0; white-space: nowrap; }
+.ts__cap .mono { color: var(--ink); margin-right: 0.6rem; }
+
+
+.sends__foot { padding: 2rem var(--gutter) clamp(5rem, 9vw, 8rem); color: var(--muted); max-width: 44rem; font-size: var(--t-s); }
+
+/* ───────── Still version (reduced motion, no JavaScript): five steps, each screen beside its result ───────── */
+.ts-still { display: none; }
+html:not(.motion) .ts-still { display: block; padding: 0 var(--gutter); }
+.ts-still__list { list-style: none; padding: 0; }
+.ts-still__row {
+  display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--col-gap); align-items: center;
+  padding: 2.4rem 0; border-top: 1px solid var(--line);
+}
+.ts-still__text { grid-column: 1 / span 4; display: grid; gap: 0.5rem; align-self: start; }
+.ts-still__text .mono { font-size: var(--t-xs); color: var(--muted); }
+.ts-still__text h3 { font-size: var(--t-l); font-weight: 600; letter-spacing: -0.035em; line-height: 1.05; }
+.ts-still__text p { color: var(--muted); max-width: 26rem; }
+.ts-still__phone { grid-column: 5 / span 2; display: grid; gap: 0.6rem; }
+.ts-still__phone img { border-radius: 22px; box-shadow: 0 0 0 1px rgb(255 255 255 / 0.14); }
+.ts-still__mac { grid-column: 7 / span 6; display: grid; gap: 0.9rem; justify-items: center; }
+.ts-still__island { width: min(100%, 26rem); }
+.ts-still__mac .win { width: min(100%, 32rem); }
+.ts-still__mac .win--pdf { width: min(80%, 24rem); }
+.ts-still figcaption { font-size: var(--t-xs); color: var(--muted); text-align: center; }
+
+/* ───────── Phone (390): the stage stacks and still fits the screen ───────── */
+@media (max-width: 767px) {
+  .motion .ts { height: calc(var(--n) * 180svh + 100svh); }
+  .motion .ts__side { left: var(--gutter); right: var(--gutter); width: auto; top: calc(var(--bar-h) + 0.8rem); bottom: auto; }
+  .ts__title { font-size: 1.6rem; max-width: none; }
+  .motion .ts__title { font-size: 1.45rem; line-height: 1.02; }
+  .motion .ts__intro { display: none; }
+  .motion .ts__index { margin-top: 0.75rem; grid-template-columns: repeat(5, minmax(0, 1fr)); column-gap: 6px; }
+  .ts__item { grid-template-columns: 1fr; padding: 0.45rem 0 0.6rem; min-height: 40px; }
+  .ts__label { display: none; }
+  .ts__bar { left: 0; }
+  .motion .ts__stage { --tw: min(31vw, 23svh); }
+  .ts__phone { top: calc(var(--bar-h) + 7.6rem); }
+  .ts__island { top: calc(var(--bar-h) + 4px); }
+  .ts__side { transition: none; }
+  .ts__iwrap { width: min(calc(var(--w) * 0.8), 92vw); }
+  .ts__results { left: var(--gutter); right: var(--gutter); width: auto; top: calc(var(--bar-h) + 7.6rem + var(--tw) * 2.133 + 0.9rem); bottom: 3.4rem; }
+  .ts__results .win { max-height: 100%; }
+  .ts__caps { left: var(--gutter); right: var(--gutter); width: auto; bottom: 1.1rem; }
+  .ts__cap { white-space: normal; }
+  .win--pdf { width: 62%; }
+  .win--text { width: 100%; }
+  .win__clip { padding: 1rem 1.1rem 1.1rem; }
+
+  html:not(.motion) .ts-still__row { grid-template-columns: repeat(6, minmax(0, 1fr)); row-gap: 1.2rem; }
+  .ts-still__text { grid-column: 1 / -1; }
+  .ts-still__phone { grid-column: 1 / span 2; }
+  .ts-still__mac { grid-column: 3 / span 4; }
+}

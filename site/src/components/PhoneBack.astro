@@ -1,0 +1,45 @@
+---
+// The phone as you see it from your seat while it taps: its back, camera at the top, screen facing the Mac.
+// (docs/DESIGN.md: never draw the screen facing the viewer for the tap.)
+// `uid` keeps the SVG ids unique when the phone appears twice on a page.
+interface Props { uid?: string }
+const { uid = 'pb' } = Astro.props;
+---
+<svg class="phone__body" viewBox="0 0 300 640" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id={`${uid}-body`} x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2a2a33" />
+      <stop offset="0.45" stop-color="#17171d" />
+      <stop offset="1" stop-color="#0c0c10" />
+    </linearGradient>
+    <linearGradient id={`${uid}-sheen`} x1="0" y1="0" x2="1" y2="0.6">
+      <stop offset="0" stop-color="#fff" stop-opacity="0" />
+      <stop offset="0.5" stop-color="#fff" stop-opacity="0.07" />
+      <stop offset="1" stop-color="#fff" stop-opacity="0" />
+    </linearGradient>
+    <radialGradient id={`${uid}-lens`} cx="0.38" cy="0.35" r="0.7">
+      <stop offset="0" stop-color="#4a5078" />
+      <stop offset="0.35" stop-color="#151827" />
+      <stop offset="1" stop-color="#040406" />
+    </radialGradient>
+    <!-- The body's own outline: the sheen is cut to it (a CSS inset() would round the sheen's box instead). -->
+    <clipPath id={`${uid}-clip`}>
+      <rect x="1.5" y="1.5" width="297" height="637" rx="47" />
+    </clipPath>
+  </defs>
+  <rect x="1.5" y="1.5" width="297" height="637" rx="47" fill={`url(#${uid}-body)`} stroke="rgb(255 255 255 / 0.3)" stroke-width="1.6" />
+  <rect x="7" y="7" width="286" height="626" rx="42" fill="none" stroke="rgb(255 255 255 / 0.05)" />
+  <path d="M60 2 L190 2 L40 638 L-90 638 Z" fill={`url(#${uid}-sheen)`} clip-path={`url(#${uid}-clip)`} />
+  <rect x="24" y="26" width="126" height="60" rx="30" fill="#09090d" stroke="rgb(255 255 255 / 0.09)" />
+  <circle cx="55" cy="56" r="18" fill={`url(#${uid}-lens)`} stroke="rgb(255 255 255 / 0.1)" />
+  <circle cx="100" cy="56" r="18" fill={`url(#${uid}-lens)`} stroke="rgb(255 255 255 / 0.1)" />
+  <circle cx="50" cy="50" r="3.5" fill="#fff" opacity="0.35" />
+  <circle cx="95" cy="50" r="3.5" fill="#fff" opacity="0.35" />
+  <circle cx="132" cy="56" r="5" fill="#e9dfb8" opacity="0.75" />
+</svg>
+<svg class="phone__buzz" viewBox="0 0 300 640" aria-hidden="true" focusable="false" data-buzz>
+  <g fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity="0.9">
+    <path d="M-18 300c-8 12-8 28 0 40" /><path d="M-34 288c-13 20-13 44 0 64" />
+    <path d="M318 300c8 12 8 28 0 40" /><path d="M334 288c13 20 13 44 0 64" />
+  </g>
+</svg>

@@ -1,0 +1,13 @@
+---
+// Every inner page arrives through the notch: an island under it carries the page's status, in the apps' words.
+interface Props { title: string; sub?: string; tone?: 'ok' | 'live' | 'none' }
+const { title, sub, tone = 'ok' } = Astro.props;
+---
+<div class="page-island" aria-hidden="true">
+  <span class:list={['page-island__chip', `is-${tone}`]}>
+    {tone === 'ok' && <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.4l2.6 2.6L12 5.4" /></svg>}
+    {tone === 'live' && <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="3" /></svg>}
+    {tone === 'none' && <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 5l6 6M11 5l-6 6" /></svg>}
+  </span>
+  <span class="page-island__text"><b>{title}</b>{sub && <span>{sub}</span>}</span>
+</div>

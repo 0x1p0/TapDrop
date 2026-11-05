@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://0x1p0.github.io/TapDrop/sitemap-index.xml
