@@ -13,8 +13,8 @@ android {
         applicationId = "app.tapdrop"
         minSdk = 33
         targetSdk = 36
-        versionCode = 13
-        versionName = "2.0.8"
+        versionCode = 14
+        versionName = "2.0.9"
     }
 
     // Signing key and passwords live in android/keystore.properties (not committed).

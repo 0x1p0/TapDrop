@@ -763,7 +763,13 @@ class NotchTapService : AccessibilityService() {
                             // A viewer showing a document TapDrop isn't allowed to see yet: say how to send the file itself.
                             docViewer && hit == null && !files.hasAllFiles() ->
                                 Plan.Shot(false, "Turn on File access in TapDrop to send the file itself")
-                            else -> when (val o = matcher.find(shot, labels, hit).also { matchNote = matcher.lastNote }) {
+                            // The library's videos only where they can be on screen: a gallery, a chat, a video
+                            // player, or a video playing. Never a social feed or a browser.
+                            else -> when (val o = matcher.find(
+                                shot, labels, hit,
+                                allowVideos = AppRules.isGallery(pkg) || AppRules.isChat(pkg) || AppRules.isVideoPlayer(pkg) ||
+                                    hit?.kind == MediaDetector.Kind.VIDEO,
+                            ).also { matchNote = matcher.lastNote }) {
                                 is MediaMatcher.Outcome.Found -> Plan.Media(o.media)
                                 MediaMatcher.Outcome.NoAccess -> Plan.Shot(false, if (hit != null) "Allow photo access in TapDrop to send the $what itself" else null)
                                 MediaMatcher.Outcome.NotFound -> Plan.Shot(false, if (hit != null) "Couldn't find this $what in your gallery" else null)
