@@ -179,14 +179,22 @@ final class StatusController: NSObject, NSWindowDelegate, NSDraggingDestination 
     }
 }
 
-/// Finder → right-click → Quick Actions/Services → "Send to Phone with TapDrop".
+/// Finder → right-click → Quick Actions/Services → "Send to Android Phone".
 final class ServiceProvider: NSObject {
     @MainActor static func queue(_ urls: [URL]) {
         Store.shared.enqueue(urls: urls)
+        announce(urls.count == 1 ? urls[0].lastPathComponent : "\(urls.count) items")
+    }
+
+    /// The island once something's queued: with the phone connected it goes straight away (the phone fetches it);
+    /// otherwise it waits on this Mac until the phone is back on the Wi‑Fi.
+    @MainActor static func announce(_ what: String) {
+        let live = !Store.shared.liveDevices.isEmpty
         Activity.shared.notice(
             .queued,
-            title: urls.count == 1 ? "Ready to send \(urls[0].lastPathComponent)" : "Ready to send \(urls.count) items",
-            detail: "Touch the top of your phone's screen to the notch", sound: false, hideAfter: 3.5)
+            title: live ? "Sending \(what) to your phone" : "Ready to send \(what)",
+            detail: live ? "It arrives in a moment" : "It goes as soon as your phone is on this Wi‑Fi",
+            sound: false, hideAfter: 3.5)
     }
 
     @objc func sendToPhone(_ pboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString?>) {
@@ -197,8 +205,7 @@ final class ServiceProvider: NSObject {
                 ServiceProvider.queue(urls)
             } else if let text, !text.isEmpty {
                 Store.shared.enqueue(text: text)
-                Activity.shared.notice(.queued, title: "Ready to send text", detail: "Touch the top of your phone's screen to the notch",
-                                       sound: false, hideAfter: 3.5)
+                ServiceProvider.announce("text")
             }
         }
     }

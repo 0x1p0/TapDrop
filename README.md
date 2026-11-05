@@ -186,7 +186,7 @@ TapDrop lives in the menu bar (**((·))**) and opens at login. A **Set Up a Phon
 ### 2. Install the Android app
 
 1. On the Mac, **Set Up a Phone** shows a QR code. Scan it with your phone's camera and tap **Download TapDrop**. Your Mac serves the app over your Wi‑Fi. Or download **[TapDrop.apk](https://github.com/0x1p0/TapDrop/releases/latest/download/TapDrop.apk)** on the phone directly.
-2. Open the downloaded **TapDrop.apk**. When Android says it isn't allowed to install unknown apps from this source, tap **Settings**, switch on **Allow from this source**, go back, and tap **Install**.
+2. If Chrome says *File can't be downloaded securely* (your Mac's page is plain http on your own Wi‑Fi), tap **Keep**. Then open the downloaded **TapDrop.apk**. When Android says it isn't allowed to install unknown apps from this source, tap **Settings**, switch on **Allow from this source**, go back, and tap **Install**.
 3. If **Play Protect** warns ("Unsafe app blocked", "doesn't recognise this app"), tap **More details → Install anyway**.
 
    If it blocks the install with no such button, pause scanning: **Play Store → your profile picture → Play Protect → → Scan apps with Play Protect: off**. Install, then switch it back on.

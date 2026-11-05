@@ -536,7 +536,7 @@ fun ExtrasChecklist(modifier: Modifier = Modifier) {
                         },
                         e.media, if (e.partial) "Allow all" else "Allow", shape,
                     ) {
-                        askMedia.launch(arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO, Manifest.permission.READ_MEDIA_AUDIO))
+                        askMedia.launch(arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO))
                     }
                 }
                 item { shape ->

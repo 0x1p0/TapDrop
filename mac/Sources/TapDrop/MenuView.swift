@@ -938,8 +938,7 @@ enum PanelActions {
             if (try? png.write(to: url)) != nil { ServiceProvider.queue([url]) }
         case .text(let s):
             store.enqueue(text: s)
-            Activity.shared.notice(.queued, title: "Ready to send text", detail: "Touch the top of your phone's screen to the notch",
-                                   sound: false, hideAfter: 3.5)
+            ServiceProvider.announce("text")
         case .empty:
             NSSound.beep()
         }

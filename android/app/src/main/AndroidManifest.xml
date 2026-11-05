@@ -10,7 +10,6 @@
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
-    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <!-- Optional: lets a tap on a document (PDF, ZIP…) in Files or a chat send that file -->
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <!-- Updates: "TapDrop 2.1.1 is available", installing the new version over this one, and keeping the daily

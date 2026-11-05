@@ -93,7 +93,8 @@ The Mac shows *Opened on your phone* and then *Downloaded. Open TapDrop.apk on y
 
 **Or directly:** on your phone, download **[TapDrop.apk](https://github.com/0x1p0/TapDrop/releases/latest/download/TapDrop.apk)**. It's always the latest version.
 
-> If your browser warns that *this type of file can harm your device*, tap **Download anyway**.
+> Chrome may say *File can't be downloaded securely*: your Mac's page is plain http on your own Wi‑Fi. Tap **Keep**.
+> If it warns that *this type of file can harm your device*, tap **Download anyway**.
 
 ### 2. Install it
 

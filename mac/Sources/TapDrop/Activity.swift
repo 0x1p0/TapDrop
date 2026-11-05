@@ -350,7 +350,7 @@ extension Activity.NoticeStyle {
             if title.hasPrefix("No text") { return .noText }
             return .text
         case .queued:
-            if title.hasPrefix("Ready to send") { return .ready }
+            if title.hasPrefix("Ready to send") || title.hasPrefix("Sending") { return .ready }
             if title.hasPrefix("Unlock") { return .locked }
             if title.hasPrefix("Wake") { return .asleep }
             if title.hasPrefix("Update TapDrop") { return .update }

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="a11y_description">Lets you hold your phone over your Mac\'s notch to send whatever is on your screen. TapDrop only looks at the screen at that moment: the current web page address in browsers, otherwise a screenshot. It goes straight to your own Mac over your Wi‑Fi, end‑to‑end encrypted, and nowhere else.</string>
+    <string name="a11y_description">Lets you send what\'s on your screen by touching the top of your phone\'s screen to your Mac\'s notch. TapDrop only looks at the screen at the moment a tap counts, then sends the real thing: the page, the original photo, video or file, or a screenshot. It goes straight to your own Mac over your Wi‑Fi, end‑to‑end encrypted, and nowhere else.</string>
     <string name="a11y_label">TapDrop — tap your Mac to send</string>
 </resources>

@@ -631,7 +631,7 @@ private fun rememberPermissions(): PermissionState {
             sms = granted(Manifest.permission.RECEIVE_SMS),
             battery = DeviceSupport.batteryUnrestricted(ctx),
             askMedia = {
-                media.launch(arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO, Manifest.permission.READ_MEDIA_AUDIO))
+                media.launch(arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO))
             },
             askSms = { sms.launch(Manifest.permission.RECEIVE_SMS) },
         )
