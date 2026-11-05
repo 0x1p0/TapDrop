@@ -81,19 +81,52 @@ final class InstallServer: @unchecked Sendable {
         return "The network said no (\(e.localizedDescription))"
     }
 
+    /// One line per request in install.log (in TapDrop's folder), for when a phone can't open the page.
+    private static func log(_ who: String, _ what: String) {
+        let url = Store.dir.appendingPathComponent("install.log")
+        let line = "\(ISO8601DateFormatter().string(from: Date()))  \(who)  \(what.prefix(160))\n"
+        if (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int).flatMap({ $0 }) ?? 0 > 64 * 1024 {
+            try? FileManager.default.removeItem(at: url)
+        }
+        if let h = try? FileHandle(forWritingTo: url) {
+            h.seekToEndOfFile()
+            h.write(Data(line.utf8))
+            try? h.close()
+        } else {
+            try? Data(line.utf8).write(to: url)
+        }
+    }
+
     private static func report(_ change: @escaping @MainActor (InstallStatus) -> Void) {
         DispatchQueue.main.async { MainActor.assumeIsolated { change(InstallStatus.shared) } }
     }
 
     private func serve(_ c: Conn) async {
         defer { c.close() }
+        let who = c.remoteHost
+        // A browser that tries https:// first (Chrome often does) or a connection that never asks for anything must
+        // not hang: close it, so the browser falls back to plain http at once.
+        let idle = DispatchWorkItem { c.close() }
+        queue.asyncAfter(deadline: .now() + 20, execute: idle)
         var buf = Data()
         let end = Data("\r\n\r\n".utf8)
         while buf.range(of: end) == nil {
-            guard buf.count < 32 * 1024, let chunk = try? await c.readSome() else { return }
+            guard buf.count < 32 * 1024, let chunk = try? await c.readSome() else {
+                idle.cancel()
+                Self.log(who, buf.isEmpty ? "closed without a request" : "closed mid-request")
+                return
+            }
             buf.append(chunk)
+            if let first = buf.first, !(65...90).contains(first) {
+                // Not an HTTP request (0x16 is a TLS handshake: the browser trying https).
+                idle.cancel()
+                Self.log(who, first == 0x16 ? "https attempt, closed so the browser uses http" : "not http, closed")
+                return
+            }
         }
+        idle.cancel()
         let requestLine = String(decoding: buf.prefix { $0 != 13 }, as: UTF8.self)
+        Self.log(who, requestLine)
         let parts = requestLine.split(separator: " ")
         let path = parts.count > 1 ? String(parts[1].split(separator: "?").first ?? "/") : "/"
 
