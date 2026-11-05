@@ -41,7 +41,7 @@ import kotlin.math.min
 /**
  * The freeze-frame shown right after a tap. The screen freezes into a card (slightly scaled, rounded, softly
  * vignetted) over a blurred copy of itself, and the island grows out of the camera hole saying what will go
- * ("Sends the page link"). Once the phone leaves the notch, a ring around the arrow drains for a second and the
+ * ("Sends the page link"). Once the phone leaves the notch, a ring around the arrow drains for a few seconds and the
  * plan goes. Touching lights up the thing under the finger (a spotlight, the element lifts on a glowing outline);
  * lifting the finger sends just that, and dragging marks an area. Cancel sits at the bottom, in thumb reach.
  */
@@ -88,7 +88,7 @@ class PickOverlay(private val svc: AccessibilityService) {
         shot: Bitmap,
         released: Deferred<Unit>,
         highlight: (Int, Int) -> Target?,
-        windowMs: Long = 1000,
+        windowMs: Long = WINDOW_MS,
     ): Result = suspendCancellableCoroutine { cont ->
         val v = PickView(shot, windowMs, highlight, cont)
         val r = FrameLayout(svc)
@@ -204,6 +204,10 @@ class PickOverlay(private val svc: AccessibilityService) {
         private val grow = Spring(0f, Motion.snappy, 0.2f)
         private val lift = Spring(0f, Motion.emphasized, 0.001f)
         private val sel = RectF()
+        /** The area being dragged, in screenshot px ([sel] is where it is on screen now). */
+        private val selShot = RectF()
+        private var downSX = 0
+        private var downSY = 0
         private val selOn = Spring(0f, Motion.snappy, 0.002f)
         private var spin = 0f
 
@@ -331,7 +335,7 @@ class PickOverlay(private val svc: AccessibilityService) {
 
         private fun frame(dt: Float, real: Float): Boolean {
             if (handoff.taken) return false
-            // [time] is wall-clock: the countdown lasts its second however busy the phone is.
+            // [time] is wall-clock: the countdown lasts its seconds however busy the phone is.
             time += real
             var moving = frozen.step(dt)
             moving = island.step(dt) or moving
@@ -501,6 +505,7 @@ class PickOverlay(private val svc: AccessibilityService) {
                 if (lift.value > 0.003f) frozen.drawRegion(c, src, tmp, rad, hv, lift.value)
                 drawOutline(c, tmp, rad, hv)
             }
+            if (!selShot.isEmpty) frozen.toScreen(selShot, sel)
             if (sv > 0.003f && sel.width() > 1f) {
                 val rad = kit.dp(14f)
                 frozen.drawSpotlight(c, sel, rad, sv)
@@ -560,14 +565,39 @@ class PickOverlay(private val svc: AccessibilityService) {
             return true
         }
 
+        /** Screen point → screenshot point, kept on the screenshot. */
+        private fun shotPoint(x: Float, y: Float): Pair<Int, Int> =
+            frozen.shotX(x).toInt().coerceIn(0, shot.width - 1) to frozen.shotY(y).toInt().coerceIn(0, shot.height - 1)
+
+        /** Sends what's under [sx], [sy] (the element there, or that spot). */
+        private fun tapAt(sx: Int, sy: Int) {
+            setHover(highlightAt(sx, sy)?.takeIf { it.rect.width() > 2 && it.rect.height() > 2 })
+            val h = hover
+            if (h != null) {
+                hoverRect(h, tmp)
+                commit(RectF(tmp).also { liftedRect(it) }, kit.dp(12f) * frozen.shotScale + grow.target * 0.4f)
+            }
+            performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+            finish(Result.Tap(sx, sy))
+        }
+
+        /**
+         * Touch rules, so a pick never goes unnoticed:
+         * - a finger anywhere holds the countdown;
+         * - lifting without sliding sends what's under the finger, and so does a short slide (a sloppy tap);
+         * - sliding further marks an area, even from just outside the screen or along a single line of text;
+         * - only a plain tap well away from the screen (or Cancel) cancels.
+         */
         @SuppressLint("ClickableViewAccessibility")
         override fun onTouchEvent(e: MotionEvent): Boolean {
-            if (done || !started) return true
+            if (done) return true
+            if (!started) enter()
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     downX = e.x
                     downY = e.y
                     dragging = false
+                    selShot.setEmpty()
                     islandDown = island.bounds(tmp).contains(e.x, e.y)
                     if (islandDown) {
                         // The island is the plan: touching it sends that now.
@@ -575,13 +605,15 @@ class PickOverlay(private val svc: AccessibilityService) {
                         performHapticFeedback(HapticFeedbackConstants.SEGMENT_TICK)
                         return true
                     }
-                    outside = !frozen.contains(e.x, e.y, slop = kit.dp(6f))
-                    if (outside) return true
                     touching = true
-                    val sx = frozen.shotX(e.x).toInt()
-                    val sy = frozen.shotY(e.y).toInt()
-                    setHover(highlightAt(sx, sy)?.takeIf { it.rect.width() > 2 && it.rect.height() > 2 })
-                    performHapticFeedback(HapticFeedbackConstants.SEGMENT_TICK)
+                    val (sx, sy) = shotPoint(e.x, e.y)
+                    downSX = sx
+                    downSY = sy
+                    outside = !frozen.contains(e.x, e.y, slop = kit.dp(EDGE))
+                    if (!outside) {
+                        setHover(highlightAt(sx, sy)?.takeIf { it.rect.width() > 2 && it.rect.height() > 2 })
+                        performHapticFeedback(HapticFeedbackConstants.SEGMENT_TICK)
+                    }
                     refreshIsland()
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -589,7 +621,7 @@ class PickOverlay(private val svc: AccessibilityService) {
                         island.press(island.bounds(tmp).contains(e.x, e.y))
                         return true
                     }
-                    if (outside) return true
+                    if (!touching) return true
                     if (!dragging && (abs(e.x - downX) > slop || abs(e.y - downY) > slop)) {
                         dragging = true
                         setHover(null)
@@ -599,15 +631,12 @@ class PickOverlay(private val svc: AccessibilityService) {
                         refreshIsland()
                     }
                     if (dragging) {
-                        frozen.cardRect(tmp)
-                        val x = e.x.coerceIn(tmp.left, tmp.right)
-                        val y = e.y.coerceIn(tmp.top, tmp.bottom)
-                        sel.set(min(downX, x), min(downY, y), max(downX, x), max(downY, y))
+                        val (sx, sy) = shotPoint(e.x, e.y)
+                        selShot.set(min(downSX, sx).toFloat(), min(downSY, sy).toFloat(), max(downSX, sx).toFloat(), max(downSY, sy).toFloat())
                         invalidate()
                     }
                 }
                 MotionEvent.ACTION_UP -> {
-                    touching = false
                     if (islandDown) {
                         islandDown = false
                         island.press(false)
@@ -617,35 +646,43 @@ class PickOverlay(private val svc: AccessibilityService) {
                         }
                         return true
                     }
-                    if (outside) {
-                        if (!frozen.contains(e.x, e.y, slop = kit.dp(6f))) {
-                            performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-                            finish(Result.Cancel)
+                    if (!touching) return true
+                    touching = false
+                    if (dragging) {
+                        dragging = false
+                        val k = frozen.shotScale
+                        if (max(selShot.width(), selShot.height()) * k >= kit.dp(AREA_MIN)) {
+                            // A slide along a line of text is thin: the area is at least a fingertip tall and wide.
+                            val m = kit.dp(AREA_SIDE) / k
+                            if (selShot.width() < m) selShot.inset((selShot.width() - m) / 2f, 0f)
+                            if (selShot.height() < m) selShot.inset(0f, (selShot.height() - m) / 2f)
+                            selShot.offset(max(0f, -selShot.left) - max(0f, selShot.right - shot.width), max(0f, -selShot.top) - max(0f, selShot.bottom - shot.height))
+                            selShot.intersect(0f, 0f, shot.width.toFloat(), shot.height.toFloat())
+                            val r = Rect(selShot.left.toInt(), selShot.top.toInt(), selShot.right.toInt(), selShot.bottom.toInt())
+                            frozen.toScreen(selShot, sel)
+                            commit(RectF(sel), kit.dp(14f))
+                            pickedArea = true
+                            pickedCrop = crop(r)
+                            performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                            finish(Result.Region(r))
+                            return true
                         }
+                        // Too short to be an area: it was a tap that slid a little.
+                        selShot.setEmpty()
+                        selOn.to(0f)
+                        if (outside) {
+                            refreshIsland()
+                            return true
+                        }
+                        tapAt(downSX, downSY)
                         return true
                     }
-                    if (dragging && sel.width() > kit.dp(24f) && sel.height() > kit.dp(16f)) {
-                        val r = Rect(frozen.shotX(sel.left).toInt(), frozen.shotY(sel.top).toInt(), frozen.shotX(sel.right).toInt(), frozen.shotY(sel.bottom).toInt())
-                        commit(RectF(sel), kit.dp(14f))
-                        pickedArea = true
-                        pickedCrop = crop(r)
-                        dragging = false
-                        performHapticFeedback(HapticFeedbackConstants.CONFIRM)
-                        finish(Result.Region(r))
-                    } else if (!dragging) {
-                        val h = hover
-                        if (h != null) {
-                            hoverRect(h, tmp)
-                            commit(RectF(tmp).also { liftedRect(it) }, kit.dp(12f) * frozen.shotScale + grow.target * 0.4f)
-                        }
-                        performHapticFeedback(HapticFeedbackConstants.CONFIRM)
-                        finish(Result.Tap(frozen.shotX(e.x).toInt(), frozen.shotY(e.y).toInt()))
-                    } else {
-                        // Too small to be an area: let it go and keep counting.
-                        dragging = false
-                        selOn.to(0f)
-                        refreshIsland()
+                    if (outside) {
+                        performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+                        finish(Result.Cancel)
+                        return true
                     }
+                    tapAt(downSX, downSY)
                 }
                 MotionEvent.ACTION_CANCEL -> {
                     touching = false
@@ -653,6 +690,7 @@ class PickOverlay(private val svc: AccessibilityService) {
                     islandDown = false
                     island.press(false)
                     setHover(null)
+                    selShot.setEmpty()
                     selOn.to(0f)
                     if (countFrom >= 0f) countFrom = time
                     refreshIsland()
@@ -802,5 +840,13 @@ class PickOverlay(private val svc: AccessibilityService) {
         /** Cancel's height and its distance from the navigation bar, in dp. */
         const val CANCEL_H = 48f
         const val CANCEL_BOTTOM = 10f
+        /** Time to pick once the phone leaves the notch (paused while a finger is down). */
+        const val WINDOW_MS = 2500L
+        /** Touches this close to the screen (dp) still count as on it. */
+        const val EDGE = 24f
+        /** A slide this long (dp) marks an area; shorter is a tap. */
+        const val AREA_MIN = 24f
+        /** An area is at least this wide and tall (dp). */
+        const val AREA_SIDE = 36f
     }
 }
