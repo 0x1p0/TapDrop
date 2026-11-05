@@ -1,0 +1,18 @@
+# Changelog
+
+What's new in each version, newest first. The notes under a version are what TapDrop shows in its update window, so write them for the people using it. Keep each bullet on one line.
+
+## 2.1.0
+
+### Free and open source
+- TapDrop is now free and open source under the MIT License. Everything is on GitHub, with a step-by-step install guide.
+
+### New
+- **Updates in the app.** TapDrop checks for a new version once a day and shows you what's new. Update with one click on the Mac and one tap on your phone.
+- **One-time codes you can trust.** Codes are only picked up from messages that are clearly about a code. Amounts, dates, phone numbers and order numbers are left alone.
+
+### Better
+- **Pick before sending** gives you more time, and a tap that slides a little or a swipe along a line of text now counts.
+- The menu bar panel opens on its own, without bringing other TapDrop windows forward.
+- While Settings or Set Up a Phone is open, TapDrop is in the Dock and ⌘-Tab. Close the window and it stays in the menu bar.
+- Taps are more consistent: the notch waits for a knock to settle, and the light check adapts to your phone and room.

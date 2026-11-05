@@ -5,6 +5,10 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// One version for both apps, from VERSION at the repository root: "2.1.0" → versionCode 20100.
+val appVersion = rootProject.file("../VERSION").readText().trim()
+val appVersionCode = appVersion.split(".").map { it.toInt() }.let { (major, minor, patch) -> major * 10000 + minor * 100 + patch }
+
 android {
     namespace = "app.tapdrop"
     compileSdk = 37
@@ -13,8 +17,8 @@ android {
         applicationId = "app.tapdrop"
         minSdk = 33
         targetSdk = 36
-        versionCode = 18
-        versionName = "2.0.13"
+        versionCode = appVersionCode
+        versionName = appVersion
     }
 
     // Signing key and passwords live in android/keystore.properties (not committed).

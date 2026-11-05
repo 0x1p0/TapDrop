@@ -12,15 +12,16 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/TapDrop"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+# One version for both apps, from VERSION at the repository root: "2.1.0" → build 20100.
+VNAME=$(tr -d '[:space:]' < ../VERSION)
+VCODE=$(echo "$VNAME" | awk -F. '{ print $1 * 10000 + $2 * 100 + $3 }')
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VNAME" -c "Set :CFBundleVersion $VCODE" "$APP/Contents/Info.plist"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
 APK="../android/app/build/outputs/apk/release/app-release.apk"
 if [[ -f "$APK" ]]; then
   cp "$APK" "$APP/Contents/Resources/TapDrop.apk"
   # Its version, for the install page (and to tell it from a newer one placed in TapDrop's folder).
-  GRADLE=../android/app/build.gradle.kts
-  VNAME=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' "$GRADLE" | head -1)
-  VCODE=$(sed -n 's/.*versionCode = \([0-9]*\).*/\1/p' "$GRADLE" | head -1)
   printf '{"version":"%s","code":%s}\n' "$VNAME" "${VCODE:-0}" > "$APP/Contents/Resources/TapDrop.apk.json"
   echo "bundled APK ($(du -h "$APK" | cut -f1))"
 else
@@ -29,10 +30,13 @@ fi
 
 # Sign with a stable identity when this Mac has one, so macOS keeps TapDrop's permissions (Local Network,
 # Accessibility) across updates; an ad-hoc signature is a new app to macOS on every build.
+# Releases use TAPDROP_SIGN_ID="TapDrop Release Signing" from TAPDROP_SIGN_KEYCHAIN (see scripts/release.sh).
 SIGN_ID="${TAPDROP_SIGN_ID:-$(security find-identity -v -p codesigning 2>/dev/null | awk -F'"' '/Apple Development|Developer ID Application/ {print $2; exit}')}"
-codesign --force --deep --sign "${SIGN_ID:--}" --identifier app.tapdrop.mac "$APP"
+KEYCHAIN=()
+[[ -n "${TAPDROP_SIGN_KEYCHAIN:-}" ]] && KEYCHAIN=(--keychain "$TAPDROP_SIGN_KEYCHAIN")
+codesign --force --deep "${KEYCHAIN[@]}" --sign "${SIGN_ID:--}" --identifier app.tapdrop.mac "$APP"
 echo "signed with ${SIGN_ID:-an ad-hoc signature}"
-echo "built $APP"
+echo "built $APP ($VNAME, build $VCODE)"
 
 if [[ "${1:-}" != "--no-install" ]]; then
   pkill -x TapDrop 2>/dev/null || true

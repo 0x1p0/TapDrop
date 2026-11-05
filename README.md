@@ -170,8 +170,8 @@ The **[install guide](docs/INSTALL.md)** has every click, including the macOS an
 5. **Optional:** under **Get the most out of TapDrop**, allow **Original photos & videos** and **Any file**, so taps
    send originals and documents rather than screenshots.
 
-**Updating:** replace the Mac app with the new one, then install the new Android app from **Set Up a New Phone** or
-Releases. It installs over the old one and stays paired.
+**Updating:** both apps check for a new version once a day and show what's new. Click **Update Now** on the Mac, or
+tap **Update** on your phone. Everything stays paired.
 
 ## Troubleshooting
 
@@ -246,9 +246,28 @@ cd android && ./gradlew :core:keyCheck :core:otpCheck :core:timeCheck
 `keyCheck` starts its own test Macs and covers the phone's rules, the Mac's detector, every light-key verdict (hand,
 lamp, sun, distance, two phones, a phone dropping mid-tap), calibration, learning and live-link liveness.
 
-**Releasing:** `scripts/release.sh` builds the downloads into `release/`: the Mac app as a zip (ad-hoc signed, with the
-Android app inside), the signed APK, and `SHA256SUMS.txt`. Give both apps the same version first. Then
-`gh release create v<version> release/*`.
+### Releasing
+
+Both apps share one version, in [`VERSION`](VERSION). Android's `versionCode` and the Mac's build number come from it
+(2.1.0 → 20100).
+
+1. Update `VERSION` and add the version's notes to [`CHANGELOG.md`](CHANGELOG.md). The apps show these notes under
+   **What's new**.
+2. Commit, then tag and push: `git tag v2.1.0 && git push origin main v2.1.0`.
+3. [GitHub Actions](.github/workflows/release.yml) builds both apps, signs them and publishes the release:
+   `TapDrop-<version>-mac.zip`, `TapDrop-<version>-android.apk` and `SHA256SUMS.txt`.
+4. Within a day, both apps offer the update. They download it, check it against `SHA256SUMS.txt` and check that it's
+   signed like the installed app, then update in place.
+
+Signing secrets (repository **Settings → Secrets and variables → Actions**):
+
+| Secret | What it is |
+|---|---|
+| `MAC_SIGNING_P12_BASE64`, `MAC_SIGNING_P12_PASSWORD` | The Mac release identity, a self-signed certificate called "TapDrop Release Signing" |
+| `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` | The Android release key |
+
+Every release must be signed with the same two keys, or installed copies can't update. Keep backups.
+`scripts/release.sh` builds the same files locally.
 
 ## Project layout
 
@@ -259,7 +278,10 @@ mac/                 Menu bar app: server, notch sensor and light key, island, p
 android/
   app/               Android app: accessibility tap service, overlays, share sheet, settings, pairing
   core/              Shared protocol, crypto and client in pure Kotlin, with the JVM checks
-scripts/release.sh   Builds the release downloads
+scripts/             release.sh (the release downloads), release-notes.sh (a version's notes from the changelog)
+.github/workflows/   Checks on every push; releases on every version tag
+VERSION              The version of both apps
+CHANGELOG.md         What's new in each version
 docs/INSTALL.md      Step-by-step install guide
 docs/DESIGN.md       Design system for both apps (color, type, motion, components, copy)
 PROTOCOL.md          Wire protocol, pairing, the light key, live link

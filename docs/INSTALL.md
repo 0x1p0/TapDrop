@@ -233,17 +233,28 @@ learns it by itself as you tap.
 
 ## Updating
 
-**Mac:**
-1. Download the new **TapDrop-*version*-mac.zip** from [Releases](https://github.com/0x1p0/TapDrop/releases/latest).
-2. Quit TapDrop: menu bar icon → **⚙︎ Settings** → **Quit TapDrop** (or ⌘Q while a TapDrop window is open).
-3. Unzip it and drag the new **TapDrop.app** into Applications. Choose **Replace**.
-4. Open it. If macOS asks again, repeat [Open it the first time](#2-open-it-the-first-time).
-5. If your phone can't connect afterwards, see [The phone can't find the Mac](#the-phone-cant-find-the-mac).
-   macOS sometimes treats an updated app as new.
+TapDrop checks for a new version once a day and tells you what's new. You can turn this off in Settings.
 
-**Phone:** menu bar icon → **⚙︎ Settings** → **Phones** → **Set Up a New Phone**, scan the code and install, or
-install the new APK from Releases. It installs over the old one and stays paired. You only need to turn
-accessibility back on if Android asks.
+**Mac:** when there's an update, the menu bar panel shows **Update available**. Open it (or **⚙︎ Settings** →
+**About**) to read what's new, then click **Update Now**. TapDrop downloads the new version, checks it, replaces
+itself and reopens. To check right away: **⚙︎ Settings** → **About** → **Check for Updates…**.
+
+**Phone:** you get a notification, and TapDrop's home screen shows the new version. Tap **Update**. The first time,
+Android asks you to let TapDrop install apps: switch on **Allow from this source**, go back, then tap **Update**
+on the system's prompt. TapDrop stays paired, and tap to send stays on.
+
+<details>
+<summary><b>Updating by hand</b></summary>
+
+- **Mac:** download the new **TapDrop-*version*-mac.zip** from
+  [Releases](https://github.com/0x1p0/TapDrop/releases/latest). Quit TapDrop (**⚙︎ Settings** → **Quit TapDrop**),
+  then drag the new **TapDrop.app** into Applications and choose **Replace**. If macOS asks again, repeat
+  [Open it the first time](#2-open-it-the-first-time).
+- **Phone:** install the new **TapDrop-*version*-android.apk** from Releases, or scan the code in **Set Up a New
+  Phone** on the Mac. It installs over the old one.
+- If your phone can't connect after a Mac update, see
+  [The phone can't find the Mac](#the-phone-cant-find-the-mac).
+</details>
 
 ## Troubleshooting
 
