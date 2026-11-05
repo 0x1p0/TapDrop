@@ -22,7 +22,11 @@ else
   echo "warning: no APK found at $APK — the setup QR page will say so"
 fi
 
-codesign --force --deep --sign - --identifier app.tapdrop.mac "$APP"
+# Sign with a stable identity when this Mac has one, so macOS keeps TapDrop's permissions (Local Network,
+# Accessibility) across updates; an ad-hoc signature is a new app to macOS on every build.
+SIGN_ID="${TAPDROP_SIGN_ID:-$(security find-identity -v -p codesigning 2>/dev/null | awk -F'"' '/Apple Development|Developer ID Application/ {print $2; exit}')}"
+codesign --force --deep --sign "${SIGN_ID:--}" --identifier app.tapdrop.mac "$APP"
+echo "signed with ${SIGN_ID:-an ad-hoc signature}"
 echo "built $APP"
 
 if [[ "${1:-}" != "--no-install" ]]; then
