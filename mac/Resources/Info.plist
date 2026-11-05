@@ -33,7 +33,7 @@
 		<string>_tapdrop._tcp</string>
 	</array>
 	<key>NSHumanReadableCopyright</key>
-	<string>TapDrop — AirDrop for your Pixel and Mac</string>
+	<string>TapDrop: share between your Android phone and Mac. Free and open source (MIT License).</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>TapDrop uses your local network to send files, links and your clipboard between your phone and this Mac.</string>
 	<key>NSServices</key>

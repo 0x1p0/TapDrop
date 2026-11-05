@@ -25,6 +25,9 @@ android/keystore.properties
 *.iml
 .vscode/
 
+# release downloads (scripts/release.sh)
+release/
+
 # demo video project
 video/node_modules/
 video/out/

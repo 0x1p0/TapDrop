@@ -15,6 +15,13 @@ one-time codes. Everything stays on your own Wi-Fi, end-to-end encrypted.
 ![Swift](https://img.shields.io/badge/Swift-SwiftUI-F05138?logo=swift&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-Compose-7F52FF?logo=kotlin&logoColor=white)
 ![Encrypted](https://img.shields.io/badge/end--to--end-AES--256--GCM-1f6feb)
+![MIT License](https://img.shields.io/badge/license-MIT-2ea44f)
+![Free](https://img.shields.io/badge/price-free-2ea44f)
+
+**[Download for Mac and Android](https://github.com/0x1p0/TapDrop/releases/latest)** ·
+**[Step-by-step install guide](docs/INSTALL.md)**
+
+Free and open source. No accounts, no cloud, no tracking.
 
 <br>
 
@@ -46,6 +53,8 @@ one-time codes. Everything stays on your own Wi-Fi, end-to-end encrypted.
 - [Troubleshooting](#troubleshooting)
 - [Build from source](#build-from-source)
 - [Project layout](#project-layout)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## What it does
 
@@ -143,38 +152,26 @@ rules, timings and every verdict are in [PROTOCOL.md](PROTOCOL.md#light-key-tap-
 
 ## Get started
 
-**Requirements**
+**You need** a Mac with a notch (Apple silicon, macOS 15 Sequoia or newer), an Android phone on Android 13 or newer
+(any brand), and both on the same Wi‑Fi. Without a notch you can still share; you just can't tap.
 
-- A Mac with a notch, on Apple silicon, running macOS 15 Sequoia or newer. Without a notch you can still share; you just
-  can't tap.
-- An Android phone on Android 13 or newer, any brand.
-- Both on the same Wi-Fi.
+The **[install guide](docs/INSTALL.md)** has every click, including the macOS and Android warnings. In short:
 
-**1. Install on the Mac**
+1. **Mac:** download **TapDrop-*version*-mac.zip** from [Releases](https://github.com/0x1p0/TapDrop/releases/latest),
+   unzip it and drag **TapDrop** into Applications. TapDrop isn't notarized (it's free), so the first time, macOS
+   blocks it once: **System Settings → Privacy & Security → Open Anyway**. Allow it on your local network when asked.
+2. **Phone:** scan the QR code in the Mac's **Set Up a Phone** window. Your Mac serves the Android app over your
+   Wi‑Fi. Or download **TapDrop-*version*-android.apk** from Releases. Allow your browser to install apps, and if
+   Play Protect warns, tap **More details → Install anyway**.
+3. **Pair:** on the phone, **Pair with your Mac** → pick your Mac → check that the six digits match → **Pair** on
+   the Mac.
+4. **Tap to send:** on the phone, **Turn on tap to send** and follow the checklist: allow restricted settings if
+   Android asks, switch TapDrop on in Accessibility, and on some brands let it run in the background.
+5. **Optional:** under **Get the most out of TapDrop**, allow **Original photos & videos** and **Any file**, so taps
+   send originals and documents rather than screenshots.
 
-```sh
-cd mac && ./scripts/build-app.sh
-```
-
-This builds TapDrop, bundles the Android app if you've built it, installs it to `/Applications` and launches it. It
-lives in the menu bar.
-
-**2. Install on the phone**
-
-On the Mac: menu bar icon → ⚙︎ → **Phones** → **Set Up a New Phone**, then scan the QR code with your phone. The page
-shows the version you're installing. Download it, open it, and allow your browser to install apps if Android asks.
-
-**3. Pair and turn on Tap to Send**
-
-Open TapDrop on the phone → **Pair with your Mac** → pick your Mac → check the six digits match → click **Pair** on the
-Mac. Then follow **Tap to send** on the phone. It turns on TapDrop's accessibility service, which is how it sees what's
-on screen at the moment you tap.
-
-**Optional, recommended:** on the phone's home screen, under **Get the most out of TapDrop**, allow **Original photos &
-videos** and **Any file**, so taps send originals and documents rather than screenshots.
-
-**Updating:** install the new Mac app, then open **Set Up a New Phone** again and install from the page. The phone
-app updates in place and stays paired.
+**Updating:** replace the Mac app with the new one, then install the new Android app from **Set Up a New Phone** or
+Releases. It installs over the old one and stays paired.
 
 ## Troubleshooting
 
@@ -219,11 +216,14 @@ cd mac && swift build              # debug build
 cd mac && ./scripts/build-app.sh   # release app in /Applications (signed with your Apple Development identity if you have one)
 ```
 
-**Android** (Kotlin, Jetpack Compose, Material 3 Expressive, Coil, Haze):
+**Android** (Kotlin, Jetpack Compose, Material 3 Expressive, Coil, Haze; needs JDK 17 and the Android SDK, e.g. from
+Android Studio):
 
 ```sh
-cd android && gradle :app:assembleRelease
+cd android && ./gradlew :app:assembleRelease
 ```
+
+Build the Android app first if you want the Mac app to bundle it for its setup page.
 
 Release signing reads `android/keystore.properties` (not committed). Without it, builds use the debug key. Keep the same
 key to update an installed app in place.
@@ -239,12 +239,16 @@ keyPassword=…
 
 ```sh
 cd mac && swift build                                   # the tap checks run real test Macs from this build
-cd android && gradle :core:keyCheck :core:otpCheck :core:timeCheck
-gradle :core:integration -Phost=127.0.0.1 -Pport=47913  # against a running Mac app
+cd android && ./gradlew :core:keyCheck :core:otpCheck :core:timeCheck
+./gradlew :core:integration -Phost=127.0.0.1 -Pport=47913  # against a running Mac app
 ```
 
 `keyCheck` starts its own test Macs and covers the phone's rules, the Mac's detector, every light-key verdict (hand,
 lamp, sun, distance, two phones, a phone dropping mid-tap), calibration, learning and live-link liveness.
+
+**Releasing:** `scripts/release.sh` builds the downloads into `release/`: the Mac app as a zip (ad-hoc signed, with the
+Android app inside), the signed APK, and `SHA256SUMS.txt`. Give both apps the same version first. Then
+`gh release create v<version> release/*`.
 
 ## Project layout
 
@@ -255,9 +259,20 @@ mac/                 Menu bar app: server, notch sensor and light key, island, p
 android/
   app/               Android app: accessibility tap service, overlays, share sheet, settings, pairing
   core/              Shared protocol, crypto and client in pure Kotlin, with the JVM checks
+scripts/release.sh   Builds the release downloads
+docs/INSTALL.md      Step-by-step install guide
 docs/DESIGN.md       Design system for both apps (color, type, motion, components, copy)
 PROTOCOL.md          Wire protocol, pairing, the light key, live link
 ```
+
+## Contributing
+
+Issues and pull requests are welcome. Run the checks above before sending a change, and keep the copy in the apps'
+plain, friendly voice ([docs/DESIGN.md](docs/DESIGN.md)).
+
+## License
+
+[MIT](LICENSE). Free to use, change and share.
 
 <div align="center">
 <sub>Made for tapping things on Macs.</sub>
