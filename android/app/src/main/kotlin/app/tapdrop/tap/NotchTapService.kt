@@ -227,6 +227,7 @@ class NotchTapService : AccessibilityService() {
                 sendIndex(done, total)
             },
             busy = { keying || picking || warm() },
+            onPhotos = { done, total -> _photoIndex.value = done to total },
         )
         files = FileFinder(this)
         light = LightKey(this)
@@ -1287,6 +1288,10 @@ class NotchTapService : AccessibilityService() {
         private val _videoIndex = MutableStateFlow<Pair<Int, Int>?>(null)
         /** (done, total): how many of the library's videos are fingerprinted, so a tap can send the original video. */
         val videoIndex: StateFlow<Pair<Int, Int>?> = _videoIndex.asStateFlow()
+
+        private val _photoIndex = MutableStateFlow<Pair<Int, Int>?>(null)
+        /** (done, total): how many of the library's photos are fingerprinted, so a tap can send the original photo. */
+        val photoIndex: StateFlow<Pair<Int, Int>?> = _photoIndex.asStateFlow()
 
         private val _lastTap = MutableStateFlow<TapTrace?>(null)
         /** How the latest grab ended: declined, light key ✓ (and sending) or ✗. */

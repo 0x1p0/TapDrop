@@ -132,6 +132,10 @@ fun SettingsScreen(
     val live by NotchTapService.live.collectAsStateWithLifecycle()
     val lastTap by NotchTapService.lastTap.collectAsStateWithLifecycle()
     val videoIndex by NotchTapService.videoIndex.collectAsStateWithLifecycle()
+    val photoIndex by NotchTapService.photoIndex.collectAsStateWithLifecycle()
+    // Photos and videos together: what a tap can find as the original.
+    val library = listOfNotNull(videoIndex, photoIndex).takeIf { it.isNotEmpty() }
+        ?.let { l -> l.sumOf { it.first } to l.sumOf { it.second } }
     val modes by app.prefs.appModes.collectAsStateWithLifecycle()
     val pickOn by app.prefs.pickFirst.collectAsStateWithLifecycle()
     val otpOn by app.prefs.smartOtp.collectAsStateWithLifecycle()
@@ -229,11 +233,11 @@ fun SettingsScreen(
                         trailing = { RowChevron() },
                     )
                 }
-                videoIndex?.takeIf { it.second > 0 }?.let { (done, total) ->
+                library?.takeIf { it.second > 0 }?.let { (done, total) ->
                     item { shape ->
                         SettingsRow(
-                            title = "Videos for tap",
-                            subtitle = if (done >= total) "All $total ready · a tap sends the original video"
+                            title = "Photos & videos for tap",
+                            subtitle = if (done >= total) "All $total ready · a tap sends the original"
                             else "Getting ready · $done of $total · keeps going while unlocked",
                             shape = shape,
                             leading = { IconChip(Icons.Rounded.VideoLibrary, Brand.Orchid, size = 36.dp, iconSize = 20.dp) },
