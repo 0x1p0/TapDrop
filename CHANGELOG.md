@@ -2,6 +2,11 @@
 
 What's new in each version, newest first. The notes under a version are what TapDrop shows in its update window, so write them for the people using it. Keep each bullet on one line.
 
+## 2.1.2
+
+### Better
+- **The right picture, or none.** With a photo on screen, TapDrop now compares only that photo with your gallery, never the app around it, and a match has to clearly beat every other picture. A screenshot saved from a chat can no longer stand in for the photo you're looking at; when TapDrop isn't sure, it sends a fresh screenshot.
+
 ## 2.1.1
 
 ### Better

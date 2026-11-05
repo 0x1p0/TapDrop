@@ -123,14 +123,33 @@ class MediaMatcher(
         }
 
         val small = Bitmap.createScaledBitmap(screen, max(9, screen.width / 4), max(8, screen.height / 4), true)
+        // With a picture on screen, only the picture is compared, never the app around it: a chat or a feed looks just
+        // like a screenshot of that app someone saved or forwarded, which must never stand in for the picture. (A
+        // picture filling the screen is the screen, so then the whole screen counts too.)
+        val hitShare = hit?.rect?.let { r -> r.width().toFloat() * r.height() / (screen.width.toFloat() * screen.height) } ?: 0f
+        val onlyPicture = hit != null && hitShare < 0.85f
         val bands = buildList {
-            hit?.rect?.let { r -> add(Rect(r.left / 4, r.top / 4, r.right / 4, r.bottom / 4)) }
-            add(Rect(0, 0, small.width, small.height))
-            add(Rect(0, (small.height * 0.08f).toInt(), small.width, (small.height * 0.88f).toInt()))
+            hit?.rect?.let { r ->
+                add(Rect(r.left / 4, r.top / 4, r.right / 4, r.bottom / 4))
+                // …and a little inside it, in case its box takes in a border or a shadow.
+                val ix = r.width() / 40
+                val iy = r.height() / 40
+                add(Rect((r.left + ix) / 4, (r.top + iy) / 4, (r.right - ix) / 4, (r.bottom - iy) / 4))
+            }
+            if (!onlyPicture) {
+                add(Rect(0, 0, small.width, small.height))
+                add(Rect(0, (small.height * 0.08f).toInt(), small.width, (small.height * 0.88f).toInt()))
+            }
         }
+        // A picture shaped like a phone screen (a screenshot, saved or forwarded) only counts against a region of that
+        // shape: the picture on screen has to be one.
+        val screenShape = screen.width.toFloat() / screen.height
+        val hitShape = hit?.rect?.let { r -> r.width().toFloat() / max(1, r.height()) }
+        fun screenShaped(a: Float) = abs(a - screenShape) / screenShape < 0.05f || abs(a - 1 / screenShape) * screenShape < 0.05f
+        fun ruledOut(p: Print) = onlyPicture && screenShaped(p.aspect) && hitShape != null && abs(hitShape - p.aspect) / p.aspect > 0.12f
         // The screen's hash per band and media shape, computed once (the index compares thousands of frames).
         val memo = HashMap<Long, LongArray?>()
-        fun score(p: Print) = bands.indices.minOf { i ->
+        fun score(p: Print) = if (ruledOut(p)) BITS else bands.indices.minOf { i ->
             val k = (i.toLong() shl 32) or (p.aspect * 100).toInt().toLong()
             val here = memo.getOrPut(k) { regionHash(small, bands[i], (k and 0xffffffffL).toFloat() / 100) }
             if (here == null) BITS else dist(p.bits, here)
@@ -217,6 +236,16 @@ class MediaMatcher(
 
         val ranked = scored.sortedBy { it.second }
         val best = ranked.firstOrNull()
+        // A match has to stand out: either all but identical, or clearly closer than the next-closest picture (copies of
+        // the same picture, like a chat's copy and the camera's original, don't count against each other). A near tie
+        // means the screen region looks like several pictures, so it's none of them: a fresh screenshot goes instead.
+        fun twins(a: Media, b: Media): Boolean {
+            val pa = thumb(a) ?: return false
+            val pb = thumb(b) ?: return false
+            return dist(pa.bits, pb.bits) <= 16
+        }
+        val runnerUp = best?.let { (bm, _) -> ranked.drop(1).firstOrNull { (m, _) -> !twins(m, bm) } }
+        val standsOut = best != null && (best.second <= 12 || (runnerUp?.second ?: BITS) - best.second >= 10)
         val bestStrong = ranked.firstOrNull { (m, _) -> strong.any { it.uri == m.uri } }
         val newest = all.firstOrNull { !video || it.isVideo }
         Log.i(
@@ -235,13 +264,13 @@ class MediaMatcher(
             // wanted. A picture of a similar screen (an old screenshot, or one someone sent in a chat) must never stand
             // in for it. Only a gallery showing a photo full screen, unmistakably, sends the photo.
             hit == null -> best?.takeIf { gallery && it.second <= 20 && !isScreenshot(it.first) }?.first
-            best != null && best.second <= 36 -> best.first
+            best != null && best.second <= 36 && standsOut -> best.first
             // A picture the user pointed at: a little looser, as long as it clearly beats every other photo.
             picked && best != null && best.second <= 52 && (ranked.getOrNull(1)?.second ?: BITS) - best.second >= 16 -> best.first
             bestStrong != null && bestStrong.second <= 64 -> bestStrong.first
             strong.size == 1 -> strong[0]
             // Just arrived (e.g. received in a chat a moment ago) and it looks alike → that one.
-            best != null && best.second <= 52 && newest != null && best.first.uri == newest.uri &&
+            best != null && best.second <= 52 && standsOut && newest != null && best.first.uri == newest.uri &&
                 now - max(newest.addedMs, newest.takenMs) < 30 * 60_000L -> best.first
             else -> null
         }
@@ -270,6 +299,8 @@ class MediaMatcher(
             hit?.positionMs?.let { append(" at ${it / 1000}s") }
             append(" · ${all.count { it.isVideo }} videos, ${all.count { !it.isVideo }} photos in library")
             best?.let { append(" · closest ${it.first.name} ${it.second}") }
+            runnerUp?.let { append(" (next ${it.second})") }
+            if (onlyPicture) append(" · picture only")
             atFrame?.let { append(" · frame at position ${it.first.name} ${it.second}") }
             append(" · index ${indexEntries.size}/${recentVideos().size} videos")
             if (!allowVideos) append(" · videos not searched here")
