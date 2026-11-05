@@ -78,6 +78,27 @@ class Prefs(ctx: Context) {
     private val _otpCopyOnPhone = MutableStateFlow(sp.getBoolean("otpCopyOnPhone", true))
     val otpCopyOnPhone: StateFlow<Boolean> = _otpCopyOnPhone.asStateFlow()
 
+    private val _restrictedTried = MutableStateFlow(sp.getBoolean("restrictedTried", false))
+    /**
+     * Tap to send setup: TapDrop was tried in Accessibility once. Android only offers "Allow restricted settings" in
+     * App info after the user has tried to switch a restricted app on there and been told it was denied.
+     */
+    val restrictedTried: StateFlow<Boolean> = _restrictedTried.asStateFlow()
+
+    fun setRestrictedTried(on: Boolean) {
+        _restrictedTried.value = on
+        sp.edit { putBoolean("restrictedTried", on) }
+    }
+
+    private val _restrictedVisited = MutableStateFlow(sp.getBoolean("restrictedVisited", false))
+    /** …and App info was opened after that, to allow it (Android 15+ doesn't let an app read whether it was). */
+    val restrictedVisited: StateFlow<Boolean> = _restrictedVisited.asStateFlow()
+
+    fun setRestrictedVisited(on: Boolean) {
+        _restrictedVisited.value = on
+        sp.edit { putBoolean("restrictedVisited", on) }
+    }
+
     private val _autoUpdates = MutableStateFlow(sp.getBoolean("autoUpdates", true))
     /** "Check for updates automatically": once a day in the background (see app.tapdrop.update.Updates). */
     val autoUpdates: StateFlow<Boolean> = _autoUpdates.asStateFlow()

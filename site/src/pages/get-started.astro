@@ -189,26 +189,31 @@ const toc = [
         <p>Tap to send needs TapDrop’s <strong>accessibility service</strong>. That’s how it can see what’s on your screen at the moment you tap. It only looks when a tap passes, and what it sends goes only to your Mac, encrypted, over your Wi-Fi.</p>
         <p>On your phone’s TapDrop home screen, find <Ui>Tap your Mac to send</Ui> and tap <Ui>Turn on tap to send</Ui>. A checklist walks you through these steps, and each has a button that opens the right screen.</p>
 
-        <h3 id="allow-restricted-settings"><a class="anchor" href="#allow-restricted-settings" aria-hidden="true" tabindex="-1">#</a><span class="stepno">4.1</span>Allow restricted settings <span class="if">only if Android asks</span></h3>
-        <p>Android 13 and newer lock accessibility for apps installed from a file until you allow it. If the checklist shows <Ui>Allow restricted settings</Ui>:</p>
+        <h3 id="try-tapdrop-in-accessibility"><a class="anchor" href="#try-tapdrop-in-accessibility" aria-hidden="true" tabindex="-1">#</a><span class="stepno">4.1</span>Try TapDrop in Accessibility first <span class="if">only if Android restricts it</span></h3>
+        <p>Android 13 and newer restrict accessibility for apps installed from a file, and only offer the way to allow it once you’ve tried. If the checklist shows <Ui>Try TapDrop in Accessibility</Ui>:</p>
         <ol class="steps-list">
-          <li>Tap <Ui>App info</Ui>.</li>
-          <li>Tap <Ui icon="dots">More</Ui> (the three dots, top right).</li>
+          <li>Tap <Ui>Open</Ui>. If you land on a list, TapDrop is under <Ui>Downloaded apps</Ui> (some phones: <Ui>Installed apps</Ui>).</li>
+          <li>Tap <Ui>TapDrop <span class="dash"></span> tap your Mac to send</Ui>. Android says it’s restricted: <span class="say">“App was denied access”</span> or, on some versions, <span class="say">“Restricted setting”</span>. Tap <Ui>Close</Ui> (or <Ui>OK</Ui>).</li>
+          <li>Go back to TapDrop.</li>
+        </ol>
+
+        <h3 id="allow-restricted-settings"><a class="anchor" href="#allow-restricted-settings" aria-hidden="true" tabindex="-1">#</a><span class="stepno">4.2</span>Allow restricted settings</h3>
+        <ol class="steps-list">
+          <li>Tap <Ui>App info</Ui> next to <Ui>Allow restricted settings</Ui>.</li>
+          <li>Tap <Ui icon="dots">More</Ui> (the three dots, top right). It’s there now, after 4.1.</li>
           <li>Tap <Ui>Allow restricted settings</Ui> and confirm with your PIN, pattern or fingerprint.</li>
           <li>Go back to TapDrop.</li>
         </ol>
-        <p class="aside-note">Don’t see the three dots or the option? First try to switch TapDrop on in Accessibility (the next step). Android then shows <span class="say">“Restricted setting”</span>, and the option appears under the three dots after that.</p>
 
-        <h3 id="turn-on-tapdrop-in-accessibility"><a class="anchor" href="#turn-on-tapdrop-in-accessibility" aria-hidden="true" tabindex="-1">#</a><span class="stepno">4.2</span>Turn on TapDrop in Accessibility</h3>
+        <h3 id="turn-on-tapdrop-in-accessibility"><a class="anchor" href="#turn-on-tapdrop-in-accessibility" aria-hidden="true" tabindex="-1">#</a><span class="stepno">4.3</span>Turn on TapDrop in Accessibility</h3>
         <ol class="steps-list">
           <li>Tap <Ui>Open</Ui> next to <Ui>Turn on TapDrop in Accessibility</Ui>.</li>
-          <li>If you land on a list, TapDrop is under <Ui>Downloaded apps</Ui> (some phones: <Ui>Installed apps</Ui>).</li>
           <li>Tap <Ui>TapDrop <span class="dash"></span> tap your Mac to send</Ui> and switch on <Ui>Use TapDrop</Ui>.</li>
           <li>Android asks <span class="say">“Allow TapDrop to have full control of your device?”</span> Tap <Ui>Allow</Ui>.</li>
           <li>Go back to TapDrop.</li>
         </ol>
 
-        <h3 id="let-it-run-in-the-background"><a class="anchor" href="#let-it-run-in-the-background" aria-hidden="true" tabindex="-1">#</a><span class="stepno">4.3</span>Let it run in the background</h3>
+        <h3 id="let-it-run-in-the-background"><a class="anchor" href="#let-it-run-in-the-background" aria-hidden="true" tabindex="-1">#</a><span class="stepno">4.4</span>Let it run in the background</h3>
         <div class="with-shot">
           <div>
             <p>Some brands (Samsung, Xiaomi, OnePlus, OPPO, vivo, Huawei and others) stop apps in the background to save battery, which turns tap to send off. If the checklist shows <Ui>Let it run in the background</Ui>, tap <Ui>Allow</Ui>, then allow it in the dialog.</p>

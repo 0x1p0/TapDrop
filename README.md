@@ -209,9 +209,10 @@ If your Mac isn't listed, tap **Can't see your Mac?** → **Edit address** and t
 
 On the phone's home screen, tap **Turn on tap to send**, then follow the checklist:
 
-1. **Allow restricted settings** (only if shown). Android 13+ asks this for apps installed from a file: **App info → ⋮ → Allow restricted settings**, then confirm.
-2. **Turn on TapDrop in Accessibility.** Open it, find **TapDrop — tap your Mac to send** (under **Downloaded apps** or **Installed apps**), switch on **Use TapDrop**, and tap **Allow**.
-3. **Let it run in the background** (Samsung, Xiaomi, OnePlus, OPPO, vivo, Huawei…). Tap **Allow**, or set **App info → Battery → Unrestricted**.
+1. **Try TapDrop in Accessibility** (only if shown). Android 13+ restricts apps installed from a file, and only offers the way to allow it once you've tried. Tap **Open**, tap **TapDrop — tap your Mac to send** (under **Downloaded apps** or **Installed apps**), and close Android's message (*App was denied access* or *Restricted setting*).
+2. **Allow restricted settings.** Tap **App info**, then **⋮** at the top right (it's there now) → **Allow restricted settings**, and confirm.
+3. **Turn on TapDrop in Accessibility.** Tap **Open** → **TapDrop — tap your Mac to send** → switch on **Use TapDrop** → **Allow**.
+4. **Let it run in the background** (Samsung, Xiaomi, OnePlus, OPPO, vivo, Huawei…). Tap **Allow**, or set **App info → Battery → Unrestricted**.
 
 **Optional:** under **Get the most out of TapDrop**, allow:
 - **Original photos & videos**: choose **Allow all**.

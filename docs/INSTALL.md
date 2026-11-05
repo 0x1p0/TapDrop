@@ -163,28 +163,31 @@ you tap. It only looks when a tap passes, and what it sends goes only to your Ma
 On your phone's TapDrop home screen, find **Tap your Mac to send** and tap **Turn on tap to send**. A checklist
 walks you through these steps. Each one has a button that opens the right screen.
 
-### 1. Allow restricted settings (only if Android asks)
+### 1. Try TapDrop in Accessibility first (only if Android restricts it)
 
-Android 13 and newer lock accessibility for apps installed from a file until you allow it. If the checklist shows
-**Allow restricted settings**:
+Android 13 and newer restrict accessibility for apps installed from a file, and only offer the way to allow it once
+you've tried. If the checklist shows **Try TapDrop in Accessibility**:
 
-1. Tap **App info**.
-2. Tap **⋮** (the three dots, top right).
+1. Tap **Open**. If you land on a list, TapDrop is under **Downloaded apps** (some phones: **Installed apps**).
+2. Tap **TapDrop — tap your Mac to send**. Android says it's restricted: *App was denied access* or, on some
+   versions, *Restricted setting*. Tap **Close** (or **OK**).
+3. Go back to TapDrop.
+
+### 2. Allow restricted settings
+
+1. Tap **App info** next to **Allow restricted settings**.
+2. Tap **⋮** (the three dots, top right). It's there now, after step 1.
 3. Tap **Allow restricted settings** and confirm with your PIN, pattern or fingerprint.
 4. Go back to TapDrop.
 
-> Don't see **⋮** or the option? First try to switch TapDrop on in Accessibility (the next step). Android then
-> shows *Restricted setting*, and the option appears in **⋮** after that.
-
-### 2. Turn on TapDrop in Accessibility
+### 3. Turn on TapDrop in Accessibility
 
 1. Tap **Open** next to **Turn on TapDrop in Accessibility**.
-2. If you land on a list, TapDrop is under **Downloaded apps** (some phones: **Installed apps**).
-3. Tap **TapDrop — tap your Mac to send** and switch on **Use TapDrop**.
-4. Android asks *Allow TapDrop to have full control of your device?* Tap **Allow**.
-5. Go back to TapDrop.
+2. Tap **TapDrop — tap your Mac to send** and switch on **Use TapDrop**.
+3. Android asks *Allow TapDrop to have full control of your device?* Tap **Allow**.
+4. Go back to TapDrop.
 
-### 3. Let it run in the background (Samsung, Xiaomi, OnePlus, OPPO, vivo, Huawei and others)
+### 4. Let it run in the background (Samsung, Xiaomi, OnePlus, OPPO, vivo, Huawei and others)
 
 Some brands stop apps in the background to save battery, which turns tap to send off. If the checklist shows
 **Let it run in the background**, tap **Allow**, then allow it in the dialog. You can also do it by hand: **App
@@ -278,7 +281,7 @@ using mobile data instead of Wi‑Fi.
 ### "Tap to send stopped" on the phone
 
 Android stopped the accessibility service, usually to save battery. Open TapDrop and tap the banner, or switch TapDrop
-off and on in **Settings → Accessibility**. Then do [Let it run in the background](#3-let-it-run-in-the-background-samsung-xiaomi-oneplus-oppo-vivo-huawei-and-others).
+off and on in **Settings → Accessibility**. Then do [Let it run in the background](#4-let-it-run-in-the-background-samsung-xiaomi-oneplus-oppo-vivo-huawei-and-others).
 
 ### A tap sent a screenshot instead of the photo, video or file
 

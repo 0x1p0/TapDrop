@@ -2,6 +2,11 @@
 
 What's new in each version, newest first. The notes under a version are what TapDrop shows in its update window, so write them for the people using it. Keep each bullet on one line.
 
+## 2.1.1
+
+### Better
+- **Tap to send setup in the right order.** Android only offers "Allow restricted settings" after you've tried TapDrop in Accessibility once, so the checklist now walks you through exactly that: try it, allow it, then switch it on.
+
 ## 2.1.0
 
 ### Free and open source

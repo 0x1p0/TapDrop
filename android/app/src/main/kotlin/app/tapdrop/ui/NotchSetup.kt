@@ -116,6 +116,10 @@ data class TapSetupState(
     val running: Boolean,
     /** The "Allow restricted settings" step: true = blocked, false = allowed, null = can't tell. */
     val restricted: Boolean?,
+    /** TapDrop was tried in Accessibility, which is what makes Android offer "Allow restricted settings". */
+    val tried: Boolean,
+    /** App info was opened after that. Newer Android doesn't let an app read whether it was allowed there. */
+    val visited: Boolean,
     /** This brand stops background apps (Samsung, Xiaomi…), so battery must be unrestricted. */
     val needsBattery: Boolean,
     val battery: Boolean,
@@ -133,17 +137,21 @@ data class TapSetupState(
 fun rememberTapSetupState(): TapSetupState {
     val ctx = LocalContext.current
     val running by NotchTapService.running.collectAsStateWithLifecycle()
+    val tried by app.tapdrop.TapDropApp.instance.prefs.restrictedTried.collectAsStateWithLifecycle()
+    val visited by app.tapdrop.TapDropApp.instance.prefs.restrictedVisited.collectAsStateWithLifecycle()
     var tick by remember { mutableIntStateOf(0) }
     LifecycleResumeEffect(Unit) {
         tick++
         onPauseOrDispose { }
     }
-    return remember(tick, running) {
+    return remember(tick, running, tried, visited) {
         val keepAlive = DeviceSupport.keepAlive
         TapSetupState(
             accessibility = NotchTapService.isEnabled(ctx),
             running = running,
             restricted = restrictedSettingsBlocked(ctx),
+            tried = tried,
+            visited = visited,
             needsBattery = keepAlive != null,
             battery = keepAlive == null || DeviceSupport.batteryUnrestricted(ctx),
         )
@@ -161,9 +169,12 @@ private fun restrictedSettingsBlocked(ctx: Context): Boolean? {
         @Suppress("DEPRECATION")
         ops.unsafeCheckOpNoThrow("android:access_restricted_settings", ctx.applicationInfo.uid, ctx.packageName)
     }.getOrNull()
+    val source = runCatching { ctx.packageManager.getInstallSourceInfo(ctx.packageName).packageSource }.getOrNull()
+    // Newer Android doesn't let an app read this (mode null): then the install source is all there is to go on.
+    android.util.Log.i("TapDrop", "restricted settings: mode=$mode source=$source")
     if (mode == AppOpsManager.MODE_ALLOWED) return false
     if (mode == AppOpsManager.MODE_ERRORED || mode == AppOpsManager.MODE_IGNORED) return true
-    val source = runCatching { ctx.packageManager.getInstallSourceInfo(ctx.packageName).packageSource }.getOrNull() ?: return null
+    source ?: return null
     return source == PackageInstaller.PACKAGE_SOURCE_LOCAL_FILE || source == PackageInstaller.PACKAGE_SOURCE_DOWNLOADED_FILE
 }
 
@@ -274,16 +285,28 @@ fun TapSetupScreen(onClose: () -> Unit, onTest: () -> Unit = {}) {
 
 @Composable
 private fun SetupSteps(s: TapSetupState, ctx: Context) {
-    // Step 1 only matters while accessibility is still off, and only where Android restricts it.
-    val showRestricted = !s.accessibility && s.restricted != false
-    val restrictedState = when {
-        s.accessibility -> StepState.Done
-        s.restricted == true -> StepState.Current
+    // Apps installed from a file are restricted in Accessibility, and Android only offers "Allow restricted settings"
+    // (App info → ⋮) after TapDrop has been tried there once and refused. So, where it's restricted: try it (and close
+    // "App was denied access"), allow it in App info, then switch it on. These steps go once it's switched on.
+    val showRestricted = !s.accessibility && (s.restricted != false || s.tried)
+    val known = s.restricted == true
+    val tryState = when {
+        s.accessibility || s.restricted == false -> StepState.Done
+        s.tried -> StepState.Done
+        known -> StepState.Current
         else -> StepState.Optional
+    }
+    // Newer Android doesn't let TapDrop read whether it was allowed, so once App info has been visited the next step
+    // leads, and this one stays at hand (dashed) in case Android still refuses.
+    val allowState = when {
+        s.accessibility || s.restricted == false -> StepState.Done
+        !known || s.visited -> StepState.Optional
+        s.tried -> StepState.Current
+        else -> StepState.Pending
     }
     val a11yState = when {
         s.ready -> StepState.Done
-        s.restricted == true -> StepState.Pending
+        s.restricted == true && !s.visited -> StepState.Pending
         else -> StepState.Current
     }
     val batteryState = when {
@@ -291,20 +314,46 @@ private fun SetupSteps(s: TapSetupState, ctx: Context) {
         s.ready -> StepState.Current
         else -> StepState.Pending
     }
+    val prefs = app.tapdrop.TapDropApp.instance.prefs
     var n = 0
     SettingsGroup(title = "Setup") {
         if (showRestricted) {
-            val num = ++n
+            val tryNum = ++n
             item { shape ->
                 StepRow(
-                    number = num,
+                    number = tryNum,
+                    title = "Try TapDrop in Accessibility",
+                    body = (if (known) "Tap" else "Only if Android restricts TapDrop: tap") +
+                        " TapDrop in the list. Android says it's restricted (“App was denied access” or “Restricted setting”): " +
+                        "close that. It unlocks the next step.",
+                    state = tryState,
+                    shape = shape,
+                    action = "Open",
+                    onAction = {
+                        prefs.setRestrictedTried(true)
+                        DeviceSupport.openAccessibility(ctx)
+                    },
+                )
+            }
+            val allowNum = ++n
+            item { shape ->
+                StepRow(
+                    number = allowNum,
                     title = "Allow restricted settings",
-                    body = if (s.restricted == true) "Android asks this for apps installed from a file. In App info, open the menu at the top right and allow it."
-                    else "Only if Android says it's restricted: in App info, open the menu at the top right and allow it.",
-                    state = restrictedState,
+                    body = if (s.visited && known) {
+                        "If the next step still says it's restricted: App info, ⋮ at the top right, " +
+                            "Allow restricted settings, and confirm."
+                    } else {
+                        "In App info, tap ⋮ at the top right, then Allow restricted settings, and confirm. " +
+                            "(The ⋮ menu only offers it after the step before.)"
+                    },
+                    state = allowState,
                     shape = shape,
                     action = "App info",
-                    onAction = { DeviceSupport.openAppInfo(ctx) },
+                    onAction = {
+                        if (s.tried) prefs.setRestrictedVisited(true)
+                        DeviceSupport.openAppInfo(ctx)
+                    },
                 )
             }
         }
@@ -314,7 +363,7 @@ private fun SetupSteps(s: TapSetupState, ctx: Context) {
                 number = a11yNum,
                 title = if (s.stalled) "Restart TapDrop in Accessibility" else "Turn on TapDrop in Accessibility",
                 body = if (s.stalled) "It's switched on, but Android stopped it. Turn it off and on again."
-                else "Switch TapDrop on. $accessibilityHint",
+                else "Tap TapDrop, switch on Use TapDrop, then tap Allow. $accessibilityHint",
                 state = a11yState,
                 shape = shape,
                 action = "Open",
