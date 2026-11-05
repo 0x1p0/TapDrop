@@ -226,8 +226,9 @@ class MediaMatcher(
             // anything else on screen. (Thousands of frames are compared, so a near miss isn't enough.)
             indexed != null && indexed.second <= (if (video) 40 else good) && indexed.third - indexed.second >= 16 &&
                 indexed.second + (if (video) 0 else 8) <= (best?.second ?: BITS) -> indexed.first
-            // Nothing on screen looks like a photo/video: only an unmistakable match counts.
-            hit == null -> best?.takeIf { it.second <= 20 }?.first
+            // Nothing on screen looks like a photo/video: only an unmistakable match counts, and never a saved
+            // screenshot (an app screen looks just like an old screenshot of it; a fresh one is what's wanted).
+            hit == null -> best?.takeIf { it.second <= 20 && !isScreenshot(it.first) }?.first
             best != null && best.second <= 36 -> best.first
             // A picture the user pointed at: a little looser, as long as it clearly beats every other photo.
             picked && best != null && best.second <= 52 && (ranked.getOrNull(1)?.second ?: BITS) - best.second >= 16 -> best.first
@@ -272,6 +273,9 @@ class MediaMatcher(
         }
         found?.let { Outcome.Found(it) } ?: Outcome.NotFound
         }
+
+    private fun isScreenshot(m: Media) =
+        m.name.startsWith("Screenshot", ignoreCase = true) || m.name.startsWith("Screen_Recording", ignoreCase = true)
 
     /** The library original of one picture the user tapped in the picker (e.g. a photo in a chat). */
     suspend fun findIn(screen: Bitmap, rect: Rect): Media? =
