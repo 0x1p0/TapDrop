@@ -34,6 +34,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     let state = PanelState()
     private var panel: KeyPanel?
     private var globalMonitor: Any?
+    private var clickMonitor: Any?
     private var keyMonitor: Any?
     private var hideWork: DispatchWorkItem?
     /// When the panel last started closing. A click on the menu bar icon first takes focus from the panel (which
@@ -110,10 +111,12 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func windowDidResignKey(_ notification: Notification) {
-        // Losing key to our own sheets/menus is fine; losing it to another app closes us.
+        // Losing key to anything but a file picker the panel opened (another app, or another TapDrop window such as
+        // Settings or Setup) closes it, like a menu.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
             guard let self, self.isShown, !self.state.demoPinned else { return }
-            if NSApp.keyWindow == nil || !NSApp.isActive { self.hide() }
+            if let key = NSApp.keyWindow, key === self.panel || key is NSSavePanel { return }
+            self.hide()
         }
     }
 
@@ -124,6 +127,12 @@ final class PanelController: NSObject, NSWindowDelegate {
                 guard let self, !self.state.demoPinned else { return }
                 self.hide()
             }
+        }
+        // A click in any other TapDrop window (Settings, Setup) closes it too; the click still goes through.
+        clickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] e in
+            guard let self, self.isShown, !self.state.demoPinned, e.window !== self.panel, !(e.window is NSSavePanel) else { return e }
+            self.hide()
+            return e
         }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
             guard let self, self.isShown, e.window === self.panel else { return e }
@@ -143,8 +152,10 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     private func removeMonitors() {
         if let m = globalMonitor { NSEvent.removeMonitor(m) }
+        if let m = clickMonitor { NSEvent.removeMonitor(m) }
         if let m = keyMonitor { NSEvent.removeMonitor(m) }
         globalMonitor = nil
+        clickMonitor = nil
         keyMonitor = nil
     }
 }
@@ -155,6 +166,17 @@ struct PanelRoot: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        ZStack(alignment: .top) {
+            // The panel's window is taller and wider than the card: a click in that empty space is a click outside.
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture { close() }
+                .accessibilityHidden(true)
+            card
+        }
+    }
+
+    private var card: some View {
         VStack(spacing: 0) {
             PanelView(state: state, close: close)
                 .frame(width: PanelController.contentWidth)
