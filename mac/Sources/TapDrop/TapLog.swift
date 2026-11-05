@@ -62,7 +62,11 @@ final class TapLog: ObservableObject {
         let s = src ?? "light"
         if ok {
             lastKey = Date()
-            add("Light key ✓ \(s) \(lux(pre)) → \(lux(peak)) lux (needed \(lux(need)))" + (fall.map { ", dark again at \(lux($0)) lux" } ?? ""), .good)
+            if let fall {
+                add("Light key ✓ \(s) \(lux(pre)) → \(lux(peak)) lux, dark again at \(lux(fall)) lux: its light \(lux(peak - fall)) (needed \(lux(need)))", .good)
+            } else {
+                add("Light key ✓ \(s) \(lux(pre)) → \(lux(peak)) lux (needed \(lux(need)))", .good)
+            }
             return
         }
         let text: String

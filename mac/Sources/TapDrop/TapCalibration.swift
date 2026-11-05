@@ -4,8 +4,9 @@ import SwiftUI
 
 // Calibration: how bright each phone's white screen reads on this Mac's notch, so the light key asks for what that
 // phone really gives (PROTOCOL.md → "Calibration"). Three holds at the notch, each a full light key that ends in
-// key-fail "calibrating", so nothing is sent. The result is that phone's own floor for the rise:
-// need = max(screenMin, B + 120), with screenMin = clamp(round(0.5 × median sample), 220, 1000).
+// key-fail "calibrating", so nothing is sent. Each sample is the phone's light (white − black). Taps teach it too:
+// every passed tap adds its white − black, and the phone's contact level E is the median of its last 12 (once it has
+// 3), else its calibration, else a default. Its taps need 0.55·E.
 
 /// One phone's calibration on this Mac.
 struct TapCalibrationRecord: Codable, Equatable {
@@ -26,16 +27,49 @@ final class TapCalibrations: @unchecked Sendable {
 
     private let lock = NSLock()
     private var records: [String: TapCalibrationRecord] = [:]
+    /// Each phone's light (white − black) on its last passed taps, newest last.
+    private var learned: [String: [Double]] = [:]
     private var calibrating: String?
 
     private static var url: URL { Store.dir.appendingPathComponent("calibration.json") }
+    private static var learnedURL: URL { Store.dir.appendingPathComponent("tap-light.json") }
 
     private init() {
         if let data = try? Data(contentsOf: Self.url),
            let saved = try? Self.decoder.decode([String: TapCalibrationRecord].self, from: data) {
             records = saved
         }
+        if let data = try? Data(contentsOf: Self.learnedURL),
+           let saved = try? JSONDecoder().decode([String: [Double]].self, from: data) {
+            learned = saved
+        }
     }
+
+    /// How bright this phone's screen reads on the notch (its light, white − black): learned from its taps, else
+    /// its calibration, else the default; within 180…1 500 lux.
+    func contact(for deviceId: String) -> Double {
+        let e: Double = lock.withLock {
+            if let l = learned[deviceId], l.count >= LightKey.learnMin { return LightKey.median(Array(l.suffix(LightKey.learnKeep))) }
+            return records[deviceId]?.contactLux ?? LightKey.defaultContact
+        }
+        return min(max(e, LightKey.contactMin), LightKey.contactMax)
+    }
+
+    /// A passed tap's light (white − black): it keeps the phone's contact level current.
+    func learn(_ deviceId: String, light: Double) {
+        guard light > 0 else { return }
+        let snapshot: [String: [Double]] = lock.withLock {
+            var l = learned[deviceId] ?? []
+            l.append(light.rounded())
+            learned[deviceId] = Array(l.suffix(LightKey.learnKeep))
+            return learned
+        }
+        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        try? data.write(to: Self.learnedURL, options: .atomic)
+    }
+
+    /// How many taps this phone's contact level has learned from (0 until it's learning).
+    func learnedCount(for deviceId: String) -> Int { lock.withLock { learned[deviceId]?.count ?? 0 } }
 
     func record(for deviceId: String) -> TapCalibrationRecord? { lock.withLock { records[deviceId] } }
 
@@ -55,17 +89,22 @@ final class TapCalibrations: @unchecked Sendable {
     func save(_ r: TapCalibrationRecord, for deviceId: String) {
         let snapshot = lock.withLock {
             records[deviceId] = r
+            // A fresh calibration restarts what taps have taught: its holds are the first samples.
+            learned[deviceId] = r.samples
             return records
         }
         write(snapshot)
+        if let data = try? JSONEncoder().encode(lock.withLock { learned }) { try? data.write(to: Self.learnedURL, options: .atomic) }
     }
 
     func reset(_ deviceId: String) {
         let snapshot = lock.withLock {
             records[deviceId] = nil
+            learned[deviceId] = nil
             return records
         }
         write(snapshot)
+        if let data = try? JSONEncoder().encode(lock.withLock { learned }) { try? data.write(to: Self.learnedURL, options: .atomic) }
     }
 
     private func write(_ snapshot: [String: TapCalibrationRecord]) {

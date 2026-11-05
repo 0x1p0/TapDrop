@@ -181,7 +181,7 @@ final class WatchHub: @unchecked Sendable {
 ///
 /// While a phone is being calibrated (`TapCalibrations.active`), its rounds are calibration holds: a lower rise that
 /// waits for the brightest reading, the usual fall, then key-fail "calibrating" with the sample (never key-ok). A
-/// calibrated phone's taps need max(its own floor, B + 120) instead of max(300, B + 120).
+/// calibrated phone's taps need max(its own floor, B + 120) instead of max(180, B + 120).
 ///
 /// One round at a time, ≥ 1.5 s apart, and one phone's echo at a time. All state lives on the sensor's queue.
 final class KeyRounds: @unchecked Sendable {
@@ -207,9 +207,10 @@ final class KeyRounds: @unchecked Sendable {
         var lastLux = 0.0
         var keyOn: TimeInterval?
         var src: String?
+        /// The reading that triggers key-seen.
         var need: Double?
-        /// Bright light only: the phone's light stays under this (the room's own light would read near B).
-        var cap: Double?
+        /// The light this phone's tap needs: white − black ≥ this (0.55 × its contact level).
+        var light: Double?
         /// The brightest reading while its light was on (grab + 40 ms until key-off).
         var peak = 0.0
         /// When the notch saw its light ("key-seen" went out).
@@ -357,9 +358,12 @@ final class KeyRounds: @unchecked Sendable {
             guard let r = round, r.id == n, var p = r.phones[id], p.keyOn != nil, p.keyOff == nil else { return }
             p.keyOff = t
             if p.verdict == nil, p.seenAt != nil {
-                p.fall = r.dark
-                    ? LightKey.fallFraction * p.peak
-                    : min(LightKey.fallFraction * p.peak, max(LightKey.blockFraction * r.room, LightKey.blockFloor))
+                // White − black must reach the phone's needed light, and in a lit room the black phone must block the
+                // room (it's on the sensor). A calibration hold: ≤ peak / 3 and the block.
+                let block = r.dark ? Double.infinity : max(LightKey.blockFraction * r.room, LightKey.blockFloor)
+                p.fall = p.calibrating
+                    ? min(LightKey.fallFraction * p.peak, block)
+                    : min(p.peak - (p.light ?? 0), block)
                 p.deadline?.cancel()
                 p.deadline = after(r, at: t + LightKey.fallWithin) { [weak self] in
                     guard let self, self.round === r, r.phones[id]?.verdict == nil else { return }
@@ -368,6 +372,8 @@ final class KeyRounds: @unchecked Sendable {
             }
             r.phones[id] = p
             if TestMode.on { NSLog("TapDrop[test]: key-off %d from %@%@", n, p.name, p.fall.map { String(format: " (must fall to %.0f lux)", $0) } ?? "") }
+            // Its light was too weak for even a fully dark notch to make the difference: not on the notch.
+            if p.verdict == nil, let f = p.fall, f < 0 { fail(r, id, "not-seen") }
             if sensor.simulated { simulateDark(r, id) }
         }
     }
@@ -524,20 +530,14 @@ final class KeyRounds: @unchecked Sendable {
             fail(r, id, "screen-only")
             return
         }
-        // The phone's own floor if it was calibrated on this Mac, otherwise the standard one. A calibration hold asks
-        // for less: it's there to measure the phone.
-        let record = TapCalibrations.shared.record(for: p.deviceId)
-        let floor = record?.screenMin ?? LightKey.screenMin
+        // E: how bright this phone's screen reads on the notch (learned from its taps). Its tap needs white − black
+        // ≥ 0.55·E; key-seen comes once the notch clearly sees light: ≥ min(0.55·E, P + 0.4·E). A calibration hold
+        // asks for a set level instead: it's there to measure the phone.
+        let e = TapCalibrations.shared.contact(for: p.deviceId)
+        p.light = p.calibrating ? 0 : LightKey.needed(contact: e)
         p.need = p.calibrating
             ? max(r.room + LightKey.calibrateOverRoom, LightKey.calibrateFloor)
-            : max(floor, r.room + LightKey.overRoom)
-        // Sun on the notch: more than this phone's screen can give. If the phone covers the notch, look for its
-        // light as a steady level under the room's instead.
-        let top = max(LightKey.screenTop, 1.25 * (record?.contactLux ?? 0))
-        if !p.calibrating, r.covered, let n = p.need, n > top {
-            p.need = max(floor, r.pre + LightKey.brightRise)
-            p.cap = LightKey.brightCap * r.room
-        }
+            : max(LightKey.seenFloor, min(LightKey.lightFraction * e, r.pre + LightKey.riseFraction * e))
         r.phones[id] = p
         // The light may already be in readings taken while key-on was on its way.
         for s in sensor.samples(from: r.tGrab + LightKey.seeFromGrab, to: Self.now) where see(r, id, s) {
@@ -545,7 +545,7 @@ final class KeyRounds: @unchecked Sendable {
         }
         r.phones[id]?.deadline = after(r, at: on + LightKey.seeWithin) { [weak self] in
             guard let self, self.round === r, let p = r.phones[id], p.verdict == nil, p.seenAt == nil else { return }
-            // A calibration hold that reached its level and was still climbing when the window ended counts as seen.
+            // A light that reached its level and was still climbing when the window ended counts as seen.
             if p.overAt != nil, r.winner == nil, r.candidate == nil {
                 self.seen(r, id, p.peak)
                 return
@@ -564,26 +564,16 @@ final class KeyRounds: @unchecked Sendable {
         if p.calibrating, s.t < on + LightKey.calibrateFrom { return false }
         let before = p.lastLux
         p.lastLux = s.lux
-        if let cap = p.cap {
-            // Bright light: two readings in a row between need and the cap, the phone's own steady light.
-            if s.lux <= cap { p.peak = max(p.peak, s.lux) }
-            r.phones[id] = p
-            guard s.lux >= need, s.lux <= cap, before >= need, before <= cap, r.winner == nil, r.candidate == nil else {
-                return false
-            }
-            seen(r, id, s.lux)
-            return true
-        }
         p.peak = max(p.peak, s.lux)
         r.phones[id] = p
         guard s.lux >= need, r.winner == nil, r.candidate == nil else { return false }
-        if p.calibrating {
-            // Hold the white until the readings stop climbing, so the sample is the screen at full brightness.
-            let first = p.overAt == nil
-            if first { r.phones[id]?.overAt = s.t }
-            let climbing = first || s.lux > before * LightKey.calibratePlateau
-            if climbing, s.t - (p.overAt ?? s.t) < LightKey.calibrateHold { return false }
-        }
+        // Hold the white until the readings stop climbing, so the phone is measured at full brightness (not on its
+        // brightness ramp): key-seen at the first reading within 4 % of the one before, or after a short hold.
+        let first = p.overAt == nil
+        if first { r.phones[id]?.overAt = s.t }
+        let climbing = first || s.lux > before * LightKey.calibratePlateau
+        let hold = p.calibrating ? LightKey.calibrateHold : LightKey.seenHold
+        if climbing, s.t - (p.overAt ?? s.t) < hold { return false }
         seen(r, id, s.lux)
         return true
     }
@@ -608,8 +598,7 @@ final class KeyRounds: @unchecked Sendable {
     private func echo(_ r: Round, _ id: UUID, _ s: LightSample) {
         guard var p = r.phones[id], p.verdict == nil, p.seenAt != nil else { return }
         guard let off = p.keyOff, let fall = p.fall else {
-            // In bright light only the phone's own level counts; the room's would loosen the fall.
-            if p.cap.map({ s.lux <= $0 }) ?? true { p.peak = max(p.peak, s.lux) }
+            p.peak = max(p.peak, s.lux)
             r.phones[id] = p
             return
         }
@@ -641,9 +630,11 @@ final class KeyRounds: @unchecked Sendable {
         p.verdict = .ok
         p.deadline?.cancel()
         r.phones[id] = p
-        let (need, peak, low) = (p.need ?? 0, p.peak, p.low ?? 0)
+        let (need, peak, low) = (p.light ?? p.need ?? 0, p.peak, p.low ?? 0)
         let round = r.id
         passLock.withLock { passes[id] = (round, Self.now) }
+        // This tap's light (white − black) keeps the phone's contact level current.
+        TapCalibrations.shared.learn(p.deviceId, light: peak - low)
         verdict(r, id, ["t": "key-ok", "id": r.id, "peak": Self.r1(peak), "need": Self.r1(need), "fall": Self.r1(low)])
         for (other, o) in r.phones where other != id && o.keyOn != nil && o.verdict == nil { fail(r, other, "other-phone") }
         checkDecided(r)
@@ -676,7 +667,7 @@ final class KeyRounds: @unchecked Sendable {
         DispatchQueue.main.async {
             TapStatus.shared.calibrated()
             TapTestModel.shared.calibrationSample(peak: peak, need: need)
-            TapCalibration.shared.sampled(deviceId: device, peak: peak)
+            TapCalibration.shared.sampled(deviceId: device, peak: peak - low)
         }
     }
 
@@ -686,7 +677,7 @@ final class KeyRounds: @unchecked Sendable {
         p.deadline?.cancel()
         r.phones[id] = p
         if r.candidate == id { r.candidate = nil }
-        let need = p.need ?? 0
+        let need = (p.calibrating ? p.need : p.light ?? p.need) ?? 0
         verdict(r, id, ["t": "key-fail", "id": r.id, "peak": Self.r1(p.peak), "need": Self.r1(need), "why": why])
         // A gentle hint when the phone did light up and the notch saw some of it. A round where the light never
         // reached the notch (a hand over it, a phone in a pocket) stays quiet. While calibrating, the card says it.

@@ -114,22 +114,25 @@ mac   → {"t":"release","id":n}                                          (the p
 - Without a key-on within 2 s of the grab: `key-fail` `no-light-sent`. (The phone takes its screenshot first, which
   can take a second on a cold start, then waits for its white frame to reach the display.)
 - A `src` other than `screen`: `key-fail` `screen-only` at once.
-- The rise: the first reading taken from grab + 40 ms to key-on + 900 ms with `lux ≥ need`, `need = max(S, B + 120)`
-  in any room, where S is 300, or the phone's own floor once it has been calibrated on this Mac (below). Measured on a
-  MacBook Air M4 with an Android phone: the white screen at full brightness reads 400–800 lux on the notch depending on how
-  squarely it sits, and well under half that a few centimetres away. In a lit room the fall below is what proves the
-  phone is on the sensor; the rise shows the light is the phone's screen, facing the notch. B + 120 keeps the room
-  itself (a hand leaving the notch) from ever counting. Otherwise `not-seen` when the window ends.
-- Bright light (sun on the notch): when `B + 120` is more than the phone's screen can give (`max(900, 1.25 × its
-  calibrated contact level)`) and the phone covers the notch (`P ≤ 0.3·B`), the rise is instead two readings in a row
-  between `max(S, P + 200)` and `0.5·B`: the phone's own steady light under the room's. The sun or a hand coming off
-  the notch reads near B, above that band, and the fall below still needs the black phone on the sensor.
+- The phone's light is a difference. While its screen is white the notch reads its light plus whatever room light
+  gets in around it; once it's black, just that leak. **White − black is the phone's own light, whatever the room.**
+  Light falls off fast with distance, so it must reach `0.55·E`, where E is what this phone gives pressed on the notch:
+  the median white − black of its last 12 passed taps (once it has 3), else its calibration, else 300 (an Android phone on a
+  MacBook Air M4 measures 200–460), within 180…1 500. E keeps itself current as the phone, its brightness, a case or
+  the room change; nothing has to be set.
+- key-seen: the first reading from grab + 40 ms to key-on + 900 ms with `lux ≥ max(40, min(0.55·E, P + 0.4·E))` (the
+  notch clearly sees light; P is the level just before it, so a phone already showing bright content counts), held
+  until the readings stop climbing (within 4 % of the one before) or 0.25 s, so the phone is measured at full
+  brightness. Otherwise `not-seen` when the window ends. This only decides when to ask for the echo.
 - After `key-seen` the phone must report `key-off` within 1 s (`no-key-off` otherwise); it reports it once its black
   frame is on the display.
-- The fall: a reading taken after key-off, within 450 ms, with `lux ≤ peak / 3` and, in a lit room, `lux ≤ max(0.6·B, 8)` — the
-  black phone blocks the room's light, so it's on the sensor. Otherwise `stayed-lit` (a lamp or the sun, a hand that just
-  left the notch, a phone held off it, or the phone pulled away too soon). `peak` is the brightest reading while the
-  light was on.
+- The echo: a reading taken after key-off, within 450 ms, with `peak − lux ≥ 0.55·E` (white − black: the phone's light
+  is close) and, in a lit room, `lux ≤ max(0.6·B, 8)` (the black phone blocks the room's light, so it's on the sensor).
+  Otherwise `stayed-lit` (a lamp or the sun, a hand that just left the notch, a phone held off it, or the phone pulled
+  away too soon), or `not-seen` at once if even a fully dark notch couldn't make the difference (the phone's light was
+  too weak to be on the notch). `peak` is the brightest reading while the light was on. This holds in any light: with
+  sun on the notch the phone's screen reads below the room, but black still blocks the sun and white − black is its
+  light. A passed tap's white − black becomes one of E's samples.
 - One phone's echo at a time: the first phone seen is checked; if several phones light up, the first accepted wins and
   the others get `other-phone`. A key-on for a round that isn't running gets `late`.
 - The phone keeps its screen white at most 1.3 s after key-on and black at most 1.6 s after key-off without an answer,
@@ -156,8 +159,8 @@ mac   → {"t":"release","id":n}                                          (the p
   and the link's reader starts the switch to black itself, so a busy app screen can't delay either. The overlay is
   removed on the verdict, a timeout, the link dropping, or the screen going off.
 
-**Calibration.** How bright a phone's white screen reads on the notch depends on the phone and the Mac, so 300 is only
-the floor for a phone nobody has calibrated. Settings → Tap to Send → Test your tap → Calibrate asks for three holds
+**Calibration.** How bright a phone's white screen reads on the notch depends on the phone and the Mac, so E starts at 300 and learns from
+the phone's taps; calibrating just measures it up front. Settings → Tap to Send → Test your tap → Calibrate asks for three holds
 ("Touch the top of your phone's screen to the notch and hold it until it buzzes"). While it runs, every round that phone
 is in is a calibration hold:
 - the rise needs only `max(B + 150, 200)`, and the Mac holds `key-seen` back until the readings stop climbing (a reading
@@ -169,10 +172,10 @@ is in is a calibration hold:
   `grab-ack` `ok:false` `why:"no-light"`; a `grab-ack` `ok:true` after it opens nothing on the Mac (the key never passed).
 
 `peak` (the brightest reading while the light was on) is the sample. After three, the phone's contact level is their
-median and its floor `S = clamp(round(0.5 × contact), 220, 1000)`: half leaves room for a phone held a little
-off-centre, 220 still needs the screen within a few centimetres, 1 000 keeps a very bright phone from being asked for
-more than it gives through a smudge. The Mac keeps it per phone (paired device id) in `calibration.json` in its app
-folder and shows it with Reset (back to 300): "Android phone reads 1,480 lux on the notch. Taps now need 740." A hold that
+median (each sample is white − black) and E is set to it (its taps then keep it current), so its taps need `0.55·E`:
+that leaves room for a phone held a little off-centre. The Mac keeps it per phone (paired device id) in
+`calibration.json`, and the taps' samples in `tap-light.json`, in its app folder, and shows it with Reset (back to the
+default): "Android phone reads 1,480 lux on the notch. Taps now need 814." A hold that
 fails (`not-seen`, `stayed-lit`, a decline) isn't a sample; the card says what to change. Calibration stops after 45 s
 without a sample, on Cancel, when Tap to Send is switched off, or when the phone stays disconnected for 4 s. After a
 tap that fails `not-seen` with a peak of at least 40 % of `need`, the card suggests calibrating.
@@ -185,7 +188,7 @@ phone, at most 8 a second (its "Test your tap" screen).
 `self` (TapDrop open, nothing queued), `off` (sending off for that app), `secure`, `no-screenshot`. Key failures carry
 `no-light-sent`, `screen-only`, `not-seen`, `no-key-off`, `stayed-lit`, `other-phone`, `late`, and `calibrating` (a
 calibration hold, not a failure). The Mac lists rounds with their numbers in Settings → Tap to Send → Recent taps (e.g.
-`Covered 57 → 3 lux · asked Android phone`, `Light key ✓ screen 3 → 1480 lux (needed 300), dark again at 2 lux`,
+`Covered 57 → 3 lux · asked Android phone`, `Light key ✓ screen 3 → 1480 lux (needed 180), dark again at 2 lux`,
 `Calibration 1 of 3 · Android phone reads 1480 lux on the notch`), and after a failed key it shows a gentle hint in the notch
 at most every 30 s, in the same words as the apps:
 
