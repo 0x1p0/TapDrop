@@ -24,3 +24,9 @@ android/keystore.properties
 .idea/
 *.iml
 .vscode/
+
+# demo video project
+video/node_modules/
+video/out/
+
+# local tooling

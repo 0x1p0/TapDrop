@@ -20,7 +20,8 @@ final class Server: @unchecked Sendable {
     private var listener: NWListener?
     private var macId = ""
     private var macName = ""
-    private let autoPair = ProcessInfo.processInfo.environment["TAPDROP_TEST_AUTOPAIR"] == "1"
+    /// Test runs only (debug builds): accepts any pairing request without asking.
+    private let autoPair = TestHooks.on && ProcessInfo.processInfo.environment["TAPDROP_TEST_AUTOPAIR"] == "1"
 
     @MainActor func start() {
         macId = Store.shared.macId
@@ -180,29 +181,74 @@ final class Server: @unchecked Sendable {
 
     // MARK: live link
 
+    /// A live link the phone has said nothing on for this long is dead (it sends "ka" every 15 s): dropped, so the
+    /// phone stops counting as live and no grab goes down it. Test builds can shorten it (TAPDROP_TEST_WATCH_SILENCE).
+    static let watchSilence: TimeInterval = TestHooks.on
+        ? ProcessInfo.processInfo.environment["TAPDROP_TEST_WATCH_SILENCE"].flatMap(Double.init) ?? 45 : 45
+
     private func runWatch(_ ch: SecureChannel, device: PairedDevice) async throws {
-        let id = WatchHub.shared.add(deviceId: device.id, name: device.name, channel: ch)
-        defer { WatchHub.shared.remove(id) }
         let pending = await MainActor.run { Store.shared.outbox.count }
+        // "watching" is always the first message: the hub may push "room" (or a grab) as soon as the phone is added.
         ch.sendJSONNow(["t": "watching", "pending": pending, "notch": NotchSensor.shared.available])
+        let id = WatchHub.shared.add(deviceId: device.id, name: device.name, channel: ch)
+        let heard = LastHeard()
+        // Liveness: a phone whose Wi-Fi went away can leave its link looking open for minutes. Closing the connection
+        // ends the read below, and with it the link.
+        let watchdog = Task.detached { [name = device.name] in
+            let silence = Self.watchSilence
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(min(5, silence / 3)))
+                if heard.quietFor() > silence {
+                    NSLog("TapDrop: nothing from %@ for %.0f s; dropping its live link", name, silence)
+                    ch.conn.close()
+                    return
+                }
+            }
+        }
+        defer {
+            watchdog.cancel()
+            WatchHub.shared.remove(id)
+        }
         while true {
             let m = try await ch.recvJSON()
+            heard.now()
+            let at = ProcessInfo.processInfo.systemUptime  // light-key timing uses the receive time
+            let round = m.int("id").map { Int($0) }
             switch m.type {
             case "ka":
                 ch.sendJSONNow(["t": "ka"])
                 await MainActor.run { Store.shared.touch(device.id) }
+            case "caps":
+                WatchHub.shared.setCaps(id, key: Int(m.int("key") ?? 0))
+            case "knock":
+                KeyRounds.shared.knock(from: id, at: at)
+            case "key-on":
+                KeyRounds.shared.keyOn(from: id, round: round ?? -1, src: m.str("src") ?? "", at: at)
+            case "key-off":
+                KeyRounds.shared.keyOff(from: id, round: round ?? -1, at: at)
+            case "diag":
+                WatchHub.shared.setDiag(id, on: m.bool("on"))
             case "grab-ack" where !m.bool("ok"):
                 if TestMode.on { NSLog("TapDrop[test]: grab declined by phone (%@)", m.str("why") ?? "?") }
                 let why = m.str("why") ?? ""
+                KeyRounds.shared.declined(from: id, round: round, why: why)
                 await MainActor.run {
                     if let say = TapLog.shared.declined(device.name, why: why) {
-                        Activity.shared.notice(.queued, title: say, detail: "Then hold it over the notch again", sound: false, hideAfter: 2.6)
+                        Activity.shared.notice(.queued, title: say, detail: "Then touch the top of its screen to the notch.",
+                                               sound: false, hideAfter: 2.6)
                     }
                 }
             case "grab-ack" where m.bool("ok"):
-                // The phone is on its way — open the island right away so the tap feels instant.
                 let kind = m.str("kind")
                 let bySpot = m.bool("spot")
+                // A light-key phone (any version) only goes ahead after its key passed (a calibration hold never
+                // passes); anything else is ignored here. Phones that predate the light key never get grabs; an ack
+                // from one is only logged, as an out-of-date TapDrop.
+                if WatchHub.shared.key(of: id) > 0, !KeyRounds.shared.passed(session: id, round: round) {
+                    NSLog("TapDrop: %@ acked round %@ without a light key; ignored", device.name, round.map(String.init) ?? "?")
+                    break
+                }
+                // The phone is on its way — open the island right away so the tap feels instant.
                 await MainActor.run {
                     TapLog.shared.accepted(device.name, kind: kind ?? "", spot: bySpot)
                     if kind == "inbox" {
@@ -633,4 +679,14 @@ enum Delivery {
         else { summary = texts.last.map { String($0.text.prefix(40)) } ?? "Text" }
         store.addRecent(RecentEvent(incoming: true, peer: peer, summary: summary, files: files, text: texts.last?.text))
     }
+}
+
+/// When a live link last heard from its phone (any message).
+private final class LastHeard: @unchecked Sendable {
+    private let lock = NSLock()
+    private var at = ProcessInfo.processInfo.systemUptime
+
+    func now() { lock.withLock { at = ProcessInfo.processInfo.systemUptime } }
+
+    func quietFor() -> TimeInterval { ProcessInfo.processInfo.systemUptime - lock.withLock { at } }
 }

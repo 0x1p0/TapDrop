@@ -7,97 +7,110 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Environment
 import android.provider.Settings
-import androidx.activity.compose.BackHandler
+import android.text.format.DateUtils
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BatteryChargingFull
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.ContentPaste
+import androidx.compose.material.icons.rounded.ContentPasteGo
+import androidx.compose.material.icons.rounded.Contactless
 import androidx.compose.material.icons.rounded.Devices
-import androidx.compose.material.icons.rounded.Explore
+import androidx.compose.material.icons.rounded.Flare
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.LaptopMac
-import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.Nfc
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.Sensors
+import androidx.compose.material.icons.rounded.SettingsAccessibility
+import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Sms
 import androidx.compose.material.icons.rounded.TouchApp
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Switch
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tapdrop.TapDropApp
+import app.tapdrop.data.SavedMac
 import app.tapdrop.data.TapAction
 import app.tapdrop.tap.NotchTapService
+import app.tapdrop.tap.TapTrace
+import app.tapdrop.ui.design.BrandMark
+import app.tapdrop.ui.design.ChoiceRow
+import app.tapdrop.ui.design.DestructiveButton
+import app.tapdrop.ui.design.GlassSheet
+import app.tapdrop.ui.design.IconChip
+import app.tapdrop.ui.design.LargeTitleScaffold
+import app.tapdrop.ui.design.MainSwitchRow
+import app.tapdrop.ui.design.RowAllowed
+import app.tapdrop.ui.design.RowChevron
+import app.tapdrop.ui.design.SettingsGroup
+import app.tapdrop.ui.design.SettingsRow
+import app.tapdrop.ui.design.SmallButton
+import app.tapdrop.ui.design.StatusPill
+import app.tapdrop.ui.design.StatusTone
+import app.tapdrop.ui.design.SwitchRow
+import app.tapdrop.ui.design.TdShapes
+import app.tapdrop.ui.design.TdTextButton
+import app.tapdrop.ui.design.sheetSegment
+import app.tapdrop.ui.design.tdSharedBounds
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
-private object Accents {
-    val blue = Brush.linearGradient(listOf(Color(0xFF4FA8FF), Color(0xFF2F64F5)))
-    val orange = Brush.linearGradient(listOf(Color(0xFFFFC24A), Color(0xFFFF8A3D)))
-    val pink = Brush.linearGradient(listOf(Color(0xFFFF9A5A), Color(0xFFFF4F8B)))
-    val teal = Brush.linearGradient(listOf(Color(0xFF2ED3B0), Color(0xFF14A08F)))
-    val violet = Brush.linearGradient(listOf(Color(0xFF9B7BFF), Color(0xFF6A3FF0)))
-    val green = Brush.linearGradient(listOf(Color(0xFF4CD97B), Color(0xFF1FA463)))
-    val gray = Brush.linearGradient(listOf(Color(0xFF9097A6), Color(0xFF6B7180)))
-}
+/** Shared-element keys: a Settings row's icon chip flies into the header of the page it opens. */
+const val TAP_TEST_CHIP_KEY = "tap-test-chip"
+const val APP_RULES_CHIP_KEY = "app-rules-chip"
+const val COMPAT_CHIP_KEY = "compat-chip"
 
-/** Everything adjustable, in one place, grouped the way people look for it. */
+/**
+ * Everything adjustable, grouped the way people look for it, in Android 16 segmented groups: your Mac, tap to
+ * send, one-time codes, permissions, the NFC sticker and help. Sub-pages open through the nav host (predictive
+ * back, shared chips); the Mac and the sticker action open as glass sheets.
+ */
 @Composable
 fun SettingsScreen(
     onClose: () -> Unit,
@@ -105,429 +118,617 @@ fun SettingsScreen(
     onNotchSetup: () -> Unit,
     onRules: () -> Unit,
     onSticker: () -> Unit,
-    onSpot: () -> Unit,
-) {
-    var page by remember { mutableStateOf("main") }
-    BackHandler { if (page == "main") onClose() else page = "main" }
-
-    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        GlowBackdrop(Modifier.fillMaxWidth().height(300.dp), intensity = 0.6f)
-        AnimatedContent(
-            targetState = page,
-            transitionSpec = {
-                val forward = targetState != "main"
-                (slideInHorizontally(tween(320)) { if (forward) it / 4 else -it / 4 } + fadeIn(tween(260))) togetherWith
-                    (slideOutHorizontally(tween(320)) { if (forward) -it / 4 else it / 4 } + fadeOut(tween(160)))
-            },
-            label = "settingsPage",
-        ) { p ->
-            when (p) {
-                "compat" -> CompatibilityPage(onBack = { page = "main" })
-                else -> SettingsMain(onClose, onPairAnother, onNotchSetup, onRules, onSticker, onSpot, onCompat = { page = "compat" })
-            }
-        }
-        StatusBarScrim()
-    }
-}
-
-@Composable
-private fun SettingsMain(
-    onClose: () -> Unit,
-    onPairAnother: () -> Unit,
-    onNotchSetup: () -> Unit,
-    onRules: () -> Unit,
-    onSticker: () -> Unit,
-    onSpot: () -> Unit,
-    onCompat: () -> Unit,
+    onTapTest: () -> Unit,
+    onCompatibility: () -> Unit,
 ) {
     val ctx = LocalContext.current
     val app = TapDropApp.instance
+    val c = Td.colors
     val macs by app.prefs.macs.collectAsStateWithLifecycle()
     val live by NotchTapService.live.collectAsStateWithLifecycle()
+    val lastTap by NotchTapService.lastTap.collectAsStateWithLifecycle()
     val modes by app.prefs.appModes.collectAsStateWithLifecycle()
     val pickOn by app.prefs.pickFirst.collectAsStateWithLifecycle()
     val otpOn by app.prefs.smartOtp.collectAsStateWithLifecycle()
     val copyOnPhone by app.prefs.otpCopyOnPhone.collectAsStateWithLifecycle()
     val tapAction by app.prefs.tapAction.collectAsStateWithLifecycle()
     val sticker by app.prefs.stickerMac.collectAsStateWithLifecycle()
-    val spot by app.prefs.spotPeak.collectAsStateWithLifecycle()
-    var confirmForget by remember { mutableStateOf<String?>(null) }
-
-    // Re-check permissions whenever we come back from a system settings page.
-    var tick by remember { mutableIntStateOf(0) }
-    LifecycleResumeEffect(Unit) {
-        tick++
-        onPauseOrDispose { }
-    }
-    fun granted(p: String) = ctx.checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED
-    val notch = remember(tick) { NotchTapService.isEnabled(ctx) }
-    val media = remember(tick) { granted(Manifest.permission.READ_MEDIA_IMAGES) && granted(Manifest.permission.READ_MEDIA_VIDEO) }
-    val files = remember(tick) { Environment.isExternalStorageManager() }
-    val sms = remember(tick) { granted(Manifest.permission.RECEIVE_SMS) }
-    val battery = remember(tick) { DeviceSupport.batteryUnrestricted(ctx) }
+    val tap = rememberTapSetupState()
+    val perms = rememberPermissions()
     val keepAlive = DeviceSupport.keepAlive
     val hasNfc = remember { DeviceSupport.hasNfc(ctx) }
-    val askMedia = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { tick++ }
-    val askSms = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { tick++ }
 
-    val bars = WindowInsets.systemBars.asPaddingValues()
-    LazyColumn(
-        contentPadding = PaddingValues(
-            start = 20.dp, end = 20.dp,
-            top = bars.calculateTopPadding() + 8.dp,
-            bottom = bars.calculateBottomPadding() + 28.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(0.dp),
-    ) {
-        pageHeader("Settings", "${DeviceSupport.modelName} · ${DeviceSupport.androidVersion}", onClose)
+    var macSheet by remember { mutableStateOf<String?>(null) }
+    var forget by remember { mutableStateOf<String?>(null) }
+    var actionSheet by remember { mutableStateOf(false) }
+    var confirmOff by remember { mutableStateOf(false) }
 
-        group("Your Mac", 1) {
-            macs.forEachIndexed { i, m ->
-                if (i > 0) GroupDivider()
-                SettingRow(
-                    icon = Icons.Rounded.LaptopMac, accent = Brand.gradient,
-                    title = m.name,
-                    subtitle = if (live && i == 0) "Connected · ready for taps" else "Paired · ${m.host}",
-                ) {
-                    TextButton(onClick = {
-                        if (confirmForget == m.id) {
-                            app.prefs.removeMac(m.id)
-                            confirmForget = null
-                        } else confirmForget = m.id
-                    }) {
-                        Text(if (confirmForget == m.id) "Confirm" else "Forget", color = MaterialTheme.colorScheme.error)
-                    }
-                }
-            }
-            GroupDivider()
-            SettingRow(Icons.Rounded.Add, Accents.gray, "Pair another Mac", null, onClick = onPairAnother) { Chevron() }
-        }
-
-        group("Tap to send", 2) {
-            SettingRow(
-                Icons.Rounded.Sensors, Brand.gradient, "Tap your Mac to send",
-                when {
-                    !notch -> "Off · turn it on in Accessibility"
-                    live -> "On · hold your phone over the notch"
-                    else -> "On · connects while your screen is on"
-                },
-                onClick = onNotchSetup,
-            ) { if (notch) StatusDot(true) else SmallButton("Turn on", onNotchSetup) }
-            GroupDivider()
-            SettingRow(
-                Icons.Rounded.Explore, Accents.teal, "Tap spot on your Mac",
-                if (spot > 0f) "Found (%.0f µT) · tap your phone there, in any light".format(spot)
-                else "Not set · let your phone find the Mac's magnets (20 s)",
-                onClick = onSpot,
-            ) { if (spot > 0f) Chevron() else SmallButton("Find", onSpot) }
-            GroupDivider()
-            SettingRow(
-                Icons.Rounded.AutoAwesome, Accents.violet, "What each app sends",
-                if (modes.isEmpty()) "Smart in every app" else "${modes.size} customized · Smart for the rest",
-                onClick = onRules,
-            ) { Chevron() }
-            GroupDivider()
-            SettingRow(
-                Icons.Rounded.TouchApp, Accents.blue, "Pick before sending",
-                if (pickOn) "A second to tap or drag over part of the screen" else "Taps send right away",
-                onClick = { app.prefs.setPickFirst(!pickOn) },
-            ) { Switch(checked = pickOn, onCheckedChange = { app.prefs.setPickFirst(it) }) }
-        }
-
-        group("One-time codes", 3) {
-            SettingRow(
-                Icons.Rounded.Key, Accents.orange, "Send codes to your Mac",
-                when {
-                    !otpOn -> "Codes stay on your phone"
-                    sms -> "From texts and notifications, onto the Mac's clipboard"
-                    else -> "From notifications · allow texts below for SMS codes"
-                },
-                onClick = { app.prefs.setSmartOtp(!otpOn) },
-            ) { Switch(checked = otpOn, onCheckedChange = { app.prefs.setSmartOtp(it) }) }
-            GroupDivider()
-            SettingRow(
-                Icons.Rounded.ContentCopy, Accents.gray, "Copy codes on this phone too",
-                "So you can paste them here as well",
-                onClick = { app.prefs.setOtpCopyOnPhone(!copyOnPhone) },
-            ) { Switch(checked = copyOnPhone, onCheckedChange = { app.prefs.setOtpCopyOnPhone(it) }) }
-        }
-
-        group("Permissions", 4) {
-            PermissionRow(Icons.Rounded.Sensors, Brand.gradient, "Accessibility", "Needed for tap to send", notch, "Open") {
-                DeviceSupport.openAccessibility(ctx)
-            }
-            GroupDivider()
-            PermissionRow(Icons.Rounded.PhotoLibrary, Accents.pink, "Photos & videos", "So originals are sent, not screenshots", media, "Allow") {
-                askMedia.launch(arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO, Manifest.permission.READ_MEDIA_AUDIO))
-            }
-            GroupDivider()
-            PermissionRow(Icons.Rounded.Folder, Accents.blue, "All files", "Optional · tap a document anywhere to send it", files, "Allow") {
-                runCatching {
-                    ctx.startActivity(
-                        Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:${ctx.packageName}"))
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    LargeTitleScaffold(
+        title = "Settings",
+        onBack = onClose,
+        chrome = {
+            val shownMac = macs.firstOrNull { it.id == macSheet }
+            if (shownMac != null) {
+                GlassSheet(onDismissed = {
+                    macSheet = null
+                    forget?.let { app.prefs.removeMac(it) }
+                    forget = null
+                }) { close ->
+                    MacSheet(
+                        mac = shownMac,
+                        live = live && shownMac.id == macs.firstOrNull()?.id,
+                        stickerHere = sticker == shownMac.id,
+                        onForget = {
+                            if (macs.size <= 1) {
+                                // The last Mac: the app goes back to its welcome screen, sheet and all.
+                                app.prefs.removeMac(shownMac.id)
+                            } else {
+                                forget = shownMac.id
+                                close()
+                            }
+                        },
+                        close = close,
                     )
                 }
             }
-            GroupDivider()
-            PermissionRow(Icons.Rounded.Sms, Accents.teal, "Text messages", "Optional · for codes sent by SMS", sms, "Allow") {
-                askSms.launch(Manifest.permission.RECEIVE_SMS)
+            if (actionSheet) {
+                GlassSheet(onDismissed = { actionSheet = false }) { close -> TapActionSheet(tapAction, close) }
             }
-            if (keepAlive != null) {
-                GroupDivider()
-                PermissionRow(
-                    Icons.Rounded.BatteryChargingFull, Accents.green, "Run in the background",
-                    "${keepAlive.brand} phones stop apps to save battery", battery, "Allow",
-                ) { DeviceSupport.requestUnrestricted(ctx) }
+        },
+    ) {
+        item("mac") {
+            SettingsGroup(title = if (macs.size > 1) "Your Macs" else "Your Mac") {
+                macs.forEachIndexed { i, m ->
+                    item { shape -> MacRow(m, live = live && i == 0, shape = shape) { macSheet = m.id } }
+                }
+                row(
+                    "Pair another Mac",
+                    icon = Icons.Rounded.Add,
+                    accent = c.textSecondary,
+                    onClick = onPairAnother,
+                    trailing = { RowChevron() },
+                )
             }
         }
 
-        if (keepAlive != null) {
-            item("keepAlive") {
-                Column(
-                    Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(20.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainer).padding(16.dp),
-                ) {
-                    Text("On ${keepAlive.brand} phones, also:", style = MaterialTheme.typography.titleSmall)
-                    keepAlive.steps.forEach { step ->
-                        Row(Modifier.padding(top = 6.dp)) {
-                            Text("•  ", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(step, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        item("tap") {
+            SettingsGroup(title = "Tap to send") {
+                item { shape ->
+                    MainSwitchRow(
+                        title = "Use tap to send",
+                        checked = tap.accessibility,
+                        onCheckedChange = { on -> if (on) onNotchSetup() else confirmOff = true },
+                        icon = Icons.Rounded.Sensors,
+                        shape = shape,
+                        subtitle = when {
+                            !tap.accessibility -> "Off · takes a minute to set up"
+                            tap.stalled -> "Stopped by Android · tap to fix"
+                            live -> "On · ready to tap"
+                            else -> "On · connects while your screen is on"
+                        },
+                        onClick = { if (tap.stalled) DeviceSupport.openAccessibility(ctx) else onNotchSetup() },
+                    )
+                }
+                item { shape ->
+                    SettingsRow(
+                        title = "Test your tap",
+                        subtitle = testSubtitle(lastTap),
+                        shape = shape,
+                        leading = {
+                            IconChip(
+                                Icons.Rounded.Flare, Brand.Blue, size = 36.dp, iconSize = 20.dp,
+                                modifier = Modifier.tdSharedBounds(TAP_TEST_CHIP_KEY),
+                            )
+                        },
+                        onClick = onTapTest,
+                        trailing = { RowChevron() },
+                    )
+                }
+                item { shape ->
+                    SettingsRow(
+                        title = "What each app sends",
+                        subtitle = when (modes.size) {
+                            0 -> "Smart in every app"
+                            1 -> "1 app changed · Smart for the rest"
+                            else -> "${modes.size} apps changed · Smart for the rest"
+                        },
+                        shape = shape,
+                        leading = {
+                            IconChip(
+                                Icons.Rounded.AutoAwesome, Brand.Violet, size = 36.dp, iconSize = 20.dp,
+                                modifier = Modifier.tdSharedBounds(APP_RULES_CHIP_KEY),
+                            )
+                        },
+                        onClick = onRules,
+                        trailing = { RowChevron() },
+                    )
+                }
+                item { shape ->
+                    SwitchRow(
+                        title = "Pick before sending",
+                        checked = pickOn,
+                        onCheckedChange = { app.prefs.setPickFirst(it) },
+                        shape = shape,
+                        subtitle = if (pickOn) "A moment to pick part of the screen" else "Taps send everything right away",
+                        icon = Icons.Rounded.TouchApp,
+                        accent = Brand.Orchid,
+                    )
+                }
+            }
+        }
+
+        item("codes") {
+            SettingsGroup(title = "One-time codes") {
+                item { shape ->
+                    SwitchRow(
+                        title = "Send codes to your Mac",
+                        checked = otpOn,
+                        onCheckedChange = { app.prefs.setSmartOtp(it) },
+                        shape = shape,
+                        subtitle = when {
+                            !otpOn -> "Codes stay on your phone"
+                            perms.sms -> "From texts and notifications, onto your Mac's clipboard"
+                            else -> "From notifications · allow texts below for SMS codes"
+                        },
+                        icon = Icons.Rounded.Key,
+                        accent = Brand.Warning,
+                    )
+                }
+                item { shape ->
+                    SwitchRow(
+                        title = "Copy codes on this phone too",
+                        checked = copyOnPhone,
+                        onCheckedChange = { app.prefs.setOtpCopyOnPhone(it) },
+                        shape = shape,
+                        subtitle = "So you can paste them here as well",
+                        icon = Icons.Rounded.ContentCopy,
+                        accent = Brand.Teal,
+                        enabled = otpOn,
+                    )
+                }
+            }
+        }
+
+        item("permissions") {
+            SettingsGroup(title = "Permissions", footer = "TapDrop only looks at your screen at the moment you tap.") {
+                item { shape ->
+                    PermissionRow(
+                        Icons.Rounded.SettingsAccessibility, Brand.Violet, "Accessibility", "For tap to send",
+                        ok = tap.accessibility, action = "Open", shape = shape,
+                    ) { DeviceSupport.openAccessibility(ctx) }
+                }
+                item { shape ->
+                    PermissionRow(
+                        Icons.Rounded.PhotoLibrary, Brand.Orchid, "Photos & videos",
+                        when {
+                            perms.media -> "Originals are sent, not screenshots"
+                            perms.partial -> "Only some allowed · allow all so originals are found"
+                            else -> "So originals are sent, not screenshots"
+                        },
+                        ok = perms.media, action = if (perms.partial) "Allow all" else "Allow", shape = shape,
+                    ) { perms.askMedia() }
+                }
+                item { shape ->
+                    PermissionRow(
+                        Icons.Rounded.Folder, Brand.Blue, "All files", "Optional · tap a document anywhere to send it",
+                        ok = perms.files, action = "Allow", shape = shape,
+                    ) {
+                        runCatching {
+                            ctx.startActivity(
+                                Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:${ctx.packageName}"))
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
                         }
                     }
-                    TextButton(onClick = { DeviceSupport.openAppInfo(ctx) }, contentPadding = PaddingValues(0.dp)) { Text("Open App info") }
+                }
+                item { shape ->
+                    PermissionRow(
+                        Icons.Rounded.Sms, Brand.Success, "Text messages", "Optional · for codes sent by text",
+                        ok = perms.sms, action = "Allow", shape = shape,
+                    ) { perms.askSms() }
+                }
+                if (keepAlive != null) {
+                    item { shape ->
+                        PermissionRow(
+                            Icons.Rounded.BatteryChargingFull, Brand.Success, "Run in the background",
+                            "${keepAlive.brand} phones stop apps to save battery",
+                            ok = perms.battery, action = "Allow", shape = shape,
+                        ) { DeviceSupport.requestUnrestricted(ctx) }
+                    }
+                    item { shape -> KeepAliveSteps(keepAlive, shape) }
                 }
             }
         }
 
         if (hasNfc) {
-            group("NFC sticker (optional)", 5) {
-                SettingRow(
-                    Icons.Rounded.Nfc, Accents.violet, "NFC sticker",
-                    if (sticker != null) "Set up · tap to rewrite" else "Another way to tap, with a cheap NTAG213/215 sticker",
-                    onClick = onSticker,
-                ) { Chevron() }
-                TapAction.entries.forEach { a ->
-                    GroupDivider()
-                    Row(
-                        Modifier.fillMaxWidth().tappable(pressedScale = 0.99f) { app.prefs.setTapAction(a) }
-                            .padding(start = 8.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        RadioButton(selected = tapAction == a, onClick = { app.prefs.setTapAction(a) })
-                        Column(Modifier.padding(start = 4.dp)) {
-                            Text("On tap: ${a.label}", style = MaterialTheme.typography.bodyLarge)
-                            Text(a.detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
+            item("nfc") {
+                SettingsGroup(title = "NFC sticker", footer = "Optional: another way to tap, with any NTAG213 or NTAG215 sticker.") {
+                    row(
+                        "NFC sticker",
+                        subtitle = macs.firstOrNull { it.id == sticker }?.let { "Linked to ${it.name} · tap to rewrite" }
+                            ?: "Stick one on your Mac, then tap it with your phone",
+                        icon = Icons.Rounded.Nfc,
+                        accent = Brand.Violet,
+                        onClick = onSticker,
+                        trailing = { RowChevron() },
+                    )
+                    row(
+                        "When you tap the sticker",
+                        subtitle = tapAction.label,
+                        icon = Icons.Rounded.Contactless,
+                        accent = Brand.Sky,
+                        onClick = { actionSheet = true },
+                        trailing = { RowChevron() },
+                    )
                 }
             }
         }
 
-        group("Help", 6) {
-            SettingRow(
-                Icons.Rounded.Devices, Accents.teal, "Supported phones & Macs",
-                "Android 13+ · macOS 15+ · what each needs",
-                onClick = onCompat,
-            ) { Chevron() }
-            GroupDivider()
-            SettingRow(
-                Icons.Rounded.Lock, Accents.gray, "Privacy",
-                "End-to-end encrypted. Stays on your Wi-Fi, only to Macs you paired.",
-            ) {}
+        item("help") {
+            SettingsGroup(title = "Help") {
+                item { shape ->
+                    SettingsRow(
+                        title = "Supported phones & Macs",
+                        subtitle = "Android 13+ · macOS 15+ · what each needs",
+                        shape = shape,
+                        leading = {
+                            IconChip(
+                                Icons.Rounded.Devices, Brand.Teal, size = 36.dp, iconSize = 20.dp,
+                                modifier = Modifier.tdSharedBounds(COMPAT_CHIP_KEY),
+                            )
+                        },
+                        onClick = onCompatibility,
+                        trailing = { RowChevron() },
+                    )
+                }
+                row(
+                    "How tapping works",
+                    subtitle = "The gesture, and why a hand or a lamp can't send",
+                    icon = Icons.Rounded.Lightbulb,
+                    accent = Brand.Warning,
+                    onClick = onNotchSetup,
+                    trailing = { RowChevron() },
+                )
+                row(
+                    "Private by design",
+                    subtitle = "End-to-end encrypted. Stays on your Wi‑Fi, only to Macs you paired.",
+                    icon = Icons.Rounded.Shield,
+                    accent = Brand.Success,
+                )
+            }
         }
 
-        item("footer") {
-            Text(
-                "TapDrop ${appVersion(ctx)} · ${app.prefs.identity.deviceName}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.fillMaxWidth().padding(top = 22.dp),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            )
-        }
+        item("about") { AboutFooter() }
+    }
+
+    if (confirmOff) {
+        AlertDialog(
+            onDismissRequest = { confirmOff = false },
+            icon = { IconChip(Icons.Rounded.Sensors, c.accent, size = 48.dp, shape = TdShapes.Cookie9, iconSize = 24.dp) },
+            title = { Text("Turn off tap to send?", style = TdType.title, textAlign = TextAlign.Center) },
+            text = {
+                Text(
+                    "Your phone stops listening for the notch. To turn it back on, you'll switch TapDrop on in Accessibility again.",
+                    style = TdType.bodySmall, color = c.textSecondary, textAlign = TextAlign.Center,
+                )
+            },
+            confirmButton = {
+                TdTextButton("Turn off", {
+                    confirmOff = false
+                    val service = NotchTapService.instance
+                    if (service != null) service.disableSelf() else DeviceSupport.openAccessibility(ctx)
+                }, color = c.dangerText)
+            },
+            dismissButton = { TdTextButton("Keep it on", { confirmOff = false }) },
+            containerColor = c.surfaceRaised,
+        )
     }
 }
 
-// MARK: - compatibility
+/** "Last tap counted · 2 min. ago", or what the page is for. */
+@Composable
+private fun testSubtitle(t: TapTrace?): String {
+    val ago = t?.let { agoText(it.at) }
+    return when {
+        t == null -> "See what your Mac's notch sees"
+        t.ok -> "Last tap counted · $ago"
+        t.why == "calibrating" -> "Calibrating · $ago"
+        else -> "Last tap didn't count · $ago"
+    }
+}
+
+internal fun ago(time: Long): String {
+    val now = System.currentTimeMillis()
+    return if (now - time < 60_000) "just now"
+    else DateUtils.getRelativeTimeSpanString(time, now, DateUtils.MINUTE_IN_MILLIS, DateUtils.FORMAT_ABBREV_RELATIVE).toString()
+}
+
+/** [ago], kept current while it's on screen ("just now" becomes "1 min. ago" without a recomposition). */
+@Composable
+internal fun agoText(time: Long): String {
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(time) {
+        while (true) {
+            delay(15_000)
+            now = System.currentTimeMillis()
+        }
+    }
+    return remember(time, now) { ago(time) }
+}
+
+// MARK: - your Mac
 
 @Composable
-private fun CompatibilityPage(onBack: () -> Unit) {
-    val ctx = LocalContext.current
-    val bars = WindowInsets.systemBars.asPaddingValues()
-    val wifi = remember { DeviceSupport.onWifi(ctx) }
-    val motion = remember { DeviceSupport.hasMotionSensor(ctx) }
-    val nfc = remember { DeviceSupport.hasNfc(ctx) }
-
-    LazyColumn(
-        contentPadding = PaddingValues(
-            start = 20.dp, end = 20.dp,
-            top = bars.calculateTopPadding() + 8.dp,
-            bottom = bars.calculateBottomPadding() + 28.dp,
-        ),
-    ) {
-        pageHeader("Supported devices", "Which phones and Macs TapDrop works with, and what they need", onBack)
-
-        group("This phone", 1) {
-            SettingRow(
-                Icons.Rounded.Devices, if (DeviceSupport.supported) Accents.green else Accents.gray,
-                DeviceSupport.modelName, "${DeviceSupport.androidVersion} · ${if (DeviceSupport.supported) "Supported" else "Needs Android 13 or newer"}",
-            ) { StatusDot(DeviceSupport.supported) }
-            GroupDivider()
-            CheckLine("Android 13 or newer", DeviceSupport.supported)
-            CheckLine("Motion sensor (tells a real tap from a hand)", motion)
-            CheckLine("On Wi-Fi right now", wifi)
-            CheckLine(if (nfc) "NFC (optional sticker)" else "No NFC: the sticker option is hidden (everything else works)", nfc, optional = true)
-        }
-
-        group("Android phones · ${Compatibility.androidVersions}", 2) {
-            ListBlock("Google Pixel", Compatibility.pixels.joinToString("\n"))
-            Compatibility.brands.forEach { g ->
-                GroupDivider(16.dp)
-                ListBlock(g.name, g.models)
+private fun MacRow(mac: SavedMac, live: Boolean, shape: Shape, onClick: () -> Unit) {
+    SettingsRow(
+        title = mac.name,
+        subtitle = if (live) "Connected · ready to tap" else "Paired",
+        shape = shape,
+        leading = {
+            Box {
+                IconChip(Icons.Rounded.LaptopMac, Brand.Blue, size = 36.dp, iconSize = 20.dp)
+                if (live) {
+                    Box(
+                        Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(0.dp)
+                            .size(12.dp)
+                            .background(Td.colors.surface, CircleShape)
+                            .padding(2.dp)
+                            .background(Td.colors.success, CircleShape)
+                    )
+                }
             }
-            GroupDivider(16.dp)
-            ListBlock("Not supported", Compatibility.notSupported.joinToString("\n"), muted = true)
-        }
-
-        group("Macs · macOS 15 Sequoia or newer", 3) {
-            ListBlock("Requirement", Compatibility.macRequirement)
-            Compatibility.macsWithTap.forEach { g ->
-                GroupDivider(16.dp)
-                ListBlock(g.name, g.models)
-            }
-            Compatibility.macsOther.forEach { g ->
-                GroupDivider(16.dp)
-                ListBlock(g.name, g.models, muted = g.name.startsWith("Intel"))
-            }
-        }
-
-        group("What you need", 4) {
-            Compatibility.needs.forEachIndexed { i, n ->
-                if (i > 0) GroupDivider(52.dp)
-                CheckLine(n, true, bullet = true)
-            }
-        }
-
-        item("tested") {
-            Text(
-                Compatibility.tested,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 16.dp, start = 4.dp, end = 4.dp),
-            )
-        }
-    }
-}
-
-// MARK: - building blocks
-
-private fun LazyListScope.pageHeader(title: String, subtitle: String, onBack: () -> Unit) {
-    item("bar") {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            FilledTonalIconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
-        }
-    }
-    item("title") {
-        Column(Modifier.padding(top = 14.dp, bottom = 4.dp).enter(0)) {
-            Text(title, style = MaterialTheme.typography.headlineMedium)
-            Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-private fun LazyListScope.group(title: String, index: Int, content: @Composable ColumnScope.() -> Unit) {
-    item("g_$title") {
-        Column(Modifier.enter(index)) {
-            Text(title, style = sectionLabel, modifier = Modifier.padding(start = 4.dp, top = 22.dp, bottom = 8.dp))
-            Column(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.surfaceContainerLow),
-                content = content,
-            )
-        }
-    }
+        },
+        onClick = onClick,
+        trailing = { RowChevron() },
+    )
 }
 
 @Composable
-fun SettingRow(
-    icon: ImageVector,
-    accent: Brush,
-    title: String,
-    subtitle: String?,
-    onClick: (() -> Unit)? = null,
-    trailing: @Composable RowScope.() -> Unit,
-) {
+private fun MacSheet(mac: SavedMac, live: Boolean, stickerHere: Boolean, onForget: () -> Unit, close: () -> Unit) {
+    val c = Td.colors
+    var confirming by remember { mutableStateOf(false) }
+    val haptics = rememberHaptics()
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        IconChip(Icons.Rounded.LaptopMac, Brand.Blue, size = 72.dp, shape = TdShapes.Cookie9, iconSize = 34.dp, modifier = Modifier.padding(top = 8.dp))
+        Text(mac.name, style = TdType.title, color = c.text, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 14.dp))
+        StatusPill(
+            if (live) "Ready to tap" else "Paired",
+            if (live) StatusTone.Live else StatusTone.Good,
+            Modifier.padding(top = 10.dp),
+        )
+        Spacer(Modifier.height(22.dp))
+        SettingsGroup {
+            item { shape -> SheetValueRow("Address", "${mac.host}:${mac.port}", shape, mono = true) }
+            if (stickerHere) item { shape -> SheetValueRow("NFC sticker", "Linked", shape) }
+        }
+        AnimatedContent(
+            targetState = confirming,
+            transitionSpec = { fadeIn() togetherWith fadeOut() },
+            label = "forget",
+            modifier = Modifier.padding(top = 20.dp),
+        ) { sure ->
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                if (sure) {
+                    Text(
+                        "To use it again, you'll pair with a new code from your Mac.",
+                        style = TdType.bodySmall, color = c.textSecondary, textAlign = TextAlign.Center,
+                        modifier = Modifier.widthIn(max = 320.dp).padding(bottom = 12.dp),
+                    )
+                }
+                DestructiveButton(
+                    if (sure) "Forget ${mac.name}" else "Forget this Mac",
+                    {
+                        if (sure) {
+                            haptics.heavy()
+                            onForget()
+                        } else {
+                            haptics.reject()
+                            confirming = true
+                        }
+                    },
+                    Modifier.fillMaxWidth(),
+                    filled = sure,
+                )
+                TdTextButton(if (sure) "Cancel" else "Done", { if (sure) confirming = false else close() }, Modifier.padding(top = 4.dp))
+            }
+        }
+    }
+}
+
+/** A label and its value, on a segment that stands off the sheet. */
+@Composable
+private fun SheetValueRow(title: String, value: String, shape: Shape, mono: Boolean = false) {
+    val c = Td.colors
     Row(
         Modifier
             .fillMaxWidth()
-            .then(if (onClick != null) Modifier.tappable(pressedScale = 0.99f, onClick = onClick) else Modifier)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .heightIn(min = 56.dp)
+            .background(c.sheetSegment, shape)
+            .semantics(mergeDescendants = true) {}
+            .padding(horizontal = 18.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)).background(accent), contentAlignment = Alignment.Center) {
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.22f), 0.6f to Color.Transparent)))
-            Icon(icon, null, tint = Color.White, modifier = Modifier.size(20.dp))
-        }
-        Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
-            Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        trailing()
-    }
-}
-
-@Composable
-private fun PermissionRow(icon: ImageVector, accent: Brush, title: String, subtitle: String, ok: Boolean, action: String, onClick: () -> Unit) {
-    SettingRow(icon, accent, title, subtitle, onClick = if (ok) null else onClick) {
-        if (ok) StatusDot(true) else SmallButton(action, onClick)
-    }
-}
-
-@Composable
-fun GroupDivider(inset: androidx.compose.ui.unit.Dp = 66.dp) {
-    Box(Modifier.padding(start = inset).fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)))
-}
-
-@Composable
-private fun Chevron() = Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-
-@Composable
-private fun SmallButton(text: String, onClick: () -> Unit) = FilledTonalButton(onClick = onClick, contentPadding = PaddingValues(horizontal = 14.dp)) { Text(text) }
-
-@Composable
-private fun StatusDot(ok: Boolean) {
-    Box(
-        Modifier.size(24.dp).clip(CircleShape).background(if (ok) Brand.successGradient else Accents.gray),
-        contentAlignment = Alignment.Center,
-    ) { Icon(if (ok) Icons.Rounded.Check else Icons.Rounded.Close, null, tint = Color.White, modifier = Modifier.size(15.dp)) }
-}
-
-@Composable
-private fun CheckLine(text: String, ok: Boolean, optional: Boolean = false, bullet: Boolean = false) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier.size(22.dp).clip(CircleShape).background(
-                when {
-                    bullet -> Brand.gradient
-                    ok -> Brand.successGradient
-                    optional -> Accents.gray
-                    else -> Brush.linearGradient(listOf(Brand.Red, Brand.Red))
-                }
-            ),
-            contentAlignment = Alignment.Center,
-        ) { Icon(if (ok || bullet) Icons.Rounded.Check else Icons.Rounded.Close, null, tint = Color.White, modifier = Modifier.size(14.dp)) }
-        Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 14.dp))
-    }
-}
-
-@Composable
-private fun ListBlock(title: String, body: String, muted: Boolean = false) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Text(title, style = TdType.body.copy(fontWeight = FontWeight.Medium), color = c.text, modifier = Modifier.weight(1f))
         Text(
-            title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-            color = if (muted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+            value,
+            style = if (mono) TdType.mono.copy(fontSize = TdType.bodySmall.fontSize) else TdType.bodySmall,
+            color = c.textSecondary,
+            modifier = Modifier.padding(start = 12.dp),
         )
-        Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 3.dp))
+    }
+}
+
+// MARK: - permissions
+
+/** The optional permissions, re-read whenever the screen resumes (e.g. back from a system page). */
+@Immutable
+private class PermissionState(
+    val media: Boolean,
+    val partial: Boolean,
+    val files: Boolean,
+    val sms: Boolean,
+    val battery: Boolean,
+    val askMedia: () -> Unit,
+    val askSms: () -> Unit,
+)
+
+@Composable
+private fun rememberPermissions(): PermissionState {
+    val ctx = LocalContext.current
+    var tick by remember { mutableIntStateOf(0) }
+    LifecycleResumeEffect(Unit) {
+        tick++
+        onPauseOrDispose { }
+    }
+    val media = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { tick++ }
+    val sms = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { tick++ }
+    return remember(tick) {
+        fun granted(p: String) = ctx.checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED
+        val all = granted(Manifest.permission.READ_MEDIA_IMAGES) && granted(Manifest.permission.READ_MEDIA_VIDEO)
+        PermissionState(
+            media = all,
+            partial = !all && granted(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED),
+            files = Environment.isExternalStorageManager(),
+            sms = granted(Manifest.permission.RECEIVE_SMS),
+            battery = DeviceSupport.batteryUnrestricted(ctx),
+            askMedia = {
+                media.launch(arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO, Manifest.permission.READ_MEDIA_AUDIO))
+            },
+            askSms = { sms.launch(Manifest.permission.RECEIVE_SMS) },
+        )
+    }
+}
+
+@Composable
+private fun PermissionRow(
+    icon: ImageVector,
+    accent: Color,
+    title: String,
+    subtitle: String,
+    ok: Boolean,
+    action: String,
+    shape: Shape,
+    onAction: () -> Unit,
+) {
+    val ctx = LocalContext.current
+    SettingsRow(
+        title = title,
+        subtitle = subtitle,
+        icon = icon,
+        accent = accent,
+        shape = shape,
+        // Granted: the row leads to App info, where it can be taken back.
+        onClick = if (ok) ({ DeviceSupport.openAppInfo(ctx) }) else onAction,
+        trailing = {
+            AnimatedContent(ok, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "permission") { granted ->
+                if (granted) RowAllowed() else SmallButton(action, onAction)
+            }
+        },
+    )
+}
+
+/** On brands that stop background apps: the extra steps in their own settings, and a way there. */
+@Composable
+private fun KeepAliveSteps(keepAlive: DeviceSupport.KeepAlive, shape: Shape) {
+    val c = Td.colors
+    val ctx = LocalContext.current
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(c.surface, shape)
+            .padding(start = 18.dp, end = 16.dp, top = 16.dp, bottom = 10.dp),
+    ) {
+        Text("Also on ${keepAlive.brand} phones", style = TdType.body.copy(fontWeight = FontWeight.Medium), color = c.text)
+        Column(Modifier.padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            keepAlive.steps.forEachIndexed { i, step ->
+                Row(verticalAlignment = Alignment.Top) {
+                    Box(
+                        Modifier.size(22.dp).background(c.accentSoft, CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) { Text("${i + 1}", style = TdType.caption, color = c.accentText) }
+                    Text(step, style = TdType.bodySmall, color = c.textSecondary, modifier = Modifier.padding(start = 12.dp, top = 1.dp))
+                }
+            }
+        }
+        TdTextButton("Open App info", { DeviceSupport.openAppInfo(ctx) }, Modifier.padding(top = 4.dp).align(Alignment.End))
+    }
+}
+
+// MARK: - NFC sticker action
+
+private val TapAction.icon: ImageVector
+    get() = when (this) {
+        TapAction.ASK -> Icons.Rounded.Apps
+        TapAction.LATEST_PHOTO -> Icons.Rounded.PhotoLibrary
+        TapAction.CLIPBOARD -> Icons.Rounded.ContentPaste
+        TapAction.MAC_CLIPBOARD -> Icons.Rounded.ContentPasteGo
+    }
+
+private val TapAction.hue: Color
+    get() = when (this) {
+        TapAction.ASK -> Brand.Blue
+        TapAction.LATEST_PHOTO -> Brand.Orchid
+        TapAction.CLIPBOARD -> Brand.Violet
+        TapAction.MAC_CLIPBOARD -> Brand.Teal
+    }
+
+@Composable
+private fun TapActionSheet(current: TapAction, close: () -> Unit) {
+    val app = TapDropApp.instance
+    val c = Td.colors
+    val scope = rememberCoroutineScope()
+    var chosen by remember { mutableStateOf(current) }
+    Text("When you tap the sticker", style = TdType.title, color = c.text, modifier = Modifier.padding(top = 4.dp))
+    Text(
+        "Hold your phone to the NFC sticker on your Mac.",
+        style = TdType.bodySmall, color = c.textSecondary, modifier = Modifier.padding(top = 4.dp, bottom = 18.dp),
+    )
+    SettingsGroup {
+        TapAction.entries.forEach { a ->
+            item { shape ->
+                ChoiceRow(
+                    title = a.label,
+                    selected = chosen == a,
+                    detail = a.detail,
+                    icon = a.icon,
+                    accent = a.hue,
+                    shape = shape,
+                    color = c.sheetSegment,
+                    onClick = {
+                        chosen = a
+                        app.prefs.setTapAction(a)
+                        scope.launch {
+                            delay(260)
+                            close()
+                        }
+                    },
+                )
+            }
+        }
+    }
+}
+
+// MARK: - about
+
+@Composable
+private fun AboutFooter() {
+    val c = Td.colors
+    val ctx = LocalContext.current
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 36.dp, bottom = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        BrandMark(size = 40.dp)
+        Text("TapDrop ${appVersion(ctx)}", style = TdType.label, color = c.textSecondary, modifier = Modifier.padding(top = 12.dp))
+        Text(
+            "On ${TapDropApp.instance.prefs.identity.deviceName}",
+            style = TdType.caption, color = c.textTertiary,
+            modifier = Modifier.heightIn(min = 16.dp).padding(top = 2.dp),
+        )
     }
 }
 

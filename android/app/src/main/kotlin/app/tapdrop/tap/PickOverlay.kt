@@ -1,29 +1,35 @@
 package app.tapdrop.tap
 
 import android.accessibilityservice.AccessibilityService
-import android.animation.ValueAnimator
 import android.annotation.SuppressLint
-import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapShader
+import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
-import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.graphics.RectF
-import android.graphics.Shader
 import android.graphics.SweepGradient
-import android.graphics.Typeface
-import android.os.SystemClock
-import android.text.TextPaint
-import android.text.TextUtils
+import android.text.StaticLayout
+import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
+import android.view.WindowInsets
 import android.view.WindowManager
-import android.view.animation.LinearInterpolator
+import android.widget.FrameLayout
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Notes
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Crop
+import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.TouchApp
+import androidx.compose.material.icons.rounded.Videocam
+import app.tapdrop.ui.TdType
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -33,9 +39,11 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Freeze-frame picker shown right after a notch tap. The screen freezes (it's a screenshot) with a glowing
- * edge. A pill previews exactly what will be sent; once the phone leaves the notch a 1-second countdown
- * runs around it. Touching highlights the thing under the finger; tap it or drag a box to send just that.
+ * The freeze-frame shown right after a tap. The screen freezes into a card (slightly scaled, rounded, softly
+ * vignetted) over a blurred copy of itself, and the island grows out of the camera hole saying what will go
+ * ("Sends the page link"). Once the phone leaves the notch, a ring around the arrow drains for a second and the
+ * plan goes. Touching lights up the thing under the finger (a spotlight, the element lifts on a glowing outline);
+ * lifting the finger sends just that, and dragging marks an area. Cancel sits at the bottom, in thumb reach.
  */
 class PickOverlay(private val svc: AccessibilityService) {
     sealed interface Result {
@@ -45,311 +53,754 @@ class PickOverlay(private val svc: AccessibilityService) {
         data class Region(val rect: Rect) : Result
     }
 
+    /** What the countdown sends. */
+    enum class Kind { LINK, TEXT, FILE, PHOTO, VIDEO, SCREEN, SCREEN_TEXT }
+
+    /**
+     * The thing under the finger: its box in screenshot px, and its words or file name when it has them (so the
+     * island can say exactly what lifting the finger sends).
+     */
+    data class Target(val rect: Rect, val text: String? = null, val file: String? = null)
+
+    /**
+     * What goes if nothing is picked: [detail] is the page's host, "212 words", "Report.pdf · 2 MB", the photo's
+     * name; [note] explains a fallback ("Couldn't find this photo in your gallery"); [finding] while the original
+     * is still being looked up.
+     */
+    data class Plan(
+        val kind: Kind,
+        val detail: String? = null,
+        val thumb: Bitmap? = null,
+        val note: String? = null,
+        val finding: Boolean = false,
+    )
+
     private val wm = svc.getSystemService(WindowManager::class.java)
+    private val kit = OverlayKit(svc)
+    private var root: FrameLayout? = null
     private var view: PickView? = null
 
     /**
      * Shows the picker and suspends until the user picks, cancels, or the countdown ends.
-     * [highlight] maps a touch point to the element that would be picked there (for the live outline).
+     * [highlight] maps a screenshot point to the element that would be picked there (for the live outline).
      */
     suspend fun run(
         shot: Bitmap,
         released: Deferred<Unit>,
-        highlight: (Int, Int) -> Rect?,
+        highlight: (Int, Int) -> Target?,
         windowMs: Long = 1000,
     ): Result = suspendCancellableCoroutine { cont ->
-        val v = PickView(svc, shot, windowMs, highlight, cont)
-        val lp = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-            PixelFormat.TRANSLUCENT,
-        ).apply {
-            layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
-            setFitInsetsTypes(0)
+        val v = PickView(shot, windowMs, highlight, cont)
+        val r = FrameLayout(svc)
+        r.addView(v, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        r.addView(v.cancel, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL))
+        r.setOnApplyWindowInsetsListener { _, insets ->
+            v.applyInsets(insets)
+            insets
         }
-        runCatching { wm.addView(v, lp) }.onFailure {
+        try {
+            wm.addView(r, overlayParams(touchable = true).apply { title = "TapDrop picker" })
+        } catch (_: Exception) {
             cont.resume(Result.Timeout)
             return@suspendCancellableCoroutine
         }
+        root = r
         view = v
+        Handoff.picker = v.handoff
         // The countdown starts when the phone leaves the notch (or after 1.5 s at the latest).
-        released.invokeOnCompletion { v.post { v.startCountdown() } }
-        v.postDelayed({ v.startCountdown() }, 1500)
+        released.invokeOnCompletion { v.post { v.release() } }
+        v.after(1.5f) { v.release() }
         cont.invokeOnCancellation { v.post { remove() } }
     }
 
-    /** What goes if nothing is picked: e.g. ("Trip.mp4", "Video · the original file", thumbnail). Updated live. */
-    fun preview(title: String, detail: String, thumb: Bitmap?, busy: Boolean = false) {
-        view?.let { v -> v.post { v.setPreview(title, detail, thumb, busy) } }
+    /** What goes if nothing is picked. Updated live. */
+    fun preview(plan: Plan) {
+        view?.let { v -> v.post { v.setPlan(plan) } }
     }
 
     /** Keep the countdown waiting (e.g. while the original is still being looked up). */
     fun hold(on: Boolean) {
-        view?.let { v -> v.post { v.held = on } }
+        view?.let { v -> v.post { v.hold(on) } }
     }
 
-    /** Remove the frozen frame (call once the send animation is on screen, so nothing flashes). */
+    /**
+     * Removes the frozen frame. After a send took it over, the window goes as soon as the send overlay is on
+     * screen (so nothing flashes); otherwise the screen un-freezes back into the live app first.
+     */
     fun remove() {
-        view?.let { v ->
-            v.stop()
-            runCatching { wm.removeView(v) }
-        }
+        val v = view ?: return
         view = null
+        if (Handoff.picker === v.handoff) Handoff.picker = null
+        val r = root
+        root = null
+        var gone = false
+        val detach = {
+            if (!gone) {
+                gone = true
+                v.stop()
+                r?.let { runCatching { wm.removeViewImmediate(it) } }
+            }
+        }
+        if (v.handoff.taken) {
+            v.stop()
+            v.handoff.whenStageShown { detach() }
+            v.postDelayed({ detach() }, 300)
+        } else {
+            v.exit { detach() }
+            v.postDelayed({ detach() }, 900)
+        }
     }
+
+    // MARK: - the view
 
     @SuppressLint("ViewConstructor")
-    private class PickView(
-        ctx: Context,
+    private inner class PickView(
         private val shot: Bitmap,
-        private val windowMs: Long,
-        private val highlightAt: (Int, Int) -> Rect?,
+        windowMs: Long,
+        private val highlightAt: (Int, Int) -> Target?,
         private val cont: CancellableContinuation<Result>,
-    ) : View(ctx) {
-        private val d = ctx.resources.displayMetrics.density
-        private fun dp(v: Float) = v * d
-        private val slop = ViewConfiguration.get(ctx).scaledTouchSlop
+    ) : View(svc) {
+        private val screenW: Int
+        private val screenH: Int
+        private val pad = kit.dp(6f)
+        val frozen: FrozenScreen
+        val island: Island
+        val handoff: PickerHandoff
+        val cancel = CancelButton()
 
-        private val brand = intArrayOf(Color.parseColor("#409EFF"), Color.parseColor("#8561FF"), Color.parseColor("#F26BD9"), Color.parseColor("#409EFF"))
-        private val bmpPaint = Paint(Paint.FILTER_BITMAP_FLAG)
-        private val glowWide = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = dp(14f) }
-        private val glowThin = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = dp(3.5f) }
-        private val selFill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(46, 64, 158, 255) }
-        private val selStroke = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = dp(3f) }
-        private val pillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#F21A1B22") }
-        private val pillStroke = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = dp(1f); color = Color.parseColor("#2EFFFFFF") }
-        private val titlePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-            textSize = dp(14.5f)
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        }
-        private val subPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#B3FFFFFF"); textSize = dp(12f) }
-        private val ringTrack = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = dp(3f); color = Color.parseColor("#33FFFFFF") }
-        private val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = dp(3f); strokeCap = Paint.Cap.ROUND; color = Color.WHITE }
-        private val xPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = dp(2f); strokeCap = Paint.Cap.ROUND; color = Color.WHITE }
-        private val xBg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#26FFFFFF") }
-        private val thumbBg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#33FFFFFF") }
-        private val glyph = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = dp(1.8f); color = Color.WHITE }
+        private val slop = ViewConfiguration.get(svc).scaledTouchSlop
+        private var navInset = 0
+        private var islandDown = false
+        private val windowSec = windowMs / 1000f * (if (kit.touchExploration) 6f else 1f)
+        private val ticker = Ticker { dt, real -> frame(dt, real) }
+        private var time = 0f
+        private val timers = mutableListOf<Pair<Float, () -> Unit>>()
+        private var started = false
+        private var exiting = false
+        private var onExited: (() -> Unit)? = null
 
-        private val shown = SystemClock.uptimeMillis()
-        private var countdownStart = 0L
-        private var paused = false
-        var held = false
+        // countdown
+        private var countFrom = -1f
+        private var held = false
+        private var heldSince = 0f
+        private var touching = false
         private var done = false
-        private var angle = 0f
-        private var lastTouch = 0L
 
-        private var title = "Screenshot"
-        private var detail = "The whole screen, as you see it"
-        private var thumb: Bitmap? = null
-        private var thumbPaint: Paint? = null
-        private var busy = false
+        // plan
+        private var plan = Plan(Kind.SCREEN)
 
+        // touch, hover, area
         private var downX = 0f
         private var downY = 0f
+        private var outside = false
         private var dragging = false
-        private var touching = false
-        private var onCancelButton = false
         private var hover: Rect? = null
-        private var hoverAnim = 0f
+        private var hoverTarget: Target? = null
+        private var hoverCrop: Bitmap? = null
+        /** What was picked: an element under the finger, or an area (its crop shows in the island). */
+        private var pickedCrop: Bitmap? = null
+        private var pickedArea = false
+        private val hoverOn = Spring(0f, Motion.snappy, 0.002f)
+        private val grow = Spring(0f, Motion.snappy, 0.2f)
+        private val lift = Spring(0f, Motion.emphasized, 0.001f)
         private val sel = RectF()
-        private val pill = RectF()
-        private val xBtn = RectF()
+        private val selOn = Spring(0f, Motion.snappy, 0.002f)
+        private var spin = 0f
 
-        private val ticker = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 1000
-            repeatCount = ValueAnimator.INFINITE
-            interpolator = LinearInterpolator()
-            addUpdateListener { tick() }
-            start()
+        private val outline = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = kit.dp(2.5f) }
+        private val glow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = kit.dp(7f)
+            maskFilter = BlurMaskFilter(kit.dp(9f), BlurMaskFilter.Blur.NORMAL)
+        }
+        private val sweep = SweepGradient(0f, 0f, Ink.ring, null)
+        private val sm = Matrix()
+        private val handle = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
+        private val handleRing = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x33000000 }
+        private val tmp = RectF()
+        private val src = RectF()
+
+        init {
+            val b = runCatching { wm.currentWindowMetrics.bounds }.getOrNull()
+            screenW = b?.width()?.takeIf { it > 0 } ?: svc.resources.displayMetrics.widthPixels
+            screenH = b?.height()?.takeIf { it > 0 } ?: svc.resources.displayMetrics.heightPixels
+            frozen = FrozenScreen(kit, shot, screenW, screenH)
+            val hole = Hole.of(kit, screenW, kit.statusBarHeight())
+            frozen.glowX = hole.cx
+            frozen.glowY = hole.cy + kit.dp(36f)
+            island = Island(kit, hole, screenW)
+            island.showHole = OverlayLabFlags.showHole
+            handoff = PickerHandoff(frozen, island)
+            importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
+            isClickable = true
+            // The first frame is the screen exactly as it was; the freeze starts from there.
+            viewTreeObserver.registerFrameCommitCallback { post { enter() } }
+            refreshIsland()
+            ticker.start()
         }
 
-        override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
-            super.onLayout(changed, left, top, right, bottom)
-            val band = dp(200f).toInt()
-            val mid = (bottom - top) / 2
-            systemGestureExclusionRects = listOf(
-                Rect(0, mid - band, dp(40f).toInt(), mid + band),
-                Rect(right - left - dp(40f).toInt(), mid - band, right - left, mid + band),
-            )
+        fun applyInsets(insets: WindowInsets) {
+            val nav = insets.getInsets(WindowInsets.Type.navigationBars()).bottom
+            navInset = nav
+            (cancel.layoutParams as? FrameLayout.LayoutParams)?.let { lp ->
+                val m = nav + kit.dp(CANCEL_BOTTOM).toInt()
+                if (lp.bottomMargin != m) {
+                    lp.bottomMargin = m
+                    cancel.layoutParams = lp
+                }
+            }
         }
 
-        fun setPreview(t: String, dt: String, th: Bitmap?, b: Boolean) {
-            title = t
-            detail = dt
-            busy = b
-            thumb = th
-            thumbPaint = th?.let { Paint(Paint.ANTI_ALIAS_FLAG).apply { shader = BitmapShader(it, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP) } }
+        private fun enter() {
+            if (started) return
+            started = true
+            if (kit.reducedMotion) {
+                for (s in arrayOf(frozen.scale, frozen.cy, frozen.radius)) s.motion = Motion.quick
+            }
+            island.show(content())
+            // The screen sinks back into the space between the island and Cancel, so the three never overlap.
+            val top = island.targetBounds().bottom + kit.dp(12f)
+            // (Cancel's view has 8 dp of room around the pill for its shadow.)
+            val bottom = screenH - navInset - kit.dp(CANCEL_BOTTOM + 8f + CANCEL_H + 12f)
+            val k = min((bottom - top) / screenH, (screenW - kit.dp(40f)) / screenW).coerceIn(0.55f, 0.92f)
+            frozen.scale.to(k)
+            frozen.cy.to(if (bottom - top >= screenH * k) (top + bottom) / 2f else top + screenH * k / 2f)
+            frozen.radius.to(kit.dp(26f))
+            frozen.backdrop.to(1f)
+            frozen.depth.to(1f)
+            cancel.show()
+            ticker.start()
+            // If nobody answers (the service went away), the picker cancels itself rather than freeze the screen.
+            postDelayed({ if (!done) finish(Result.Cancel) }, 30_000)
         }
 
-        fun startCountdown() {
-            if (countdownStart == 0L && !done) countdownStart = SystemClock.uptimeMillis()
+        fun after(seconds: Float, block: () -> Unit) {
+            timers += (time + seconds) to block
+            ticker.start()
         }
 
-        fun stop() = ticker.cancel()
+        fun release() {
+            if (countFrom < 0f && !done) {
+                countFrom = time
+                refreshIsland()
+            }
+        }
+
+        fun hold(on: Boolean) {
+            if (on && !held) heldSince = time
+            held = on
+            refreshIsland()
+        }
+
+        fun setPlan(p: Plan) {
+            plan = p
+            refreshIsland()
+        }
+
+        fun stop() {
+            ticker.stop()
+        }
 
         private fun finish(r: Result) {
             if (done) return
             done = true
+            cancel.hide()
+            island.press(false)
             if (cont.isActive) cont.resume(r)
+            refreshIsland()
+            ticker.start()
+            // The service removes the picker once it knows what to send; this only catches a picker it forgot.
+            postDelayed({ if (view === this) remove() }, 12_000)
         }
 
-        private fun tick() {
-            angle = (angle + 2.2f) % 360f
-            val now = SystemClock.uptimeMillis()
-            hoverAnim = if (hover != null && touching && !dragging) min(1f, hoverAnim + 0.18f) else max(0f, hoverAnim - 0.2f)
-            if (paused && now - lastTouch > 4000) {
-                paused = false
-                touching = false
+        fun exit(then: () -> Unit) {
+            if (handoff.taken) return then()
+            exiting = true
+            onExited = then
+            done = true
+            frozen.unfreeze(Motion.standard)
+            hoverOn.to(0f)
+            selOn.to(0f)
+            lift.to(0f)
+            island.collapse()
+            cancel.hide()
+            ticker.start()
+        }
+
+        // MARK: frame
+
+        private fun frame(dt: Float, real: Float): Boolean {
+            if (handoff.taken) return false
+            // [time] is wall-clock: the countdown lasts its second however busy the phone is.
+            time += real
+            var moving = frozen.step(dt)
+            moving = island.step(dt) or moving
+            for (s in arrayOf(hoverOn, grow, lift, selOn)) moving = s.step(dt) or moving
+            moving = cancel.step(dt) or moving
+            if (hoverOn.value > 0.01f || selOn.value > 0.01f) {
+                spin = (spin + dt * 80f) % 360f
+                moving = true
             }
-            // While the original is still being looked up, the countdown waits (up to ~2.5 s).
-            if (held && countdownStart > 0 && now - countdownStart < 2500) countdownStart = min(countdownStart + 16, now)
-            if (!paused && countdownStart > 0 && now - countdownStart >= windowMs) finish(Result.Timeout)
-            if (now - shown > 8000) finish(Result.Timeout)
+            if (timers.isNotEmpty()) {
+                val due = timers.filter { it.first <= time }
+                timers.removeAll(due)
+                due.forEach { it.second() }
+                moving = true
+            }
+            if (exiting) {
+                if (frozen.cardAlpha.value < 0.01f && !island.visible) {
+                    exiting = false
+                    onExited?.invoke()
+                    onExited = null
+                    return false
+                }
+                invalidate()
+                return true
+            }
+            if (!done && started) {
+                // The countdown waits while the original is looked up (up to 2.5 s), and while a finger is down.
+                if (held && countFrom >= 0f && time - heldSince < 2.5f) countFrom += real
+                if (touching && countFrom >= 0f) countFrom += real
+                if (countFrom >= 0f) {
+                    val left = 1f - (time - countFrom) / windowSec
+                    island.countdown(left.coerceIn(0f, 1f), paused = touching)
+                    if (left <= 0f) finish(Result.Timeout)
+                } else {
+                    island.countdown(null, paused = false)
+                }
+                // However the original search goes, the plan goes in the end (unless a finger is still choosing).
+                if (!touching && time > max(8f, windowSec + 6f)) finish(Result.Timeout)
+                moving = true
+            }
             invalidate()
+            return moving || !done
         }
 
-        override fun onDraw(c: Canvas) {
-            val w = width.toFloat()
-            val h = height.toFloat()
-            c.drawBitmap(shot, null, RectF(0f, 0f, w, h), bmpPaint)
-            val enter = ((SystemClock.uptimeMillis() - shown) / 220f).coerceIn(0f, 1f)
-            c.drawColor(Color.argb((40 * enter).toInt(), 0, 0, 0))
+        // MARK: island
 
-            val g = SweepGradient(w / 2, h / 2, brand, null)
-            g.setLocalMatrix(Matrix().apply { setRotate(angle, w / 2, h / 2) })
-            glowWide.shader = g
-            glowThin.shader = g
-            glowWide.alpha = (70 * enter).toInt()
-            glowThin.alpha = (255 * enter).toInt()
-            val r = dp(44f)
-            val edge = RectF(dp(2f), dp(2f), w - dp(2f), h - dp(2f))
-            c.drawRoundRect(edge, r, r, glowWide)
-            c.drawRoundRect(edge, r, r, glowThin)
+        private fun refreshIsland() {
+            if (!started && !island.visible) return
+            if (handoff.taken || exiting) return
+            island.show(content())
+            contentDescription = content().speech + if (!done) ". Double-tap to send it now." else ""
+        }
 
-            // live outline of what's under the finger
-            hover?.let { hr ->
-                if (hoverAnim > 0f) {
-                    val grow = dp(6f) * hoverAnim
-                    val rr = RectF(hr.left - grow, hr.top - grow, hr.right + grow, hr.bottom + grow)
-                    selStroke.shader = g
-                    selStroke.alpha = (255 * hoverAnim).toInt()
-                    selFill.alpha = (46 * hoverAnim).toInt()
-                    c.drawRoundRect(rr, dp(14f), dp(14f), selFill)
-                    c.drawRoundRect(rr, dp(14f), dp(14f), selStroke)
-                }
+        private fun leadFor(p: Plan): Lead = when (p.kind) {
+            Kind.LINK -> Lead.Symbol(Icons.Rounded.Language, Ink.sky)
+            Kind.TEXT, Kind.SCREEN_TEXT -> Lead.Symbol(Icons.AutoMirrored.Rounded.Notes, Ink.violet)
+            Kind.FILE -> Lead.Symbol(Icons.Rounded.Description, Ink.blue)
+            Kind.PHOTO -> p.thumb?.let { Lead.Image(it) } ?: Lead.Symbol(Icons.Rounded.Image, Ink.orchid)
+            Kind.VIDEO -> p.thumb?.let { Lead.Image(it) } ?: Lead.Symbol(Icons.Rounded.Videocam, Ink.orchid)
+            Kind.SCREEN -> Lead.Image(shot)
+        }
+
+        private fun content(): IslandContent {
+            val p = plan
+            val trail = when {
+                done -> Trail.Progress
+                p.finding -> Trail.Progress
+                else -> Trail.Countdown
+            }
+            if (done && pickedArea) {
+                val lead = pickedCrop?.let { Lead.Image(it) } ?: Lead.Symbol(Icons.Rounded.Crop, Ink.violet)
+                return IslandContent(lead, "Sending this area", null, trail)
             }
             if (dragging) {
-                selStroke.shader = g
-                selStroke.alpha = 255
-                selFill.alpha = 46
-                c.drawRoundRect(sel, dp(16f), dp(16f), selFill)
-                c.drawRoundRect(sel, dp(16f), dp(16f), selStroke)
+                return IslandContent(Lead.Symbol(Icons.Rounded.Crop, Ink.violet), "Sends this area", "Any words in it arrive as text", trail)
             }
+            if (touching || (done && hover != null)) return hoverContent(trail)
+            if (p.finding) {
+                val what = when (p.kind) {
+                    Kind.VIDEO -> "the original video"
+                    Kind.FILE -> p.detail ?: "the file"
+                    else -> "the original photo"
+                }
+                return IslandContent(leadFor(p), "Finding $what…", if (p.kind == Kind.FILE) "Looking on your phone" else "Looking in your gallery", trail)
+            }
+            val verb = if (done) "Sending" else "Sends"
+            val title = when (p.kind) {
+                Kind.LINK -> "$verb the page link"
+                Kind.TEXT, Kind.SCREEN_TEXT -> "$verb the text on screen"
+                Kind.FILE -> "$verb this file"
+                Kind.PHOTO -> "$verb the original photo"
+                Kind.VIDEO -> "$verb the original video"
+                Kind.SCREEN -> "$verb the whole screen"
+            }
+            val sub = p.note ?: p.detail ?: when (p.kind) {
+                Kind.SCREEN -> if (done) null else "Or tap something to send just that"
+                Kind.SCREEN_TEXT -> "Your Mac reads it from a screenshot"
+                else -> null
+            }
+            return IslandContent(leadFor(p), title, sub, trail)
+        }
 
-            // pill: [thumbnail inside the countdown ring]  title / detail  [✕]
-            val headline = when {
-                dragging -> "Release to send this area"
-                touching && hover != null -> "Release to send this"
-                else -> title
+        /** The island while a finger rests on something: what it is, in its own words where it has them. */
+        private fun hoverContent(trail: Trail): IslandContent {
+            val t = hoverTarget
+            val words = t?.text?.replace(Regex("\\s+"), " ")?.trim()?.takeIf { it.isNotEmpty() }
+            val file = t?.file
+            return when {
+                file != null -> IslandContent(
+                    Lead.Symbol(Icons.Rounded.Description, Ink.blue),
+                    file,
+                    if (done) "Sending the file" else "Lift your finger to send this file",
+                    trail,
+                )
+                words != null -> IslandContent(
+                    Lead.Symbol(Icons.AutoMirrored.Rounded.Notes, Ink.violet),
+                    "\u201C" + (if (words.length > 44) words.take(42).trimEnd() + "\u2026" else words) + "\u201D",
+                    if (done) "Copying it to your Mac" else "Lift your finger to copy it to your Mac",
+                    trail,
+                    spoken = (if (done) "Copying " else "Copies ") + words,
+                )
+                else -> {
+                    // A picture-like thing shows itself; a sliver (a divider, a long bar) would only be a smudge.
+                    val crop = hoverCrop
+                    val aspect = crop?.let { it.width.toFloat() / max(1, it.height) } ?: 0f
+                    val lead = if (crop != null && aspect in 0.45f..2.2f) Lead.Image(crop) else Lead.Symbol(Icons.Rounded.TouchApp, Ink.violet)
+                    IslandContent(lead, if (done) "Sending this" else "Sends this", if (done) null else "Lift your finger to send it", trail)
+                }
             }
-            val sub = when {
-                dragging || touching -> "Text comes through as text"
-                countdownStart == 0L -> "Pull back · then tap anything to send just that"
-                else -> detail
-            }
-            val ph = dp(62f)
-            val maxText = w - dp(48f) - dp(64f + 50f)
-            val textW = min(maxText, max(titlePaint.measureText(headline), subPaint.measureText(sub)))
-            val pw = textW + dp(64f + 50f)
-            val top = dp(44f) - (1 - enter) * dp(60f)
-            pill.set(w / 2 - pw / 2, top, w / 2 + pw / 2, top + ph)
-            c.drawRoundRect(pill, ph / 2, ph / 2, pillPaint)
-            c.drawRoundRect(pill, ph / 2, ph / 2, pillStroke)
+        }
 
-            val cx = pill.left + dp(33f)
-            val cy = pill.centerY()
-            val rr = dp(19f)
-            val inner = dp(14.5f)
-            val tp = thumbPaint
-            val tb = thumb
-            if (tp != null && tb != null) {
-                val s = (inner * 2) / min(tb.width, tb.height).toFloat()
-                tp.shader.setLocalMatrix(Matrix().apply {
-                    setScale(s, s)
-                    postTranslate(cx - tb.width * s / 2, cy - tb.height * s / 2)
-                })
-                c.drawCircle(cx, cy, inner, tp)
-            } else {
-                c.drawCircle(cx, cy, inner, thumbBg)
-                val gw = dp(9f)
-                val gh = dp(13f)
-                c.drawRoundRect(RectF(cx - gw / 2, cy - gh / 2, cx + gw / 2, cy + gh / 2), dp(2f), dp(2f), glyph)
-            }
-            c.drawCircle(cx, cy, rr, ringTrack)
-            val arc = RectF(cx - rr, cy - rr, cx + rr, cy + rr)
-            if (busy || countdownStart == 0L || held) {
-                c.drawArc(arc, angle * 2, 90f, false, ringPaint)
-            } else if (!paused) {
-                val p = ((SystemClock.uptimeMillis() - countdownStart) / windowMs.toFloat()).coerceIn(0f, 1f)
-                c.drawArc(arc, -90f, 360f * (1 - p), false, ringPaint)
-            }
-            val tx = pill.left + dp(64f)
-            c.drawText(TextUtils.ellipsize(headline, titlePaint, maxText, TextUtils.TruncateAt.MIDDLE).toString(), tx, cy - dp(3f), titlePaint)
-            c.drawText(TextUtils.ellipsize(sub, subPaint, maxText, TextUtils.TruncateAt.END).toString(), tx, cy + dp(15f), subPaint)
+        // MARK: drawing
 
-            val xr = dp(14f)
-            val xcx = pill.right - dp(28f)
-            xBtn.set(xcx - xr - dp(8f), cy - xr - dp(8f), xcx + xr + dp(8f), cy + xr + dp(8f))
-            c.drawCircle(xcx, cy, xr, xBg)
-            val k = dp(4.5f)
-            c.drawLine(xcx - k, cy - k, xcx + k, cy + k, xPaint)
-            c.drawLine(xcx + k, cy - k, xcx - k, cy + k, xPaint)
+        /** The last frame drawn before the send overlay took over (see [onDraw]). */
+        private val lastFrame = android.graphics.RenderNode("TapDrop picker")
+
+        override fun onDraw(c: Canvas) {
+            // Once the send overlay owns the frozen screen and the island, this window only waits to be removed:
+            // it keeps showing its last frame, so nothing flickers while the send overlay's window comes up.
+            if (handoff.taken && lastFrame.hasDisplayList() && c.isHardwareAccelerated) {
+                c.drawRenderNode(lastFrame)
+                return
+            }
+            if (!c.isHardwareAccelerated) return drawScene(c)
+            lastFrame.setPosition(0, 0, width, height)
+            val rc = lastFrame.beginRecording(width, height)
+            try {
+                drawScene(rc)
+            } finally {
+                lastFrame.endRecording()
+            }
+            c.drawRenderNode(lastFrame)
+        }
+
+        private fun drawScene(c: Canvas) {
+            frozen.drawBackdrop(c)
+            frozen.drawCard(c)
+            val hv = hoverOn.value
+            val sv = selOn.value
+            val h = hover
+            if (h != null && hv > 0.003f) {
+                hoverRect(h, tmp)
+                val rad = kit.dp(12f) * frozen.shotScale + grow.value * 0.4f
+                frozen.drawSpotlight(c, tmp, rad, hv * 0.85f)
+                val g = (pad + grow.value) / frozen.shotScale
+                src.set(h.left - g, h.top - g, h.right + g, h.bottom + g)
+                if (lift.value > 0.003f) frozen.drawRegion(c, src, tmp, rad, hv, lift.value)
+                drawOutline(c, tmp, rad, hv)
+            }
+            if (sv > 0.003f && sel.width() > 1f) {
+                val rad = kit.dp(14f)
+                frozen.drawSpotlight(c, sel, rad, sv)
+                if (lift.value > 0.003f && dragging.not() && done) {
+                    src.set(frozen.shotX(sel.left), frozen.shotY(sel.top), frozen.shotX(sel.right), frozen.shotY(sel.bottom))
+                    frozen.drawRegion(c, src, sel, rad, sv, lift.value)
+                }
+                drawOutline(c, sel, rad, sv)
+                if (!done) drawHandles(c, sel, sv)
+            }
+            island.draw(c)
+            island.drawCamera(c)
+        }
+
+        /** The hovered element on screen: its box (plus a little air), growing in, lifted when picked. */
+        private fun hoverRect(h: Rect, out: RectF) {
+            frozen.toScreen(h, out)
+            val g = pad + grow.value
+            out.inset(-g, -g)
+            val k = 1f + 0.035f * lift.value
+            val cx = out.centerX()
+            val cy = out.centerY()
+            out.set(cx - out.width() / 2 * k, cy - out.height() / 2 * k, cx + out.width() / 2 * k, cy + out.height() / 2 * k)
+        }
+
+        private fun drawOutline(c: Canvas, r: RectF, rad: Float, a: Float) {
+            sm.setRotate(spin - 90f)
+            sm.postTranslate(r.centerX(), r.centerY())
+            sweep.setLocalMatrix(sm)
+            glow.shader = sweep
+            glow.alpha = (150 * a).toInt()
+            c.drawRoundRect(r, rad, rad, glow)
+            outline.shader = sweep
+            outline.alpha = (255 * a).toInt()
+            c.drawRoundRect(r, rad, rad, outline)
+        }
+
+        private fun drawHandles(c: Canvas, r: RectF, a0: Float) {
+            // The corners only make sense once there is an area: they fade in as it opens up.
+            val a = a0 * ((min(r.width(), r.height()) - kit.dp(14f)) / kit.dp(22f)).coerceIn(0f, 1f)
+            if (a <= 0.003f) return
+            val hr = kit.dp(5f)
+            handle.alpha = (255 * a).toInt()
+            handleRing.alpha = (60 * a).toInt()
+            for (x in floatArrayOf(r.left, r.right)) for (y in floatArrayOf(r.top, r.bottom)) {
+                c.drawCircle(x, y, hr + kit.dp(1.5f), handleRing)
+                c.drawCircle(x, y, hr, handle)
+            }
+        }
+
+        // MARK: touch
+
+        override fun performClick(): Boolean {
+            super.performClick()
+            // TalkBack's double-tap: send the plan now.
+            if (!done) finish(Result.Timeout)
+            return true
         }
 
         @SuppressLint("ClickableViewAccessibility")
         override fun onTouchEvent(e: MotionEvent): Boolean {
-            if (done) return true
-            lastTouch = SystemClock.uptimeMillis()
+            if (done || !started) return true
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     downX = e.x
                     downY = e.y
-                    onCancelButton = xBtn.contains(e.x, e.y)
-                    paused = true
-                    touching = !onCancelButton
-                    hover = if (onCancelButton) null else highlightAt(e.x.toInt(), e.y.toInt())
+                    dragging = false
+                    islandDown = island.bounds(tmp).contains(e.x, e.y)
+                    if (islandDown) {
+                        // The island is the plan: touching it sends that now.
+                        island.press(true)
+                        performHapticFeedback(HapticFeedbackConstants.SEGMENT_TICK)
+                        return true
+                    }
+                    outside = !frozen.contains(e.x, e.y, slop = kit.dp(6f))
+                    if (outside) return true
+                    touching = true
+                    val sx = frozen.shotX(e.x).toInt()
+                    val sy = frozen.shotY(e.y).toInt()
+                    setHover(highlightAt(sx, sy)?.takeIf { it.rect.width() > 2 && it.rect.height() > 2 })
+                    performHapticFeedback(HapticFeedbackConstants.SEGMENT_TICK)
+                    refreshIsland()
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    if (!onCancelButton && (dragging || abs(e.x - downX) > slop || abs(e.y - downY) > slop)) {
+                    if (islandDown) {
+                        island.press(island.bounds(tmp).contains(e.x, e.y))
+                        return true
+                    }
+                    if (outside) return true
+                    if (!dragging && (abs(e.x - downX) > slop || abs(e.y - downY) > slop)) {
                         dragging = true
-                        hover = null
-                        sel.set(min(downX, e.x), min(downY, e.y), max(downX, e.x), max(downY, e.y))
+                        setHover(null)
+                        selOn.snap(0f)
+                        selOn.to(1f)
+                        performHapticFeedback(HapticFeedbackConstants.DRAG_START)
+                        refreshIsland()
+                    }
+                    if (dragging) {
+                        frozen.cardRect(tmp)
+                        val x = e.x.coerceIn(tmp.left, tmp.right)
+                        val y = e.y.coerceIn(tmp.top, tmp.bottom)
+                        sel.set(min(downX, x), min(downY, y), max(downX, x), max(downY, y))
+                        invalidate()
                     }
                 }
                 MotionEvent.ACTION_UP -> {
                     touching = false
-                    when {
-                        onCancelButton && xBtn.contains(e.x, e.y) -> finish(Result.Cancel)
-                        dragging && sel.width() > dp(24f) && sel.height() > dp(16f) ->
-                            finish(Result.Region(Rect(sel.left.toInt(), sel.top.toInt(), sel.right.toInt(), sel.bottom.toInt())))
-                        !onCancelButton -> finish(Result.Tap(e.x.toInt(), e.y.toInt()))
-                        else -> paused = false
+                    if (islandDown) {
+                        islandDown = false
+                        island.press(false)
+                        if (island.bounds(tmp).contains(e.x, e.y)) {
+                            performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                            finish(Result.Timeout)
+                        }
+                        return true
                     }
-                    dragging = dragging && !done
+                    if (outside) {
+                        if (!frozen.contains(e.x, e.y, slop = kit.dp(6f))) {
+                            performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+                            finish(Result.Cancel)
+                        }
+                        return true
+                    }
+                    if (dragging && sel.width() > kit.dp(24f) && sel.height() > kit.dp(16f)) {
+                        val r = Rect(frozen.shotX(sel.left).toInt(), frozen.shotY(sel.top).toInt(), frozen.shotX(sel.right).toInt(), frozen.shotY(sel.bottom).toInt())
+                        commit(RectF(sel), kit.dp(14f))
+                        pickedArea = true
+                        pickedCrop = crop(r)
+                        dragging = false
+                        performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                        finish(Result.Region(r))
+                    } else if (!dragging) {
+                        val h = hover
+                        if (h != null) {
+                            hoverRect(h, tmp)
+                            commit(RectF(tmp).also { liftedRect(it) }, kit.dp(12f) * frozen.shotScale + grow.target * 0.4f)
+                        }
+                        performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                        finish(Result.Tap(frozen.shotX(e.x).toInt(), frozen.shotY(e.y).toInt()))
+                    } else {
+                        // Too small to be an area: let it go and keep counting.
+                        dragging = false
+                        selOn.to(0f)
+                        refreshIsland()
+                    }
                 }
                 MotionEvent.ACTION_CANCEL -> {
-                    dragging = false
                     touching = false
-                    hover = null
-                    paused = false
-                    countdownStart = SystemClock.uptimeMillis()
+                    dragging = false
+                    islandDown = false
+                    island.press(false)
+                    setHover(null)
+                    selOn.to(0f)
+                    if (countFrom >= 0f) countFrom = time
+                    refreshIsland()
                 }
             }
             return true
         }
+
+        /** The rect as it will look once fully lifted (what the send overlay takes over). */
+        private fun liftedRect(r: RectF) {
+            val k = (1f + 0.035f) / (1f + 0.035f * lift.value)
+            val cx = r.centerX()
+            val cy = r.centerY()
+            r.set(cx - r.width() / 2 * k, cy - r.height() / 2 * k, cx + r.width() / 2 * k, cy + r.height() / 2 * k)
+        }
+
+        private fun commit(screen: RectF, radius: Float) {
+            lift.to(1f)
+            handoff.pickShot = RectF(frozen.shotX(screen.left), frozen.shotY(screen.top), frozen.shotX(screen.right), frozen.shotY(screen.bottom))
+            handoff.pickScale = frozen.scale.value
+            handoff.pick = screen
+            handoff.pickRadius = radius
+            handoff.pickLift = 1f
+            handoff.spot = 0.85f
+        }
+
+        private fun crop(b: Rect): Bitmap? {
+            val c = Rect(b)
+            if (!c.intersect(0, 0, shot.width, shot.height) || c.width() <= 8 || c.height() <= 8) return null
+            return runCatching { Bitmap.createBitmap(shot, c.left, c.top, c.width(), c.height()) }.getOrNull()
+        }
+
+        fun cancelNow() {
+            if (!done) finish(Result.Cancel)
+        }
+
+        private fun setHover(t: Target?) {
+            val r = t?.rect
+            if (r == hover) return
+            hover = r
+            hoverTarget = t
+            hoverCrop = r?.let { crop(it) }
+            if (r != null) {
+                hoverOn.snap(0f)
+                hoverOn.to(1f)
+                grow.snap(kit.dp(12f))
+                grow.to(0f)
+            } else {
+                hoverOn.to(0f)
+            }
+            invalidate()
+        }
+    }
+
+    // MARK: - cancel
+
+    /** A black capsule at the bottom: ✕ Cancel. */
+    @SuppressLint("ViewConstructor")
+    private inner class CancelButton : View(svc) {
+        private val label: StaticLayout
+        private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Ink.island }
+        private val edge = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = kit.dp(1f); color = 0x1FFFFFFF }
+        private val glyph = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Ink.text }
+        private val shadow = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK }
+        private val y = Spring(kit.dp(40f), Motion.emphasized, 0.3f)
+        private val a = Spring(0f, Motion.standard, 0.002f)
+        private val press = Spring(1f, Motion.snappy, 0.0005f)
+        private val h = kit.dp(48f)
+        private val r = RectF()
+
+        init {
+            val p = kit.text(TdType.label, Ink.text)
+            label = textLayout("Cancel", p, textWidth("Cancel", p).toInt() + 2, 1)
+            contentDescription = "Cancel"
+            isClickable = true
+            alpha = 0f
+            translationY = y.value
+        }
+
+        override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+            val w = kit.dp(18f) + kit.dp(20f) + kit.dp(8f) + label.width + kit.dp(22f)
+            setMeasuredDimension((w + kit.dp(16f)).toInt(), (h + kit.dp(16f)).toInt())
+        }
+
+        fun show() {
+            y.to(0f)
+            a.to(1f)
+        }
+
+        fun hide() {
+            y.to(kit.dp(30f), Motion.standard)
+            a.to(0f)
+            isEnabled = false
+        }
+
+        fun step(dt: Float): Boolean {
+            var m = y.step(dt)
+            m = a.step(dt) or m
+            m = press.step(dt) or m
+            translationY = y.value
+            alpha = a.value
+            scaleX = press.value
+            scaleY = press.value
+            return m
+        }
+
+        override fun onDraw(c: Canvas) {
+            val inset = kit.dp(8f)
+            r.set(inset, inset, width - inset, height - inset)
+            shadow.setShadowLayer(kit.dp(12f), 0f, kit.dp(4f), if (kit.dark) 0x99000000.toInt() else 0x40000000)
+            c.drawRoundRect(r, r.height() / 2, r.height() / 2, shadow)
+            c.drawRoundRect(r, r.height() / 2, r.height() / 2, fill)
+            c.drawRoundRect(r, r.height() / 2, r.height() / 2, edge)
+            val gx = r.left + kit.dp(18f) + kit.dp(10f)
+            Glyphs.draw(c, Icons.Rounded.Close, gx, r.centerY(), kit.dp(20f), glyph)
+            c.save()
+            c.translate(gx + kit.dp(10f) + kit.dp(8f), r.centerY() - label.height / 2f)
+            label.draw(c)
+            c.restore()
+        }
+
+        @SuppressLint("ClickableViewAccessibility")
+        override fun onTouchEvent(e: MotionEvent): Boolean {
+            if (!isEnabled) return false
+            when (e.actionMasked) {
+                MotionEvent.ACTION_DOWN -> press.to(0.94f)
+                MotionEvent.ACTION_UP -> {
+                    press.to(1f)
+                    if (e.x in 0f..width.toFloat() && e.y in 0f..height.toFloat()) performClick()
+                }
+                MotionEvent.ACTION_CANCEL -> press.to(1f)
+            }
+            (parent as? View)?.invalidate()
+            view?.let { it.invalidate() }
+            return true
+        }
+
+        override fun performClick(): Boolean {
+            super.performClick()
+            performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+            view?.cancelNow()
+            return true
+        }
+    }
+
+    private companion object {
+        /** Cancel's height and its distance from the navigation bar, in dp. */
+        const val CANCEL_H = 48f
+        const val CANCEL_BOTTOM = 10f
     }
 }

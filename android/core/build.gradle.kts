@@ -34,6 +34,19 @@ tasks.register<JavaExec>("watchCheck") {
     )
 }
 
+// The light key end to end: the phone's rules, the Mac's trigger self-test, and rounds against headless test Macs
+// it starts itself (pass, stay, fail, uncover, and calibration: see KeyCheck.kt):
+//   gradle :core:keyCheck -Pmac=../mac/.build/debug/TapDrop -Pport=47941   (uses port … port + 4)
+tasks.register<JavaExec>("keyCheck") {
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("app.tapdrop.core.KeyCheckKt")
+    args(
+        (project.findProperty("mac") ?: rootProject.file("../mac/.build/debug/TapDrop").path).toString(),
+        (project.findProperty("port") ?: "47941").toString(),
+        layout.buildDirectory.dir("keycheck").get().asFile.path,
+    )
+}
+
 tasks.register<JavaExec>("otpCheck") {
     classpath = sourceSets["test"].runtimeClasspath
     mainClass.set("app.tapdrop.core.OtpCheckKt")

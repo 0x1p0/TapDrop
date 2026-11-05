@@ -1,380 +1,269 @@
 package app.tapdrop.ui
 
+import android.Manifest
+import android.app.AppOpsManager
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInstaller
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Environment
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.keyframes
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.BatteryChargingFull
+import androidx.compose.material.icons.rounded.Flare
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.PhotoLibrary
-import androidx.compose.material3.Button
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.Sms
+import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tapdrop.tap.NotchTapService
+import app.tapdrop.ui.design.AuroraBackdrop
+import app.tapdrop.ui.design.CheckBurst
+import app.tapdrop.ui.design.GlassCard
+import app.tapdrop.ui.design.HowToTapIllustration
+import app.tapdrop.ui.design.IconChip
+import app.tapdrop.ui.design.LargeTitleScaffold
+import app.tapdrop.ui.design.PrimaryButton
+import app.tapdrop.ui.design.ProgressRing
+import app.tapdrop.ui.design.RowChevron
+import app.tapdrop.ui.design.SectionHeader
+import app.tapdrop.ui.design.SettingsGroup
+import app.tapdrop.ui.design.SettingsRow
+import app.tapdrop.ui.design.SmallButton
+import app.tapdrop.ui.design.StepRow
+import app.tapdrop.ui.design.StepState
+import app.tapdrop.ui.design.TdShapes
+import app.tapdrop.ui.design.tdSharedBounds
 
-/** Phone rising to a MacBook's notch, light waves when it arrives. */
-@Composable
-fun NotchIllustration(modifier: Modifier = Modifier, width: Float = 150f) {
-    val p = bump(loopPhase(2600), rise = 900 / 2600f, hold = 1600 / 2600f, fall = 2300 / 2600f)
-    val screen = MaterialTheme.colorScheme.onSurfaceVariant
-    val accentA = Brand.A
-    val accentB = Brand.B
-    Canvas(modifier.size(width.dp, (width * 0.72f).dp)) {
-        val w = size.width
-        val h = size.height
-        // MacBook lid with notch
-        val lidW = w * 0.86f
-        val lidH = h * 0.62f
-        val lidX = (w - lidW) / 2
-        val lidY = h * 0.06f
-        drawRoundRect(screen.copy(alpha = 0.14f), Offset(lidX, lidY), Size(lidW, lidH), CornerRadius(14f, 14f))
-        drawRoundRect(screen.copy(alpha = 0.45f), Offset(lidX, lidY), Size(lidW, lidH), CornerRadius(14f, 14f), style = Stroke(3f))
-        val notchW = lidW * 0.2f
-        drawRoundRect(Color.Black, Offset(w / 2 - notchW / 2, lidY), Size(notchW, h * 0.07f), CornerRadius(10f, 10f))
-        // base
-        drawRoundRect(screen.copy(alpha = 0.45f), Offset(w * 0.02f, lidY + lidH + 4f), Size(w * 0.96f, h * 0.05f), CornerRadius(8f, 8f))
-        // light waves when the phone arrives
-        if (p > 0.92f) {
-            val k = (p - 0.92f) / 0.08f
-            for (i in 0..1) {
-                drawCircle(
-                    accentB.copy(alpha = (1f - k) * 0.7f / (i + 1)),
-                    radius = notchW * (0.4f + 0.5f * k + i * 0.35f),
-                    center = Offset(w / 2, lidY + h * 0.035f),
-                    style = Stroke(3f),
-                )
-            }
-        }
-        // phone rising up to the notch
-        val phW = w * 0.2f
-        val phH = phW * 1.9f
-        val startY = h - phH * 0.35f
-        val endY = lidY - phH * 0.18f
-        val y = startY + (endY - startY) * p
-        drawRoundRect(
-            Brush.linearGradient(listOf(accentA, accentB), Offset(w / 2 - phW / 2, y), Offset(w / 2 + phW / 2, y + phH)),
-            Offset(w / 2 - phW / 2, y), Size(phW, phH), CornerRadius(12f, 12f),
-        )
-        drawRoundRect(Color.White.copy(alpha = 0.25f), Offset(w / 2 - phW / 2 + 5f, y + 5f), Size(phW - 10f, phH * 0.4f), CornerRadius(8f, 8f))
-    }
+/**
+ * The words for the tap (the same on the Mac). Use these everywhere the gesture is explained: there is one
+ * gesture, the top of the screen against the notch, held until the phone buzzes.
+ */
+object TapCopy {
+    const val PRIMARY = "Touch the top of your phone's screen to the notch."
+    const val HOLD = "Hold it there until your phone buzzes."
+    const val SAFE = "TapDrop only sends when your Mac's notch sees your phone's screen light up and go dark right against it. " +
+        "A hand, a lamp or a tap anywhere else can't send."
+    const val PRIVATE = "Stays on your Wi‑Fi, end‑to‑end encrypted, only to your Mac."
+
+    /** The Mac didn't see the screen's light (not-seen, no-light-sent). */
+    const val NOT_SEEN = "Your Mac didn't see your screen. Press the top of the screen flat on the notch."
+    /** The light came, but the notch didn't go dark with the phone (stayed-lit, no-key-off). */
+    const val KEEP_ON = "Keep your phone on the notch until it buzzes."
+    /** The phone's back was to the notch (facing, screen-only). */
+    const val TURN_AROUND = "Turn your phone around: its screen goes against the notch."
+    /** Anything else that didn't count (other-phone, late, gone, busy, cooldown…). */
+    const val TRY_AGAIN = "That tap didn't count. Try again."
 }
 
-/** Home-screen card for the NFC-less "hold your phone to the notch" feature. */
+/** Shared-element key for the tap illustration (Home card → setup screen). */
+const val TAP_ILLUSTRATION_KEY = "tap-illustration"
+
+// MARK: - state
+
+/** Everything tap to send needs, as of the last time the screen resumed. */
+@Immutable
+data class TapSetupState(
+    /** TapDrop is switched on in Accessibility. */
+    val accessibility: Boolean,
+    /** …and the system has it connected and running. */
+    val running: Boolean,
+    /** The "Allow restricted settings" step: true = blocked, false = allowed, null = can't tell. */
+    val restricted: Boolean?,
+    /** This brand stops background apps (Samsung, Xiaomi…), so battery must be unrestricted. */
+    val needsBattery: Boolean,
+    val battery: Boolean,
+) {
+    /** Turned on and running: taps work. */
+    val ready: Boolean get() = accessibility && running
+    /** Ready, and nothing will stop it in the background. */
+    val complete: Boolean get() = ready && (!needsBattery || battery)
+    /** Switched on but not running (Android stopped the service). */
+    val stalled: Boolean get() = accessibility && !running
+}
+
+/** Reads [TapSetupState] now and again whenever the screen resumes (e.g. back from system settings). */
 @Composable
-fun NotchCard(modifier: Modifier, onFindSpot: () -> Unit, onSetup: () -> Unit) {
+fun rememberTapSetupState(): TapSetupState {
     val ctx = LocalContext.current
-    var enabled by remember { mutableStateOf(NotchTapService.isEnabled(ctx)) }
-    LifecycleResumeEffect(Unit) {
-        enabled = NotchTapService.isEnabled(ctx)
-        onPauseOrDispose { }
-    }
-    val live by NotchTapService.live.collectAsStateWithLifecycle()
-    val spot by app.tapdrop.TapDropApp.instance.prefs.spotPeak.collectAsStateWithLifecycle()
-
-    Row(
-        modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(26.dp))
-            .background(
-                if (enabled) Brush.linearGradient(listOf(MaterialTheme.colorScheme.surfaceContainerLow, MaterialTheme.colorScheme.surfaceContainerLow))
-                else Brush.linearGradient(listOf(Brand.A.copy(alpha = 0.16f), Brand.B.copy(alpha = 0.18f)))
-            )
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(26.dp))
-            .tappable(RoundedCornerShape(26.dp), pressedScale = 0.985f, onClick = onSetup)
-            .padding(start = 8.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        NotchIllustration(width = 92f)
-        Column(Modifier.weight(1f).padding(start = 10.dp)) {
-            AnimatedContent(
-                targetState = when {
-                    !enabled -> 0
-                    spot <= 0f -> 3
-                    live -> 2
-                    else -> 1
-                },
-                transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(120)) },
-                label = "notchState",
-            ) { s ->
-                Column {
-                    Text(
-                        when (s) {
-                            0 -> "Tap your Mac to send"
-                            1 -> "Tap to send is on"
-                            2 -> "Ready — tap your spot"
-                            else -> "Find your Mac's tap spot"
-                        },
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (s == 2) {
-                            Box(Modifier.size(7.dp).clip(CircleShape).background(Brand.Green))
-                            Box(Modifier.size(6.dp))
-                        }
-                        Text(
-                            when (s) {
-                                0 -> "Tap your phone on your Mac and whatever's on screen lands on the Mac."
-                                1 -> "Connecting to your Mac…"
-                                2 -> "Touch your phone to the spot you found on the Mac. Works in the dark."
-                                else -> "20 seconds: your phone feels the magnets inside your Mac."
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-        }
-        if (!enabled) Button(onClick = onSetup) { Text("Turn on") }
-        else if (spot <= 0f) Button(onClick = onFindSpot) { Text("Find") }
-    }
-}
-
-/** Two-step setup: (1) allow restricted settings for sideloaded apps, (2) enable the service. */
-@Composable
-fun NotchSetupSheet(close: () -> Unit, onFindSpot: () -> Unit) {
-    val ctx = LocalContext.current
-    var enabled by remember { mutableStateOf(NotchTapService.isEnabled(ctx)) }
-    var battery by remember { mutableStateOf(DeviceSupport.batteryUnrestricted(ctx)) }
-    LifecycleResumeEffect(Unit) {
-        enabled = NotchTapService.isEnabled(ctx)
-        battery = DeviceSupport.batteryUnrestricted(ctx)
-        onPauseOrDispose { }
-    }
-
-    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        NotchIllustration(width = 210f, modifier = Modifier.padding(top = 4.dp))
-        VSpace(10.dp)
-        Text(if (enabled) "You're all set" else "Tap your Mac to send", style = MaterialTheme.typography.headlineSmall)
-        VSpace(6.dp)
-        Text(
-            if (enabled) "Last step: let your phone find its tap spot on your Mac (it feels the magnets inside). Then open anything and touch the phone there: it shows up on the Mac in a second, in any light."
-            else "Tap your phone on your Mac and whatever is on your screen appears there: the page, the photo, the file, or a screenshot.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.widthIn(max = 340.dp),
-        )
-        VSpace(18.dp)
-
-        if (enabled) {
-            val keepAlive = DeviceSupport.keepAlive
-            if (keepAlive != null && !battery) {
-                SetupStep(
-                    n = 3,
-                    title = "Keep it running",
-                    body = "${keepAlive.brand} phones stop background apps to save battery. Allow TapDrop to run so taps always work.",
-                    action = "Allow",
-                    primary = true,
-                ) { DeviceSupport.requestUnrestricted(ctx) }
-                VSpace(12.dp)
-            }
-            Button(onClick = onFindSpot, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(18.dp)) { Text("Find your Mac's tap spot") }
-            TextButton(onClick = close) { Text("Done") }
-        } else {
-            SetupStep(
-                n = 1,
-                title = "Allow restricted settings",
-                body = "Android blocks this for apps installed outside the Play Store. In App info, tap ⋮ (top right) → Allow restricted settings. Skip if you don't see it.",
-                action = "App info",
-            ) { DeviceSupport.openAppInfo(ctx) }
-            VSpace(10.dp)
-            SetupStep(
-                n = 2,
-                title = "Turn on TapDrop",
-                body = "${DeviceSupport.accessibilityPath}. It only looks at your screen at the moment you tap.",
-                action = "Open",
-                primary = true,
-            ) { DeviceSupport.openAccessibility(ctx) }
-            VSpace(14.dp)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Rounded.Lock, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
-                Text(
-                    "  Stays on your Wi‑Fi, end‑to‑end encrypted, only to your Mac.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            TextButton(onClick = close) { Text("Not now") }
-        }
-    }
-}
-
-@Composable
-private fun SetupStep(n: Int, title: String, body: String, action: String, primary: Boolean = false, onClick: () -> Unit) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(22.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainer)
-            .padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            Modifier.size(30.dp).clip(CircleShape).background(Brand.gradient),
-            contentAlignment = Alignment.Center,
-        ) { Text("$n", style = MaterialTheme.typography.labelLarge, color = Color.White) }
-        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-            Text(title, style = MaterialTheme.typography.titleSmall)
-            Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        if (primary) Button(onClick = onClick) { Text(action) } else FilledTonalButton(onClick = onClick) { Text(action) }
-    }
-}
-
-/** One place for everything TapDrop needs, with what's missing and a one-tap fix. Collapses when done. */
-@Composable
-fun SetupChecklist(modifier: Modifier, onNotchSetup: () -> Unit) {
-    val ctx = LocalContext.current
-    fun granted(p: String) = ctx.checkSelfPermission(p) == android.content.pm.PackageManager.PERMISSION_GRANTED
-    fun mediaAll() = granted(android.Manifest.permission.READ_MEDIA_IMAGES) && granted(android.Manifest.permission.READ_MEDIA_VIDEO)
-    fun mediaSome() = granted(android.Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
-
-    var tick by remember { mutableStateOf(0) }
+    val running by NotchTapService.running.collectAsStateWithLifecycle()
+    var tick by remember { mutableIntStateOf(0) }
     LifecycleResumeEffect(Unit) {
         tick++
         onPauseOrDispose { }
     }
-    val notch = remember(tick) { NotchTapService.isEnabled(ctx) }
-    val media = remember(tick) { mediaAll() }
-    val partial = remember(tick) { !mediaAll() && mediaSome() }
-    val filesOk = remember(tick) { android.os.Environment.isExternalStorageManager() }
-    val sms = remember(tick) { granted(android.Manifest.permission.RECEIVE_SMS) }
-    val keepAlive = DeviceSupport.keepAlive
-    val battery = remember(tick) { keepAlive == null || DeviceSupport.batteryUnrestricted(ctx) }
-    val askMedia = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
-    ) { tick++ }
-    val askSms = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-    ) { tick++ }
+    return remember(tick, running) {
+        val keepAlive = DeviceSupport.keepAlive
+        TapSetupState(
+            accessibility = NotchTapService.isEnabled(ctx),
+            running = running,
+            restricted = restrictedSettingsBlocked(ctx),
+            needsBattery = keepAlive != null,
+            battery = keepAlive == null || DeviceSupport.batteryUnrestricted(ctx),
+        )
+    }
+}
 
-    val checks = listOf(notch, media, filesOk, sms, battery)
-    val total = if (keepAlive != null) 5 else 4
-    val done = checks.count { it } - (if (keepAlive == null) 1 else 0)
-    var expanded by remember { mutableStateOf<Boolean?>(null) }
-    val open = expanded ?: true
-    // All done: the checklist steps aside (everything stays reachable in Settings → Permissions).
-    if (done >= total) return
+/**
+ * Whether Android is blocking "restricted settings" (accessibility) for this app. It does that for apps
+ * installed from a downloaded or local APK file until the user allows it in App info. Null when unknown.
+ */
+private fun restrictedSettingsBlocked(ctx: Context): Boolean? {
+    val mode = runCatching {
+        val ops = ctx.getSystemService(AppOpsManager::class.java)
+        // Deprecated in API 37 for a variant that doesn't exist on 33–36, which this app still supports.
+        @Suppress("DEPRECATION")
+        ops.unsafeCheckOpNoThrow("android:access_restricted_settings", ctx.applicationInfo.uid, ctx.packageName)
+    }.getOrNull()
+    if (mode == AppOpsManager.MODE_ALLOWED) return false
+    if (mode == AppOpsManager.MODE_ERRORED || mode == AppOpsManager.MODE_IGNORED) return true
+    val source = runCatching { ctx.packageManager.getInstallSourceInfo(ctx.packageName).packageSource }.getOrNull() ?: return null
+    return source == PackageInstaller.PACKAGE_SOURCE_LOCAL_FILE || source == PackageInstaller.PACKAGE_SOURCE_DOWNLOADED_FILE
+}
 
-    Column(modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(MaterialTheme.colorScheme.surfaceContainerLow)) {
-        Row(
-            Modifier.fillMaxWidth().tappable(pressedScale = 0.99f) { expanded = !open }.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(Modifier.size(42.dp), contentAlignment = Alignment.Center) {
-                androidx.compose.material3.CircularProgressIndicator(
-                    progress = { done / total.toFloat() },
-                    modifier = Modifier.size(40.dp),
-                    strokeWidth = 4.dp,
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                )
-                Text("$done/$total", style = MaterialTheme.typography.labelMedium)
+/** Where TapDrop sits in this phone's Accessibility list, for when the system opens the list. */
+private val accessibilityHint: String
+    get() {
+        val p = DeviceSupport.accessibilityPath
+        return when {
+            "(or Installed apps)" in p -> "If you land on the list, it's under Downloaded apps (or Installed apps)."
+            "Installed apps" in p -> "If you land on the list, it's under Installed apps."
+            else -> "If you land on the list, it's under Downloaded apps."
+        }
+    }
+
+// MARK: - setup screen
+
+/**
+ * "Tap to send": how the gesture works, the setup checklist (restricted settings, accessibility, battery)
+ * and why it's safe. Shown from Home and Settings. Back is handled by the nav host (predictive).
+ */
+@Composable
+fun TapSetupScreen(onClose: () -> Unit, onTest: () -> Unit = {}) {
+    val ctx = LocalContext.current
+    val s = rememberTapSetupState()
+    val haptics = rememberHaptics()
+    var celebrated by rememberSaveable { mutableStateOf(s.complete) }
+    if (s.complete && !celebrated) {
+        celebrated = true
+        haptics.confirm()
+    }
+
+    LargeTitleScaffold(
+        title = "Tap to send",
+        subtitle = if (s.complete) "On and ready" else "A minute to set up, once",
+        onBack = onClose,
+        background = { AuroraBackdrop(Modifier.fillMaxWidth().height(520.dp), intensity = 0.75f) },
+    ) {
+        item("illustration") {
+            Box(
+                Modifier
+                    .tdSharedBounds(TAP_ILLUSTRATION_KEY)
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(Td.colors.surface)
+                    .border(1.dp, Td.colors.hairline, RoundedCornerShape(28.dp)),
+            ) {
+                HowToTapIllustration(loops = 2, startAtRest = true)
             }
-            Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                Text("Finish setting up", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    "${total - done} thing${if (total - done == 1) "" else "s"} left for the full experience",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+        }
+        item("copy") {
+            Column(Modifier.padding(start = 4.dp, end = 4.dp, top = 20.dp)) {
+                Text(TapCopy.PRIMARY, style = TdType.title, color = Td.colors.text)
+                Text(TapCopy.HOLD, style = TdType.body, color = Td.colors.textSecondary, modifier = Modifier.padding(top = 6.dp))
             }
-            Icon(
-                if (open) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
-                null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        }
+        item("steps") {
+            Column {
+                AnimatedContent(
+                    targetState = s.complete,
+                    transitionSpec = { fadeIn(tween(260, 80)) togetherWith fadeOut(tween(140)) },
+                    label = "setupDone",
+                ) { done ->
+                    if (done) AllSetCard(Modifier.padding(top = 24.dp)) else SetupSteps(s, ctx)
+                }
+            }
+        }
+        if (s.ready) item("test") {
+            SettingsRow(
+                title = "Test your tap",
+                subtitle = "See what your Mac's notch sees",
+                modifier = Modifier.padding(top = 12.dp),
+                leading = {
+                    IconChip(
+                        Icons.Rounded.Flare, Brand.Blue, size = 36.dp, iconSize = 20.dp,
+                        modifier = Modifier.tdSharedBounds(TAP_TEST_CHIP_KEY),
+                    )
+                },
+                onClick = onTest,
+                trailing = { RowChevron() },
             )
         }
-        androidx.compose.animation.AnimatedVisibility(open) {
+        item("safe") {
             Column {
-                CheckRow(
-                    ok = notch, title = "Tap your Mac to send",
-                    detail = if (notch) "Hold your phone to the notch" else "Turns on holding your phone to the notch",
-                    action = "Turn on", onClick = onNotchSetup,
-                )
-                CheckRow(
-                    ok = media, title = "Photos & videos",
-                    detail = when {
-                        media -> "Originals are sent, not screenshots"
-                        partial -> "Only some photos allowed — allow all so originals can be found"
-                        else -> "So the photo or video you're viewing is sent as the original"
-                    },
-                    action = if (partial) "Allow all" else "Allow",
-                ) {
-                    askMedia.launch(arrayOf(android.Manifest.permission.READ_MEDIA_IMAGES, android.Manifest.permission.READ_MEDIA_VIDEO, android.Manifest.permission.READ_MEDIA_AUDIO))
-                }
-                CheckRow(
-                    ok = filesOk, title = "Files",
-                    detail = if (filesOk) "Tap a document anywhere to send it" else "Optional · tap a PDF or ZIP in Files or a chat to send it",
-                    action = "Allow",
-                ) {
-                    runCatching {
-                        ctx.startActivity(
-                            android.content.Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, android.net.Uri.parse("package:${ctx.packageName}"))
-                                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                        )
+                SectionHeader("Why it's safe")
+                GlassCard(padding = PaddingValues(18.dp)) {
+                    Row(verticalAlignment = Alignment.Top) {
+                        IconChip(Icons.Rounded.Shield, Brand.Success, size = 40.dp, shape = TdShapes.Cookie6, iconSize = 20.dp)
+                        Column(Modifier.padding(start = 14.dp)) {
+                            Text("Only your phone's screen can send", style = TdType.body.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), color = Td.colors.text)
+                            Text(TapCopy.SAFE, style = TdType.bodySmall, color = Td.colors.textSecondary, modifier = Modifier.padding(top = 4.dp))
+                        }
                     }
-                }
-                CheckRow(
-                    ok = sms, title = "Codes from texts",
-                    detail = if (sms) "One-time codes land on your Mac's clipboard" else "So codes in text messages go to your Mac",
-                    action = "Allow", last = keepAlive == null,
-                ) { askSms.launch(android.Manifest.permission.RECEIVE_SMS) }
-                if (keepAlive != null) {
-                    CheckRow(
-                        ok = battery, title = "Run in the background",
-                        detail = if (battery) "TapDrop won't be stopped to save battery" else "${keepAlive.brand} phones stop apps in the background — allow TapDrop",
-                        action = "Allow", last = true,
-                    ) { DeviceSupport.requestUnrestricted(ctx) }
+                    Spacer(Modifier.height(16.dp))
+                    Row(verticalAlignment = Alignment.Top) {
+                        IconChip(Icons.Rounded.Lock, Brand.Blue, size = 40.dp, shape = TdShapes.Cookie6, iconSize = 20.dp)
+                        Column(Modifier.padding(start = 14.dp)) {
+                            Text("Private", style = TdType.body.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), color = Td.colors.text)
+                            Text(
+                                "TapDrop only looks at your screen at the moment you tap. ${TapCopy.PRIVATE}",
+                                style = TdType.bodySmall, color = Td.colors.textSecondary, modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -382,21 +271,276 @@ fun SetupChecklist(modifier: Modifier, onNotchSetup: () -> Unit) {
 }
 
 @Composable
-private fun CheckRow(ok: Boolean, title: String, detail: String, action: String, last: Boolean = false, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(start = 16.dp, end = 14.dp, top = 10.dp, bottom = if (last) 16.dp else 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            Modifier.size(26.dp).clip(CircleShape).background(if (ok) Brand.successGradient else Brush.linearGradient(listOf(MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.surfaceContainerHighest))),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (ok) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
-        }
-        Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
-            Text(title, style = MaterialTheme.typography.titleSmall)
-            Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        if (!ok) androidx.compose.material3.FilledTonalButton(onClick = onClick) { Text(action) }
+private fun SetupSteps(s: TapSetupState, ctx: Context) {
+    // Step 1 only matters while accessibility is still off, and only where Android restricts it.
+    val showRestricted = !s.accessibility && s.restricted != false
+    val restrictedState = when {
+        s.accessibility -> StepState.Done
+        s.restricted == true -> StepState.Current
+        else -> StepState.Optional
     }
+    val a11yState = when {
+        s.ready -> StepState.Done
+        s.restricted == true -> StepState.Pending
+        else -> StepState.Current
+    }
+    val batteryState = when {
+        s.battery -> StepState.Done
+        s.ready -> StepState.Current
+        else -> StepState.Pending
+    }
+    var n = 0
+    SettingsGroup(title = "Setup") {
+        if (showRestricted) {
+            val num = ++n
+            item { shape ->
+                StepRow(
+                    number = num,
+                    title = "Allow restricted settings",
+                    body = if (s.restricted == true) "Android asks this for apps installed from a file. In App info, open the menu at the top right and allow it."
+                    else "Only if Android says it's restricted: in App info, open the menu at the top right and allow it.",
+                    state = restrictedState,
+                    shape = shape,
+                    action = "App info",
+                    onAction = { DeviceSupport.openAppInfo(ctx) },
+                )
+            }
+        }
+        val a11yNum = ++n
+        item { shape ->
+            StepRow(
+                number = a11yNum,
+                title = if (s.stalled) "Restart TapDrop in Accessibility" else "Turn on TapDrop in Accessibility",
+                body = if (s.stalled) "It's switched on, but Android stopped it. Turn it off and on again."
+                else "Switch TapDrop on. $accessibilityHint",
+                state = a11yState,
+                shape = shape,
+                action = "Open",
+                onAction = { DeviceSupport.openAccessibility(ctx) },
+            )
+        }
+        if (s.needsBattery) {
+            val num = ++n
+            val brand = DeviceSupport.keepAlive?.brand ?: "Your"
+            item { shape ->
+                StepRow(
+                    number = num,
+                    title = "Let it run in the background",
+                    body = "$brand phones stop apps to save battery. Allow TapDrop so taps always work.",
+                    state = batteryState,
+                    shape = shape,
+                    action = "Allow",
+                    onAction = { DeviceSupport.requestUnrestricted(ctx) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AllSetCard(modifier: Modifier = Modifier) {
+    GlassCard(modifier.fillMaxWidth(), padding = PaddingValues(start = 12.dp, end = 20.dp, top = 12.dp, bottom = 12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            CheckBurst(visible = true, size = 40.dp)
+            Column(Modifier.padding(start = 4.dp)) {
+                Text("You're all set", style = TdType.subtitle, color = Td.colors.text)
+                Text(
+                    "Open anything, then touch the top of your phone's screen to the notch and hold it until it buzzes.",
+                    style = TdType.bodySmall, color = Td.colors.textSecondary,
+                )
+            }
+        }
+    }
+}
+
+// MARK: - Home cards
+
+/**
+ * Home card while tap to send is off: the how-to-tap illustration, one line of explanation and the
+ * "Turn on" button. The illustration is a shared element into [TapSetupScreen].
+ */
+@Composable
+fun TapSetupCard(onSetup: () -> Unit, modifier: Modifier = Modifier) {
+    GlassCard(modifier.fillMaxWidth(), padding = PaddingValues(0.dp), onClick = onSetup) {
+        Box(
+            Modifier
+                .tdSharedBounds(TAP_ILLUSTRATION_KEY)
+                .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)),
+        ) {
+            HowToTapIllustration(loops = 1)
+        }
+        Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 20.dp)) {
+            Text("Tap your Mac to send", style = TdType.title, color = Td.colors.text)
+            Text(
+                "${TapCopy.PRIMARY} ${TapCopy.HOLD} Whatever's on screen lands on your Mac.",
+                style = TdType.bodySmall,
+                color = Td.colors.textSecondary,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+            Spacer(Modifier.height(18.dp))
+            PrimaryButton("Turn on tap to send", onSetup, Modifier.fillMaxWidth())
+        }
+    }
+}
+
+/** Home card when tap to send is switched on but Android stopped it. */
+@Composable
+fun TapStalledCard(modifier: Modifier = Modifier) {
+    val ctx = LocalContext.current
+    SettingsRow(
+        title = "Tap to send stopped",
+        subtitle = "Android stopped it in the background. Turn TapDrop off and on in Accessibility.",
+        modifier = modifier,
+        leading = { IconChip(Icons.Rounded.WarningAmber, Brand.Warning, size = 40.dp, shape = TdShapes.Cookie6, iconSize = 20.dp) },
+        trailing = { SmallButton("Open", { DeviceSupport.openAccessibility(ctx) }, prominent = true) },
+    )
+}
+
+// MARK: - optional extras checklist
+
+@Immutable
+private data class Extras(val media: Boolean, val partial: Boolean, val files: Boolean, val sms: Boolean, val battery: Boolean?)
+
+/**
+ * "Get the most out of TapDrop": the optional permissions (original photos, codes from texts, any file,
+ * background running on brands that need it) as a collapsible checklist. Steps aside once everything is done
+ * (everything stays reachable in Settings).
+ */
+@Composable
+fun ExtrasChecklist(modifier: Modifier = Modifier) {
+    val ctx = LocalContext.current
+    fun granted(p: String) = ctx.checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED
+    var tick by remember { mutableIntStateOf(0) }
+    LifecycleResumeEffect(Unit) {
+        tick++
+        onPauseOrDispose { }
+    }
+    val e = remember(tick) {
+        val all = granted(Manifest.permission.READ_MEDIA_IMAGES) && granted(Manifest.permission.READ_MEDIA_VIDEO)
+        Extras(
+            media = all,
+            partial = !all && granted(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED),
+            files = Environment.isExternalStorageManager(),
+            sms = granted(Manifest.permission.RECEIVE_SMS),
+            battery = if (DeviceSupport.keepAlive != null) DeviceSupport.batteryUnrestricted(ctx) else null,
+        )
+    }
+    val askMedia = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { tick++ }
+    val askSms = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { tick++ }
+
+    val checks = listOfNotNull(e.media, e.sms, e.files, e.battery)
+    val done = checks.count { it }
+    val total = checks.size
+    if (done >= total) return
+    var open by rememberSaveable { mutableStateOf(true) }
+
+    Column(modifier.fillMaxWidth()) {
+        SettingsGroup {
+            item { shape ->
+                SettingsRow(
+                    title = "Get the most out of TapDrop",
+                    subtitle = "Original photos, codes from texts and more",
+                    shape = shape,
+                    modifier = Modifier.semantics {
+                        stateDescription = "$done of $total done, " + if (open) "expanded" else "collapsed"
+                    },
+                    onClick = { open = !open },
+                    leading = {
+                        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+                            ProgressRing(done / total.toFloat(), Modifier.size(36.dp), stroke = 4.dp)
+                            // Part of the ring's drawing, so it keeps its size at large font scales (it would overrun
+                            // the ring); the row says the same in words to TalkBack.
+                            val label = with(LocalDensity.current) { 11.dp.toSp() }
+                            Text(
+                                "$done/$total",
+                                style = TdType.caption.copy(fontFeatureSettings = "tnum", fontSize = label, lineHeight = label),
+                                color = Td.colors.text,
+                                modifier = Modifier.clearAndSetSemantics { },
+                            )
+                        }
+                    },
+                    trailing = {
+                        val rot by androidx.compose.animation.core.animateFloatAsState(if (open) 180f else 0f, TdMotion.standard(), label = "chev")
+                        Icon(
+                            Icons.Rounded.KeyboardArrowDown, null,
+                            tint = Td.colors.textTertiary,
+                            modifier = Modifier.size(24.dp).graphicsLayer { rotationZ = rot },
+                        )
+                    },
+                )
+            }
+            if (open) {
+                item { shape ->
+                    ExtraRow(
+                        Icons.Rounded.PhotoLibrary, Brand.Orchid, "Original photos & videos",
+                        when {
+                            e.media -> "The photo you're viewing is sent as the original"
+                            e.partial -> "Only some photos allowed: allow all so originals can be found"
+                            else -> "So what you're viewing is sent as the original, not a screenshot"
+                        },
+                        e.media, if (e.partial) "Allow all" else "Allow", shape,
+                    ) {
+                        askMedia.launch(arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO, Manifest.permission.READ_MEDIA_AUDIO))
+                    }
+                }
+                item { shape ->
+                    ExtraRow(
+                        Icons.Rounded.Sms, Brand.Warning, "Codes from texts",
+                        if (e.sms) "One-time codes land on your Mac's clipboard" else "So codes in text messages go to your Mac",
+                        e.sms, "Allow", shape,
+                    ) { askSms.launch(Manifest.permission.RECEIVE_SMS) }
+                }
+                item { shape ->
+                    ExtraRow(
+                        Icons.Rounded.Folder, Brand.Blue, "Any file",
+                        if (e.files) "Tap a document anywhere to send it" else "Optional: tap a PDF or ZIP in Files or a chat to send it",
+                        e.files, "Allow", shape,
+                    ) {
+                        runCatching {
+                            ctx.startActivity(
+                                Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:${ctx.packageName}"))
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        }
+                    }
+                }
+                if (e.battery != null) {
+                    item { shape ->
+                        ExtraRow(
+                            Icons.Rounded.BatteryChargingFull, Brand.Success, "Run in the background",
+                            if (e.battery) "TapDrop won't be stopped to save battery"
+                            else "${DeviceSupport.keepAlive?.brand} phones stop apps in the background: allow TapDrop",
+                            e.battery, "Allow", shape,
+                        ) { DeviceSupport.requestUnrestricted(ctx) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExtraRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    accent: androidx.compose.ui.graphics.Color,
+    title: String,
+    detail: String,
+    ok: Boolean,
+    action: String,
+    shape: androidx.compose.ui.graphics.Shape,
+    onClick: () -> Unit,
+) {
+    SettingsRow(
+        title = title,
+        subtitle = detail,
+        icon = icon,
+        accent = accent,
+        shape = shape,
+        trailing = {
+            AnimatedContent(ok, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "extraOk") { isOk ->
+                if (isOk) Text("Done", style = TdType.label, color = Td.colors.successText, modifier = Modifier.padding(horizontal = 8.dp))
+                else SmallButton(action, onClick)
+            }
+        },
+    )
 }

@@ -22,22 +22,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var testRelease: DispatchSourceSignal?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if TestHooks.on, ProcessInfo.processInfo.environment["TAPDROP_TEST_SELFTEST"] == "1" {
+            // The light-key trigger logic against synthetic light traces, then quit.
+            let failures = NotchDetector.selfTest()
+            print(failures.isEmpty ? "ALL PASSED" : "\(failures.count) FAILED: \(failures.joined(separator: ", "))")
+            exit(failures.isEmpty ? 0 : 1)
+        }
         // Headless integration tests (TAPDROP_TEST without a demo) stay out of the user's menu bar and notch.
         if !TestMode.headless && ProcessInfo.processInfo.environment["TAPDROP_NO_STATUS"] == nil { status = StatusController() }
+        // Notch taps: the light sensor's triggers start light-key rounds; only a key the notch sees sends.
+        KeyRounds.shared.attach()
         Server.shared.start()
-        if !TestMode.on {
-            NotchSensor.shared.onCover = { WatchHub.shared.grab() }
-            NotchSensor.shared.onUncover = { WatchHub.shared.release() }
-        }
-        if TestMode.on {
-            // Integration tests: `kill -USR1 <pid>` simulates covering the notch.
+        if TestHooks.on {
+            // Integration tests (debug builds only) run on a simulated light sensor (a 120-lux room).
+            // `kill -USR1 <pid>` covers the notch: a DIP round with B = 120, P = 4. Each key-on is answered per
+            // TAPDROP_TEST_KEY (pass: 900 lux after 120 ms, dark again at key-off; stay: it stays lit; fail: 6 lux
+            // until the window ends; uncover: the room's light comes back).
             signal(SIGUSR1, SIG_IGN)
             let src = DispatchSource.makeSignalSource(signal: SIGUSR1, queue: .main)
-            src.setEventHandler { WatchHub.shared.grab() }
-            // `kill -USR2 <pid>` simulates pulling the phone away from the notch.
+            src.setEventHandler { KeyRounds.shared.testCover() }
+            // `kill -USR2 <pid>` takes the phone away from the notch (the round releases its phone).
             signal(SIGUSR2, SIG_IGN)
             let rel = DispatchSource.makeSignalSource(signal: SIGUSR2, queue: .main)
-            rel.setEventHandler { WatchHub.shared.release() }
+            rel.setEventHandler { KeyRounds.shared.testLeave() }
             rel.resume()
             testRelease = rel
             src.resume()
@@ -173,7 +180,7 @@ final class ServiceProvider: NSObject {
         Activity.shared.notice(
             .queued,
             title: urls.count == 1 ? "Ready to send \(urls[0].lastPathComponent)" : "Ready to send \(urls.count) items",
-            detail: "Tap your phone on the Mac to receive", sound: false, hideAfter: 3.5)
+            detail: "Touch the top of your phone's screen to the notch", sound: false, hideAfter: 3.5)
     }
 
     @objc func sendToPhone(_ pboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString?>) {
@@ -184,31 +191,35 @@ final class ServiceProvider: NSObject {
                 ServiceProvider.queue(urls)
             } else if let text, !text.isEmpty {
                 Store.shared.enqueue(text: text)
-                Activity.shared.notice(.queued, title: "Ready to send text", detail: "Tap your phone on the Mac to receive",
+                Activity.shared.notice(.queued, title: "Ready to send text", detail: "Touch the top of your phone's screen to the notch",
                                        sound: false, hideAfter: 3.5)
             }
         }
     }
 }
 
-/// Screens on demand for visual QA (TAPDROP_DEMO=panel|receiving|received|pair|setup|queued|failed).
+/// Screens on demand for visual QA (TAPDROP_DEMO=panel[:state]|receiving|received|pair|setup|queued|failed|otp|settings:<pane>).
+/// Panel states: live (= plain `panel`), new, empty, waiting, away, starting, offline, transfer, done, failed,
+/// queued, drop, hover, longname. TAPDROP_APPEARANCE=dark|light forces the appearance; TAPDROP_SNAP=<dir> makes the run
+/// photograph its windows and quit (see DSSnapshot).
 @MainActor
 enum Demo {
     static func run(_ what: String, status: StatusController?) {
+        if let look = ProcessInfo.processInfo.environment["TAPDROP_APPEARANCE"] {
+            NSApp.appearance = NSAppearance(named: look == "light" ? .aqua : .darkAqua)
+        }
+        defer { DSSnapshot.scheduleIfRequested(mode: what) }
         let a = Activity.shared
         let files = (ProcessInfo.processInfo.environment["TAPDROP_DEMO_FILES"] ?? "")
             .split(separator: ":").map { URL(fileURLWithPath: String($0)) }
-        if Store.shared.recent.isEmpty, files.count >= 3 {
-            let s = Store.shared
-            s.addRecent(RecentEvent(incoming: false, peer: "Android phone", summary: "Keynote draft.pdf", files: [files.last!]))
-            s.addRecent(RecentEvent(incoming: true, peer: "Android phone", summary: "github.com", files: [], text: "https://github.com"))
-            s.addRecent(RecentEvent(incoming: true, peer: "Android phone", summary: "3 files", files: Array(files.prefix(3))))
-            s.addRecent(RecentEvent(incoming: true, peer: "Android phone", summary: files[1].lastPathComponent, files: [files[1]]))
-            s.addRecent(RecentEvent(incoming: true, peer: "Android phone", summary: files[0].lastPathComponent, files: [files[0]]))
+        if what.hasPrefix("panel") {
+            panel(String(what.dropFirst("panel".count).drop { $0 == ":" }), files: files, status: status)
+            return
         }
+        if Store.shared.recent.isEmpty, files.count >= 3 { addRecents(files) }
+        // Screen-specific demo modes live next to their screens (DemoIsland.swift, DemoWindows.swift).
+        if island(what, files: files) || windows(what, files: files) { return }
         switch what {
-        case "panel":
-            status?.openPanel()
         case "receiving":
             a.begin(incoming: true, peer: "Android phone", title: "Receiving 3 items from Android phone")
             var done: Int64 = 0
@@ -225,7 +236,8 @@ enum Demo {
             a.finish(title: files.count == 1 ? files[0].lastPathComponent : "Received \(files.count) photos",
                      detail: "From Android phone · Downloads", files: files)
         case "queued":
-            a.notice(.queued, title: "Ready to send 2 items", detail: "Tap your phone on the Mac to receive", sound: false, hideAfter: 30)
+            a.notice(.queued, title: "Ready to send 2 items", detail: "Touch the top of your phone's screen to the notch", sound: false,
+                     hideAfter: 30)
         case "otp":
             a.showCode("482915", source: "HDFC Bank", peer: "Android phone")
         case "failed":
@@ -235,11 +247,74 @@ enum Demo {
             Task { _ = await PairPrompt.askDemo() }
         case "setup":
             SetupWindow.shared.show()
+        case "gallery":
+            DSGallery.show()
         case let w where w.hasPrefix("settings"):
             let pane = SettingsPane(rawValue: String(w.dropFirst("settings".count).drop { $0 == ":" })) ?? .general
             SettingsWindow.shared.show(pane)
         default:
             break
+        }
+    }
+
+    private static func addRecents(_ files: [URL]) {
+        let s = Store.shared
+        s.addRecent(RecentEvent(incoming: true, peer: "Android phone", summary: "Gate B32", files: [], text: "Gate B32 · boarding at 7:40"))
+        s.addRecent(RecentEvent(incoming: false, peer: "Android phone", summary: files.last!.lastPathComponent, files: [files.last!]))
+        s.addRecent(RecentEvent(incoming: true, peer: "Android phone", summary: "3 files", files: Array(files.prefix(3))))
+        s.addRecent(RecentEvent(incoming: true, peer: "Android phone", summary: "apple.com", files: [],
+                                text: "https://www.apple.com/macbook-air/"))
+        s.addRecent(RecentEvent(incoming: true, peer: "Android phone", summary: files[1].lastPathComponent, files: [files[1]]))
+    }
+
+    /// Sets the throwaway demo home up for one panel state, then opens the panel.
+    private static func panel(_ mode: String, files: [URL], status: StatusController?) {
+        let s = Store.shared
+        let a = Activity.shared
+        let id = "demo-pixel"
+        let state = status?.panel.state
+        s.clearOutbox()
+        s.recent = []
+        // `longname`: a phone with a long name, live, with things waiting for it
+        let name = mode == "longname" ? "Galaxy S24 Ultra (Work phone)" : "Android phone"
+        for d in s.devices where mode == "new" || d.id != id || d.name != name { s.removeDevice(d.id) }
+        if mode != "new", s.device(id) == nil { s.addDevice(id: id, name: name, key: Data(count: 32)) }
+        let away = ["waiting", "away", "starting", "offline", "new"].contains(mode)
+        s.liveDevices = away ? [] : [id]
+        if !["new", "empty"].contains(mode), files.count >= 3 { addRecents(files) }
+        state?.demoOffline = mode == "offline"
+        state?.demoHoverFirst = mode == "hover"
+        state?.demoLink = mode == "away" ? .away : nil
+        state?.demoPinned = true
+        switch mode {
+        case "starting":
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { s.status = "Restarting…" }
+        case "transfer":
+            a.begin(incoming: true, peer: "Android phone", title: "Receiving 3 photos from Android phone")
+            a.arriving(name: "IMG_20261104_181203.jpg", mime: "image/jpeg", peer: "Android phone", count: 3)
+            var done: Int64 = 0
+            Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { t in
+                Task { @MainActor in
+                    done += 1_400_000
+                    a.update(detail: "IMG_20261104_181203.jpg", done: min(done, 48_000_000), total: 48_000_000)
+                    if done > 29_000_000 { t.invalidate() }
+                }
+            }
+        case "done":
+            a.begin(incoming: true, peer: "Android phone", title: "")
+            a.finish(title: "Received 3 photos", detail: "From Android phone · Downloads", files: Array(files.prefix(3)))
+        case "failed":
+            a.begin(incoming: true, peer: "Android phone", title: "Receiving")
+            a.fail("The connection was lost")
+        case "queued", "longname":
+            s.enqueue(urls: Array(files.prefix(3)) + [files.last!])
+            s.enqueue(text: "Gate B32 · boarding at 7:40")
+        default:
+            break
+        }
+        status?.openPanel()
+        if mode == "drop" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { withTDAnimation { state?.dropTargeted = true } }
         }
     }
 }

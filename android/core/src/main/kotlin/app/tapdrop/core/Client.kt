@@ -107,17 +107,21 @@ class TapDropClient(private val identity: Identity) {
         connect(ep, readTimeoutMs).use { io -> block(handshake(io, ep, mac)) }
 
     /**
-     * Opens a long-lived "watch" session: the Mac pushes events (e.g. {"t":"grab"} when the phone is
-     * held over the notch, {"t":"inbox"} when files are queued) and the phone can reply at any time.
+     * Opens a long-lived "watch" session: the Mac pushes events ({"t":"grab"} for a light-key round,
+     * {"t":"room"}, {"t":"inbox"} when files are queued…) and the phone can reply at any time.
+     * With [caps], the phone announces the light key right away (`{"t":"caps","key":3}`); the Mac only
+     * asks key-capable phones to send.
      */
-    fun watch(ep: Endpoint, mac: MacKey, readTimeoutMs: Int = 45_000): WatchSession {
+    fun watch(ep: Endpoint, mac: MacKey, readTimeoutMs: Int = 45_000, caps: Boolean = true): WatchSession {
         val io = connect(ep, readTimeoutMs)
         try {
             val ch = handshake(io, ep, mac)
             ch.sendJson(json("t" to "watch"))
             val first = ch.recvJson()
             if (first.type != "watching") throw ProtocolException("unexpected ${first.type}")
-            return WatchSession(io, ch, first.optInt("pending"))
+            val s = WatchSession(io, ch, first.optInt("pending"), first.optBoolean("notch"))
+            if (caps) s.caps()
+            return s
         } catch (e: Exception) {
             io.close()
             throw e
@@ -279,9 +283,33 @@ class WatchSession internal constructor(
     private val io: FrameIO,
     private val ch: SecureChannel,
     val pendingAtStart: Int,
+    /** The Mac has a notch light sensor it can tap with. */
+    val notch: Boolean = false,
 ) : java.io.Closeable {
     fun next(): JSONObject = ch.recvJson()
     fun send(o: JSONObject) = ch.sendJson(o)
     fun send(vararg pairs: Pair<String, Any?>) = ch.sendJson(json(*pairs))
     override fun close() = io.close()
+
+    // Light key (PROTOCOL.md → "Light key")
+
+    /** This phone does light keys. Sent once, right after the session opens. */
+    fun caps() = send("t" to "caps", "key" to LightKeyRules.VERSION)
+
+    /** The proximity sensor touched something while the phone was moving and upright: the Mac may start a round. */
+    fun knock() = send("t" to "knock")
+
+    /** The light for round [id] is really on (the screen white at full brightness). */
+    fun keyOn(id: Int, src: LightKeyRules.Src) = send("t" to "key-on", "id" to id, "src" to src.wire)
+
+    /** The light for round [id] is off: the screen went black after "key-seen" (or the phone gave up). */
+    fun keyOff(id: Int) = send("t" to "key-off", "id" to id)
+
+    /** Stream the notch's light readings to this phone ("lux" messages) while [on]. */
+    fun diag(on: Boolean) = send("t" to "diag", "on" to on)
+
+    /** Answers grab [id]. A declined grab says [why]. */
+    fun grabAck(id: Int, ok: Boolean, kind: String, why: String? = null) =
+        if (why != null) send("t" to "grab-ack", "id" to id, "ok" to ok, "kind" to kind, "why" to why)
+        else send("t" to "grab-ack", "id" to id, "ok" to ok, "kind" to kind)
 }

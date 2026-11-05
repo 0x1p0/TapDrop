@@ -1,18 +1,28 @@
 import AppKit
+import Combine
 import CoreImage
 import CoreImage.CIFilterBuiltins
 import Network
 import SwiftUI
 
-/// Tiny HTTP server that hands the Android APK to the phone (scan QR → download → install).
+// Phone setup: a tiny web server that hands the Android app to the phone (scan the QR code → download →
+// install), and the Setup window that walks through installing, pairing and turning on Tap to Send
+// (the flow's views are in SetupFlow.swift, the served page in InstallPage.swift).
+
+/// Tiny HTTP server that hands the Android APK to the phone.
 final class InstallServer: @unchecked Sendable {
     static let shared = InstallServer()
-    static let port: UInt16 = 47914
+    /// TAPDROP_INSTALL_PORT moves it (tests and demos, so they never collide with a running TapDrop).
+    static let port: UInt16 = ProcessInfo.processInfo.environment["TAPDROP_INSTALL_PORT"].flatMap(UInt16.init) ?? 47914
 
     private let queue = DispatchQueue(label: "app.tapdrop.install")
     private var listener: NWListener?
 
+    /// Demo: act as a copy of TapDrop without the Android app.
+    nonisolated(unsafe) static var demoNoAPK = false
+
     var apkURL: URL? {
+        if Self.demoNoAPK { return nil }
         if let p = ProcessInfo.processInfo.environment["TAPDROP_APK"] { return URL(fileURLWithPath: p) }
         return Bundle.main.url(forResource: "TapDrop", withExtension: "apk")
     }
@@ -20,11 +30,22 @@ final class InstallServer: @unchecked Sendable {
     var pageURL: String? { Net.lanIPv4().map { "http://\($0):\(Self.port)/" } }
 
     func start() {
+        Self.report { $0.server = .starting }
         queue.async { [self] in
-            guard listener == nil, let port = NWEndpoint.Port(rawValue: Self.port) else { return }
+            guard listener == nil else {
+                Self.report { $0.server = .ready }
+                return
+            }
+            guard let port = NWEndpoint.Port(rawValue: Self.port) else { return }
             let params = NWParameters.tcp
             params.allowLocalEndpointReuse = true
-            guard let l = try? NWListener(using: params, on: port) else { return }
+            let l: NWListener
+            do {
+                l = try NWListener(using: params, on: port)
+            } catch {
+                Self.report { $0.server = .failed("Port \(Self.port) is busy") }
+                return
+            }
             l.newConnectionHandler = { [weak self] nw in
                 guard let self else { return }
                 nw.start(queue: self.queue)
@@ -32,7 +53,15 @@ final class InstallServer: @unchecked Sendable {
                 Task { await self.serve(c) }
             }
             l.stateUpdateHandler = { [weak self] s in
-                if case .failed = s { self?.queue.async { self?.listener = nil } }
+                switch s {
+                case .ready:
+                    Self.report { $0.server = .ready }
+                case .failed(let e):
+                    self?.queue.async { self?.listener = nil }
+                    Self.report { $0.server = .failed(Self.describe(e)) }
+                default:
+                    break
+                }
             }
             l.start(queue: queue)
             listener = l
@@ -44,6 +73,16 @@ final class InstallServer: @unchecked Sendable {
             listener?.cancel()
             listener = nil
         }
+        Self.report { $0.server = .stopped }
+    }
+
+    private static func describe(_ e: NWError) -> String {
+        if case .posix(let code) = e, code == .EADDRINUSE { return "Port \(port) is busy" }
+        return "The network said no (\(e.localizedDescription))"
+    }
+
+    private static func report(_ change: @escaping @MainActor (InstallStatus) -> Void) {
+        DispatchQueue.main.async { MainActor.assumeIsolated { change(InstallStatus.shared) } }
     }
 
     private func serve(_ c: Conn) async {
@@ -56,55 +95,118 @@ final class InstallServer: @unchecked Sendable {
         }
         let requestLine = String(decoding: buf.prefix { $0 != 13 }, as: UTF8.self)
         let parts = requestLine.split(separator: " ")
-        let path = parts.count > 1 ? String(parts[1]) : "/"
+        let path = parts.count > 1 ? String(parts[1].split(separator: "?").first ?? "/") : "/"
 
         if path.hasPrefix("/TapDrop.apk"), let apk = apkURL, let h = try? FileHandle(forReadingFrom: apk) {
             defer { try? h.close() }
-            let size = FileNames.size(of: apk)
+            let size = Int64(FileNames.size(of: apk))
             let head = "HTTP/1.1 200 OK\r\nContent-Type: application/vnd.android.package-archive\r\n"
                 + "Content-Length: \(size)\r\nContent-Disposition: attachment; filename=\"TapDrop.apk\"\r\n"
                 + "Cache-Control: no-store\r\nConnection: close\r\n\r\n"
+            Self.report { $0.download = .init(sent: 0, total: size) }
+            var sent: Int64 = 0
+            var reported = Date.distantPast
             do {
                 try await c.write(Data(head.utf8))
-                while let d = try h.read(upToCount: 256 * 1024), !d.isEmpty { try await c.write(d) }
-            } catch {}
+                while let d = try h.read(upToCount: 256 * 1024), !d.isEmpty {
+                    try await c.write(d)
+                    sent += Int64(d.count)
+                    if Date().timeIntervalSince(reported) > 0.1 {
+                        reported = Date()
+                        let s = sent
+                        Self.report { $0.download?.sent = s }
+                    }
+                }
+                let s = sent
+                Self.report {
+                    $0.download?.sent = s
+                    $0.download?.done = true
+                }
+            } catch {
+                Self.report { $0.download?.failed = true }
+            }
             return
         }
-        let body = Data(Self.page(hasApk: apkURL != nil).utf8)
+        guard path == "/" || path == "/index.html" else {
+            try? await c.write(Data("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".utf8))
+            return
+        }
+        Self.report {
+            $0.visits += 1
+            $0.lastVisit = Date()
+        }
+        let apkSize = apkURL.map { Int64(FileNames.size(of: $0)) }
+        let body = Data(InstallPage.html(macName: Store.computerName, apkSize: apkSize).utf8)
         let head = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: \(body.count)\r\n"
             + "Cache-Control: no-store\r\nConnection: close\r\n\r\n"
         try? await c.write(Data(head.utf8) + body)
     }
+}
 
-    private static func page(hasApk: Bool) -> String {
-        let name = Store.computerName.replacingOccurrences(of: "<", with: "")
-        return """
-        <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-        <title>TapDrop</title><style>
-        :root{color-scheme:light dark}
-        body{margin:0;font-family:system-ui,-apple-system,Roboto,sans-serif;background:#0b0d17;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center}
-        .card{padding:32px 24px;max-width:420px;text-align:center}
-        .logo{width:88px;height:88px;border-radius:28px;margin:0 auto 20px;background:linear-gradient(135deg,#389eff,#7d5cff);display:flex;align-items:center;justify-content:center;box-shadow:0 12px 40px #7d5cff66;animation:float 3s ease-in-out infinite}
-        .logo svg{width:46px;height:46px}
-        @keyframes float{50%{transform:translateY(-6px)}}
-        h1{font-size:28px;margin:0 0 8px}p{color:#aab;line-height:1.5;margin:0 0 24px}
-        .req{font-size:13px;color:#889;margin:14px 0 0}.tip{font-size:13px;color:#99a;text-align:left;margin-top:18px;line-height:1.55}
-        a.btn{display:block;padding:18px;border-radius:18px;background:linear-gradient(135deg,#389eff,#7d5cff);color:#fff;font-weight:700;font-size:18px;text-decoration:none;box-shadow:0 8px 30px #389eff55}
-        ol{text-align:left;color:#ccd;line-height:1.7;padding-left:22px;margin-top:28px}
-        </style></head><body><div class="card">
-        <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v12m0 0l-5-5m5 5l5-5"/><path d="M5 20h14"/></svg></div>
-        <h1>TapDrop</h1><p>AirDrop-style sharing between your Android phone and <b>\(name)</b>.</p>
-        \(hasApk ? "<a class=\"btn\" href=\"/TapDrop.apk\">Download for Android</a>" : "<p><b>The APK isn't bundled in this build.</b></p>")
-        <p class="req">Needs Android 13 or newer · any brand</p>
-        <ol><li>Tap <b>Download</b>, then open <b>TapDrop.apk</b>.</li><li>If asked, allow your browser to install apps.</li>
-        <li>Open TapDrop and tap your Mac to pair.</li><li>Tap <b>Turn on</b> to hold your phone to the Mac's notch to send.</li></ol>
-        <p class="tip"><b>Samsung, Xiaomi, OnePlus, Oppo, Vivo:</b> when TapDrop asks, allow it to run in the background, or the phone may stop it to save battery.</p>
-        </div></body></html>
-        """
+/// What the install server is up to, for the Setup window.
+@MainActor
+final class InstallStatus: ObservableObject {
+    static let shared = InstallStatus()
+
+    enum Server: Equatable {
+        case stopped, starting, ready
+        case failed(String)
+    }
+
+    struct Download: Equatable {
+        var sent: Int64
+        var total: Int64
+        var done = false
+        var failed = false
+
+        var fraction: Double { total > 0 ? min(1, Double(sent) / Double(total)) : 0 }
+    }
+
+    @Published var server: Server = .stopped
+    /// Times the page was opened (on the phone, normally).
+    @Published var visits = 0
+    @Published var lastVisit: Date?
+    /// The latest APK download.
+    @Published var download: Download?
+
+    func reset() {
+        visits = 0
+        lastVisit = nil
+        download = nil
     }
 }
 
 enum QR {
+    /// The code's modules, row by row from the top (true = dark), without the quiet zone.
+    static func matrix(for string: String, correction: String = "Q") -> [[Bool]]? {
+        let f = CIFilter.qrCodeGenerator()
+        f.message = Data(string.utf8)
+        f.correctionLevel = correction
+        guard let img = f.outputImage else { return nil }
+        let w = Int(img.extent.width), h = Int(img.extent.height)
+        guard w > 0, h > 0 else { return nil }
+        let ctx = CIContext(options: [.workingColorSpace: NSNull(), .outputColorSpace: NSNull()])
+        guard let cg = ctx.createCGImage(img, from: img.extent) else { return nil }
+        var px = [UInt8](repeating: 255, count: w * h)
+        let ok = px.withUnsafeMutableBytes { buf -> Bool in
+            guard let bc = CGContext(data: buf.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w,
+                                     space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue)
+            else { return false }
+            bc.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+            return true
+        }
+        guard ok else { return nil }
+        // CGContext memory starts at the top row.
+        var rows: [[Bool]] = (0..<h).map { y in (0..<w).map { x in px[y * w + x] < 128 } }
+        // trim the quiet zone
+        let dark = rows.indices.filter { rows[$0].contains(true) }
+        guard let top = dark.first, let bottom = dark.last else { return nil }
+        let cols = (0..<w).filter { x in rows.contains { $0[x] } }
+        guard let left = cols.first, let right = cols.last else { return nil }
+        rows = rows[top...bottom].map { Array($0[left...right]) }
+        return rows
+    }
+
     static func image(for string: String, size: CGFloat) -> NSImage? {
         let f = CIFilter.qrCodeGenerator()
         f.message = Data(string.utf8)
@@ -121,7 +223,10 @@ enum QR {
 @MainActor
 final class SetupWindow: NSObject, NSWindowDelegate {
     static let shared = SetupWindow()
+    static let size = NSSize(width: 800, height: 548)
     private var window: NSWindow?
+    private var keyMonitor: Any?
+    let model = SetupModel()
 
     func show() {
         InstallServer.shared.start()
@@ -130,117 +235,37 @@ final class SetupWindow: NSObject, NSWindowDelegate {
             window.makeKeyAndOrderFront(nil)
             return
         }
-        let w = GlassWindow.make(size: NSSize(width: 620, height: 500), root: SetupView(url: InstallServer.shared.pageURL))
+        InstallStatus.shared.reset()
+        model.begin()
+        let w = SettingsChrome.makeWindow(size: Self.size, title: "Set Up a Phone", root: SetupView(model: model))
         w.delegate = self
-        w.center()
         window = w
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
+            guard let self, let w = self.window, e.window === w else { return e }
+            let cmd = e.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command
+            if e.keyCode == 53 || (cmd && e.charactersIgnoringModifiers == "w") {
+                w.close()
+                return nil
+            }
+            if cmd && e.charactersIgnoringModifiers == "q" {
+                NSApp.terminate(nil)
+                return nil
+            }
+            return e
+        }
         NSApp.activate(ignoringOtherApps: true)
         w.makeKeyAndOrderFront(nil)
     }
 
+    func close() {
+        window?.close()
+    }
+
     func windowWillClose(_ notification: Notification) {
         InstallServer.shared.stop()
+        model.end()
+        if let m = keyMonitor { NSEvent.removeMonitor(m) }
+        keyMonitor = nil
         window = nil
-    }
-}
-
-struct SetupView: View {
-    let url: String?
-    @ObservedObject var store = Store.shared
-    @State private var appeared = false
-
-    var body: some View {
-        HStack(spacing: 28) {
-            VStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .fill(Brand.gradient)
-                        .blur(radius: appeared ? 22 : 8)
-                        .opacity(0.55)
-                        .scaleEffect(appeared ? 1.02 : 0.9)
-                        .animation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true), value: appeared)
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .fill(.white)
-                    if let url, let img = QR.image(for: url, size: 400) {
-                        Image(nsImage: img).interpolation(.none).resizable().padding(16)
-                    } else {
-                        Text("Connect to Wi-Fi").foregroundStyle(.black)
-                    }
-                }
-                .frame(width: 210, height: 210)
-                .scaleEffect(appeared ? 1 : 0.85)
-                .opacity(appeared ? 1 : 0)
-                .animation(.spring(response: 0.6, dampingFraction: 0.7), value: appeared)
-                Text(url ?? "")
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.45))
-                    .textSelection(.enabled)
-            }
-
-            VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Set up your phone").font(.system(size: 26, weight: .bold, design: .rounded)).foregroundStyle(.white)
-                    Text("Any Android phone on Android 13 or newer, on the same Wi-Fi as this Mac.")
-                        .font(.system(size: 13)).foregroundStyle(.white.opacity(0.55))
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Step(n: 1, title: "Scan the code", text: "Point your phone's camera (or Google Lens) at it, download TapDrop and install it. Allow your browser to install apps if asked.", delay: 0.1, on: appeared)
-                Step(n: 2, title: "Pair", text: "Open TapDrop and tap this Mac. Check the 6-digit code matches, then click Pair here.", delay: 0.2, on: appeared)
-                Step(n: 3, title: "Turn on tap to send", text: "In the app, tap Turn on (Android opens Accessibility). Then let it find its tap spot on this Mac (it feels the magnets inside).", delay: 0.3, on: appeared)
-                Button {
-                    SettingsWindow.shared.show(.compatibility)
-                } label: {
-                    HStack(spacing: 4) {
-                        Text("Supported phones and what they need")
-                        Image(systemName: "arrow.up.right")
-                    }
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Brand.a)
-                }
-                .buttonStyle(.plain)
-                .opacity(appeared ? 1 : 0)
-                .animation(.easeOut.delay(0.4), value: appeared)
-                if let d = store.devices.last {
-                    Label("Paired with \(d.name)", systemImage: "checkmark.circle.fill")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.green)
-                        .transition(.scale.combined(with: .opacity))
-                }
-            }
-            .frame(width: 300)
-        }
-        .padding(34)
-        .frame(width: 620, height: 500)
-        .background(alignment: .topLeading) {
-            Ellipse().fill(Brand.gradient).frame(width: 320, height: 260).blur(radius: 90).opacity(0.4).offset(x: -40, y: 40)
-        }
-        .environment(\.colorScheme, .dark)
-        .animation(.spring(response: 0.5, dampingFraction: 0.7), value: store.devices.count)
-        .onAppear { appeared = true }
-    }
-}
-
-private struct Step: View {
-    let n: Int
-    let title: String
-    let text: String
-    let delay: Double
-    let on: Bool
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Text("\(n)")
-                .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
-                .frame(width: 24, height: 24)
-                .background(Circle().fill(Brand.gradient))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
-                Text(text).font(.system(size: 12)).foregroundStyle(.white.opacity(0.55)).fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .opacity(on ? 1 : 0)
-        .offset(x: on ? 0 : 20)
-        .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(delay), value: on)
     }
 }

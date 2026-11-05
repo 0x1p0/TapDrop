@@ -86,6 +86,8 @@ class Prefs(ctx: Context) {
         val name = Settings.Global.getString(ctx.contentResolver, Settings.Global.DEVICE_NAME)
             ?.takeIf { it.isNotBlank() } ?: Build.MODEL
         identity = Identity(id, name)
+        // A calibration value older versions kept; taps don't use it any more.
+        if (sp.contains("spotPeak")) sp.edit { remove("spotPeak") }
     }
 
     // MARK: Macs
@@ -171,18 +173,6 @@ class Prefs(ctx: Context) {
     fun setSmartOtp(on: Boolean) {
         _smartOtp.value = on
         sp.edit { putBoolean("smartOtp", on) }
-    }
-
-    private val _spotPeak = MutableStateFlow(sp.getFloat("spotPeak", 0f))
-    /**
-     * The magnetic field (µT) the phone measured at its tap spot on the Mac — a speaker, the trackpad's
-     * haptic motor, the MagSafe port. 0 = not found yet.
-     */
-    val spotPeak: StateFlow<Float> = _spotPeak.asStateFlow()
-
-    fun setSpotPeak(uT: Float) {
-        _spotPeak.value = uT
-        sp.edit { putFloat("spotPeak", uT) }
     }
 
     fun setOtpCopyOnPhone(on: Boolean) {

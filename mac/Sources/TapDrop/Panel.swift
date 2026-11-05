@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-// A borderless glass panel that springs down from the menu bar icon
+// A borderless Liquid Glass panel that springs down from the menu bar icon
 // (replaces NSPopover, which looks like a stock settings sheet).
 
 final class KeyPanel: NSPanel {
@@ -13,13 +13,23 @@ final class KeyPanel: NSPanel {
 final class PanelState: ObservableObject {
     @Published var visible = false
     @Published var dropTargeted = false
+    /// The Mac has a network address phones can reach (checked each time the panel opens).
+    @Published var macOnline = true
+    /// Demo/QA: show the first recent item as if hovered.
+    @Published var demoHoverFirst = false
+    /// Demo/QA: pretend the Mac is offline.
+    var demoOffline = false
+    /// Demo/QA: force a link state the demo home can't produce (a phone last seen long ago).
+    @Published var demoLink: PanelLink?
+    /// Demo/QA: stay open even though a background-launched demo can't become the active app.
+    var demoPinned = false
 }
 
 @MainActor
 final class PanelController: NSObject, NSWindowDelegate {
     static let contentWidth: CGFloat = 360
-    static let margin: CGFloat = 26
-    static let windowHeight: CGFloat = 720
+    static let margin: CGFloat = 28
+    static let windowHeight: CGFloat = 780
 
     let state = PanelState()
     private var panel: KeyPanel?
@@ -35,6 +45,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     func show(below button: NSStatusBarButton?) {
         hideWork?.cancel()
+        state.macOnline = !state.demoOffline && Net.lanIPv4() != nil
         let p = ensurePanel()
         if let bw = button?.window, let screen = bw.screen ?? NSScreen.main {
             let w = Self.contentWidth + Self.margin * 2
@@ -47,18 +58,18 @@ final class PanelController: NSObject, NSWindowDelegate {
         NSApp.activate(ignoringOtherApps: true)
         p.makeKeyAndOrderFront(nil)
         DispatchQueue.main.async {
-            withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) { self.state.visible = true }
+            withTDAnimation(TD.Motion.island) { self.state.visible = true }
         }
         installMonitors()
     }
 
     func hide() {
         guard state.visible else { return }
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) { state.visible = false }
+        withTDAnimation(.spring(response: 0.3, dampingFraction: 0.92)) { state.visible = false }
         removeMonitors()
         let work = DispatchWorkItem { [weak self] in self?.panel?.orderOut(nil) }
         hideWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.28, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.26, execute: work)
     }
 
     private func ensurePanel() -> KeyPanel {
@@ -75,8 +86,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         p.hidesOnDeactivate = false
         p.isReleasedWhenClosed = false
         p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
-        p.appearance = NSAppearance(named: .darkAqua)
         p.delegate = self
+        p.setAccessibilityLabel("TapDrop")
         let root = PanelRoot(state: state, close: { [weak self] in self?.hide() })
         let host = NSHostingView(rootView: root)
         host.frame = p.contentLayoutRect
@@ -89,7 +100,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     func windowDidResignKey(_ notification: Notification) {
         // Losing key to our own sheets/menus is fine; losing it to another app closes us.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-            guard let self, self.isShown else { return }
+            guard let self, self.isShown, !self.state.demoPinned else { return }
             if NSApp.keyWindow == nil || !NSApp.isActive { self.hide() }
         }
     }
@@ -97,7 +108,10 @@ final class PanelController: NSObject, NSWindowDelegate {
     private func installMonitors() {
         removeMonitors()
         globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
-            Task { @MainActor in self?.hide() }
+            Task { @MainActor in
+                guard let self, !self.state.demoPinned else { return }
+                self.hide()
+            }
         }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
             guard let self, self.isShown, e.window === self.panel else { return e }
@@ -126,114 +140,19 @@ final class PanelController: NSObject, NSWindowDelegate {
 struct PanelRoot: View {
     @ObservedObject var state: PanelState
     let close: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
             PanelView(state: state, close: close)
                 .frame(width: PanelController.contentWidth)
-                .background(GlassBackground(cornerRadius: 24))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .strokeBorder(
-                            LinearGradient(colors: [.white.opacity(0.22), .white.opacity(0.06)],
-                                           startPoint: .top, endPoint: .bottom),
-                            lineWidth: 1))
-                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                .shadow(color: .black.opacity(0.45), radius: 24, y: 14)
-                .scaleEffect(state.visible ? 1 : 0.92, anchor: .top)
-                .offset(y: state.visible ? 0 : -10)
+                .tdGlass(.panel, in: RoundedRectangle(cornerRadius: TD.Radius.panel, style: .continuous))
+                .scaleEffect(state.visible || reduceMotion ? 1 : 0.94, anchor: .top)
+                .offset(y: state.visible || reduceMotion ? 0 : -8)
                 .opacity(state.visible ? 1 : 0)
-                .blur(radius: state.visible ? 0 : 4)
             Spacer(minLength: 0)
         }
         .padding(.top, 6)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .environment(\.colorScheme, .dark)
-    }
-}
-
-/// Behind-window blur with real rounded corners (SwiftUI clipping alone leaves square edges on the blur).
-struct GlassBackground: NSViewRepresentable {
-    var cornerRadius: CGFloat
-    var material: NSVisualEffectView.Material = .hudWindow
-
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let v = NSVisualEffectView()
-        v.material = material
-        v.blendingMode = .behindWindow
-        v.state = .active
-        v.maskImage = Self.mask(cornerRadius)
-        return v
-    }
-
-    func updateNSView(_ v: NSVisualEffectView, context: Context) {
-        v.material = material
-    }
-
-    static func mask(_ r: CGFloat) -> NSImage {
-        let size = NSSize(width: r * 2 + 1, height: r * 2 + 1)
-        let img = NSImage(size: size, flipped: false) { rect in
-            NSColor.black.setFill()
-            NSBezierPath(roundedRect: rect, xRadius: r, yRadius: r).fill()
-            return true
-        }
-        img.capInsets = NSEdgeInsets(top: r, left: r, bottom: r, right: r)
-        img.resizingMode = .stretch
-        return img
-    }
-}
-
-/// Capsule button used across the panel.
-struct GlassButtonStyle: ButtonStyle {
-    var prominent = false
-
-    func makeBody(configuration: Configuration) -> some View {
-        GlassButtonBody(configuration: configuration, prominent: prominent)
-    }
-
-    private struct GlassButtonBody: View {
-        let configuration: ButtonStyleConfiguration
-        let prominent: Bool
-        @State private var hover = false
-        @Environment(\.isEnabled) private var enabled
-
-        var body: some View {
-            configuration.label
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white.opacity(enabled ? 1 : 0.4))
-                .padding(.horizontal, 14)
-                .frame(height: 34)
-                .frame(maxWidth: .infinity)
-                .background {
-                    if prominent {
-                        Capsule().fill(Brand.gradient)
-                            .overlay(Capsule().fill(.white.opacity(hover ? 0.12 : 0)))
-                            .shadow(color: Brand.b.opacity(hover ? 0.55 : 0.3), radius: hover ? 12 : 6, y: 3)
-                    } else {
-                        Capsule().fill(.white.opacity(hover ? 0.14 : 0.08))
-                            .overlay(Capsule().strokeBorder(.white.opacity(0.1), lineWidth: 1))
-                    }
-                }
-                .scaleEffect(configuration.isPressed ? 0.96 : 1)
-                .animation(.spring(response: 0.25, dampingFraction: 0.65), value: configuration.isPressed)
-                .animation(.easeOut(duration: 0.15), value: hover)
-                .onHover { hover = $0 }
-                .contentShape(Capsule())
-        }
-    }
-}
-
-/// Small circular icon button (header "more" menu, close buttons).
-struct CircleIconLabel: View {
-    let systemName: String
-    @State private var hover = false
-
-    var body: some View {
-        Image(systemName: systemName)
-            .font(.system(size: 12, weight: .bold))
-            .foregroundStyle(.white.opacity(hover ? 0.95 : 0.6))
-            .frame(width: 26, height: 26)
-            .background(Circle().fill(.white.opacity(hover ? 0.14 : 0.07)))
-            .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hover = h } }
     }
 }

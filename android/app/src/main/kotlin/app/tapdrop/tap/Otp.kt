@@ -43,8 +43,7 @@ object OtpRelay {
                 mac, listOf(OutItem.Text(code, clip = true, otpSource = source)), "code",
                 record = false, haptics = false,
             )
-            job.join()
-            val ok = app.transfers.state.value is app.tapdrop.net.TState.Done
+            val ok = job.await() is app.tapdrop.net.TState.Done
             withContext(Dispatchers.Main) { pill?.finish(ok, if (ok) "Code ${pretty(code)} on your Mac" else "Couldn't reach your Mac") }
         }
     }

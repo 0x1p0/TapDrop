@@ -28,13 +28,13 @@ import app.tapdrop.ui.Haptics
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -42,14 +42,26 @@ import java.io.FileNotFoundException
 import java.io.IOException
 import java.io.OutputStream
 import java.net.SocketTimeoutException
+import java.util.concurrent.atomic.AtomicLong
 
-data class Received(val uri: Uri?, val name: String, val mime: String, val text: String? = null, val clip: Boolean = false) {
+/** Something that arrived from the Mac. [size] is what the Mac declared, -1 for text or when it didn't say. */
+data class Received(
+    val uri: Uri?,
+    val name: String,
+    val mime: String,
+    val text: String? = null,
+    val clip: Boolean = false,
+    val size: Long = -1,
+) {
     val isImage get() = mime.startsWith("image/")
     val isVideo get() = mime.startsWith("video/")
     val isLink get() = text != null && Uri.parse(text.trim()).scheme?.startsWith("http") == true && !text.trim().contains(' ')
 }
 
 sealed interface TState {
+    /** Which transfer this state belongs to (see [Transfers.newId]); 0 while idle. */
+    val id: Long get() = 0L
+
     data object Idle : TState
 
     data class Working(
@@ -60,6 +72,7 @@ sealed interface TState {
         val done: Long = 0,
         val total: Long = -1,
         val current: String = "",
+        override val id: Long = 0L,
     ) : TState {
         val progress: Float? get() = if (total > 0) (done.toFloat() / total).coerceIn(0f, 1f) else null
     }
@@ -72,9 +85,10 @@ sealed interface TState {
         val subtitle: String,
         val received: List<Received> = emptyList(),
         val empty: Boolean = false,
+        override val id: Long = 0L,
     ) : TState
 
-    data class Failed(val macId: String, val macName: String, val message: String) : TState
+    data class Failed(val macId: String, val macName: String, val message: String, override val id: Long = 0L) : TState
 }
 
 /** Runs transfers on an app-wide scope (they survive the share sheet closing) and exposes live state. */
@@ -90,6 +104,11 @@ class Transfers(
     val state: StateFlow<TState> = _state.asStateFlow()
 
     val busy get() = _state.value is TState.Working
+
+    private val ids = AtomicLong()
+
+    /** A fresh transfer id. Pass it to [send] to pick that transfer's own states out of [state]. */
+    fun newId(): Long = ids.incrementAndGet()
 
     fun reset() {
         if (!busy) _state.value = TState.Idle
@@ -125,6 +144,10 @@ class Transfers(
         SavedMac(r.macId, r.macName, r.key, ep.host, ep.port)
     }
 
+    /**
+     * Sends [items] to [mac]. Transfers run one at a time, so this waits its turn behind one already running.
+     * The result is how it ended ([TState.Done] or [TState.Failed]); its states in [state] carry [id].
+     */
     fun send(
         mac: SavedMac,
         items: List<OutItem>,
@@ -133,8 +156,9 @@ class Transfers(
         previewMime: String? = null,
         record: Boolean = true,
         haptics: Boolean = true,
-    ): Job =
-        run(mac, outgoing = true, title = "Sending $label", haptics = haptics) { ep, progress ->
+        id: Long = newId(),
+    ): Deferred<TState> =
+        run(mac, outgoing = true, title = "Sending $label", haptics = haptics, id = id) { ep, progress ->
             val n = client.send(ep, mac.macKey, items, progress)
             if (record) prefs.addHistory(HistoryEntry(true, mac.name, label, System.currentTimeMillis(), preview?.toString(), previewMime))
             TState.Done(mac.id, mac.name, true, "Sent", if (n == 1) label else "$n items")
@@ -157,7 +181,9 @@ class Transfers(
         withContext(Dispatchers.Main) { applyClipboard(items) }
         val (title, subtitle) = describe(items)
         val first = items.first()
-        prefs.addHistory(HistoryEntry(false, mac.name, subtitle.ifEmpty { title }, System.currentTimeMillis(), first.uri?.toString(), first.mime))
+        // One item is remembered by what it is (its name, the link, the text); a batch by its count.
+        val label = if (items.size == 1) subtitle.ifEmpty { title } else title
+        prefs.addHistory(HistoryEntry(false, mac.name, label, System.currentTimeMillis(), first.uri?.toString(), first.mime))
         return TState.Done(mac.id, mac.name, false, title, subtitle, items)
     }
 
@@ -166,25 +192,29 @@ class Transfers(
         outgoing: Boolean,
         title: String,
         haptics: Boolean = true,
+        id: Long = newId(),
         block: suspend (Endpoint, Progress) -> TState,
-    ): Job =
-        scope.launch {
+    ): Deferred<TState> =
+        scope.async {
             mutex.withLock {
-                _state.value = TState.Working(mac.id, mac.name, outgoing, title)
+                _state.value = TState.Working(mac.id, mac.name, outgoing, title, id = id)
                 var last = 0L
                 val progress = Progress { done, total, current ->
                     val now = SystemClock.uptimeMillis()
                     if (now - last > 40 || (total in 1..done)) {
                         last = now
-                        _state.value = TState.Working(mac.id, mac.name, outgoing, title, done, total, current)
+                        _state.value = TState.Working(mac.id, mac.name, outgoing, title, done, total, current, id)
                     }
                 }
                 val result = try {
-                    onMac(mac) { ep -> block(ep, progress) }
+                    when (val r = onMac(mac) { ep -> block(ep, progress) }) {
+                        is TState.Done -> r.copy(id = id)
+                        else -> r
+                    }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    TState.Failed(mac.id, mac.name, friendly(e, mac.name))
+                    TState.Failed(mac.id, mac.name, friendly(e, mac.name), id)
                 }
                 _state.value = result
                 if (haptics) when (result) {
@@ -192,6 +222,7 @@ class Transfers(
                     is TState.Failed -> Haptics.error(app)
                     else -> Unit
                 }
+                result
             }
         }
 
@@ -225,7 +256,20 @@ class Transfers(
                     (if (files[0].clip) "Copied image" else "Received") to files[0].name
                 files.isNotEmpty() && files.all { it.isImage || it.isVideo } && texts.isEmpty() ->
                     "Received ${files.size} ${if (files.all { it.isImage }) "photos" else "items"}" to "Saved to Photos"
-                else -> "Received ${items.size} items" to "Saved to Downloads › TapDrop"
+                else -> {
+                    // Say where things went: photos and videos land in Photos, everything else in Downloads › TapDrop
+                    // (see MediaStoreSink), and copied text is on the clipboard.
+                    val media = files.count { it.isImage || it.isVideo }
+                    val saved = when {
+                        files.isEmpty() -> null
+                        media == files.size -> "saved to Photos"
+                        media == 0 -> "saved to Downloads › TapDrop"
+                        else -> "saved to Photos and Downloads"
+                    }
+                    val copied = if (texts.any { it.clip }) "text copied" else null
+                    val where = listOfNotNull(saved, copied).joinToString(" · ").replaceFirstChar { it.uppercase() }
+                    "Received ${items.size} items" to where
+                }
             }
         }
     }
@@ -256,7 +300,7 @@ class MediaStoreSink(private val ctx: Context) : BatchSink {
             override fun commit() {
                 stream.close()
                 cr.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
-                items += Received(uri, name, type, clip = clip)
+                items += Received(uri, name, type, clip = clip, size = size)
             }
             override fun abort() {
                 runCatching { stream.close() }

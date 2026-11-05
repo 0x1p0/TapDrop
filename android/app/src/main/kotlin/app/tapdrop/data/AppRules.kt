@@ -2,7 +2,7 @@ package app.tapdrop.data
 
 /** What holding the phone to the Mac's notch sends, chosen per app. */
 enum class SendMode(val title: String, val detail: String) {
-    SMART("Smart", "The photo or video on screen, otherwise a screenshot"),
+    SMART("Smart", "The page in browsers, the photo or video on screen, otherwise a screenshot"),
     LINK("Page link", "Opens the same page on your Mac"),
     MEDIA("Photo or video on screen", "The original file when it's in your gallery, else a screenshot"),
     LATEST_MEDIA("Latest photo or video", "Your newest shot, full quality"),
@@ -49,8 +49,13 @@ object AppRules {
     fun isGallery(pkg: String) = pkg in GALLERIES
     fun isCamera(pkg: String) = pkg == "com.google.android.GoogleCamera" || pkg.contains("camera", ignoreCase = true)
 
-    /** Smart: the photo/video on screen if it can be found in the library, otherwise a screenshot. */
+    /**
+     * Smart: in a browser the page itself (its address, so it opens on the Mac; a screenshot when the address can't
+     * be read), in a camera the newest shot, elsewhere the photo/video on screen if it can be found in the library,
+     * otherwise a screenshot.
+     */
     fun smart(pkg: String): SendMode = when {
+        isBrowser(pkg) -> SendMode.LINK
         isCamera(pkg) -> SendMode.LATEST_MEDIA
         else -> SendMode.MEDIA
     }

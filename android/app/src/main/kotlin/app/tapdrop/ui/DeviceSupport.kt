@@ -36,6 +36,10 @@ object DeviceSupport {
     fun hasMotionSensor(ctx: Context) =
         ctx.getSystemService(SensorManager::class.java)?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null
 
+    /** A proximity sensor lets the phone start a tap itself when its top meets the notch. */
+    fun hasProximity(ctx: Context) =
+        ctx.getSystemService(SensorManager::class.java)?.getDefaultSensor(Sensor.TYPE_PROXIMITY) != null
+
     fun onWifi(ctx: Context): Boolean {
         val cm = ctx.getSystemService(ConnectivityManager::class.java) ?: return false
         val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return false
@@ -159,21 +163,31 @@ object Compatibility {
         "Huawei phones on HarmonyOS, Amazon Fire tablets",
     )
 
-    val macsWithTap = listOf(
-        Group("Every MacBook with Apple silicon", "Tap your phone on its magnet spot (found once), in any light"),
-        Group("Notched MacBook Air / Pro", "Also: hold the phone over the notch in a lit room"),
+    /** A kind of Mac and what TapDrop does on it. */
+    data class MacGroup(val name: String, val models: String, val can: String, val tap: Boolean, val runs: Boolean = true)
+
+    /** Tapping needs the light sensor in a MacBook's notch; everything else runs on any Apple silicon Mac. */
+    val macs = listOf(
+        MacGroup(
+            "MacBook Air and MacBook Pro with a notch",
+            "MacBook Air (M2 and later) · MacBook Pro 14″ and 16″ (2021 and later)",
+            "Tap to send, and everything else", tap = true,
+        ),
+        MacGroup(
+            "Other Macs with Apple silicon",
+            "MacBook Air (M1), 13″ MacBook Pro, iMac, Mac mini, Mac Studio and Mac Pro",
+            "Sharing, codes and clipboard", tap = false,
+        ),
+        MacGroup("Intel Macs", "TapDrop needs a universal build for them", "Not yet", tap = false, runs = false),
     )
 
-    val macsOther = listOf(
-        Group("iMac, Mac mini, Mac Studio, Mac Pro", "A magnet spot if the phone finds one; otherwise share, codes, clipboard, NFC sticker"),
-        Group("Intel Macs", "Not yet: needs a universal build"),
-    )
+    /** One thing a setup needs, and why. */
+    data class Need(val title: String, val detail: String)
 
     val needs = listOf(
-        "Phone and Mac on the same Wi-Fi (guest or hotel Wi-Fi that isolates devices won't work)",
-        "TapDrop on both, paired once with a 6-digit code",
-        "Tap to send: TapDrop turned on in Accessibility",
-        "Photos & videos access, so originals are sent instead of screenshots",
-        "To tap: a compass sensor in the phone (nearly all have one) to feel the Mac's magnets, or a lit room for the notch",
+        Need("Phone and Mac on the same Wi‑Fi", "Guest or hotel Wi‑Fi that keeps devices apart won't work"),
+        Need("TapDrop on both", "Paired once, with a 6-digit code from your Mac"),
+        Need("To tap: a MacBook with a notch", "And TapDrop turned on in Accessibility on your phone"),
+        Need("Photos & videos access", "So originals are sent instead of screenshots"),
     )
 }

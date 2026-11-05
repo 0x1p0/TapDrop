@@ -2,76 +2,98 @@ package app.tapdrop.ui
 
 import android.content.Context
 import android.content.Intent
-import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
+import android.graphics.drawable.AdaptiveIconDrawable
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Block
-import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.Screenshot
-import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.SearchOff
 import androidx.compose.material.icons.rounded.TextFields
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tapdrop.TapDropApp
 import app.tapdrop.data.AppRules
 import app.tapdrop.data.SendMode
+import app.tapdrop.ui.design.ChoiceRow
+import app.tapdrop.ui.design.EmptyState
+import app.tapdrop.ui.design.GlassCard
+import app.tapdrop.ui.design.GlassSheet
+import app.tapdrop.ui.design.IconChip
+import app.tapdrop.ui.design.LargeTitleScaffold
+import app.tapdrop.ui.design.RowChevron
+import app.tapdrop.ui.design.RowValue
+import app.tapdrop.ui.design.SectionHeader
+import app.tapdrop.ui.design.SettingsGroup
+import app.tapdrop.ui.design.SkeletonRow
+import app.tapdrop.ui.design.SmallButton
+import app.tapdrop.ui.design.TdBadge
+import app.tapdrop.ui.design.TdSearchField
+import app.tapdrop.ui.design.TdShapes
+import app.tapdrop.ui.design.pressable
+import app.tapdrop.ui.design.segmentShape
+import app.tapdrop.ui.design.sheetSegment
+import app.tapdrop.ui.design.tdSharedBounds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -79,7 +101,21 @@ import kotlinx.coroutines.withContext
 
 data class AppEntry(val pkg: String, val label: String)
 
-private val iconCache = HashMap<String, ImageBitmap>()
+/** A launcher icon drawn once, with the system's icon mask (scaled to [ICON_PX]) to outline it by. */
+private class IconArt(val bitmap: ImageBitmap, val mask: android.graphics.Path?)
+
+private const val ICON_PX = 144
+private val iconCache = HashMap<String, IconArt>()
+
+private fun loadIcon(ctx: Context, pkg: String): IconArt? = runCatching {
+    val d = ctx.packageManager.getApplicationIcon(pkg)
+    val bitmap = d.toBitmap(ICON_PX, ICON_PX).asImageBitmap()
+    val mask = (d as? AdaptiveIconDrawable)?.let {
+        it.setBounds(0, 0, ICON_PX, ICON_PX)
+        android.graphics.Path(it.iconMask)
+    }
+    IconArt(bitmap, mask)
+}.getOrNull()
 
 fun SendMode.icon(): ImageVector = when (this) {
     SendMode.SMART -> Icons.Rounded.AutoAwesome
@@ -91,14 +127,15 @@ fun SendMode.icon(): ImageVector = when (this) {
     SendMode.OFF -> Icons.Rounded.Block
 }
 
-fun SendMode.accent(): Brush = when (this) {
-    SendMode.SMART -> Brand.gradient
-    SendMode.LINK -> Brush.linearGradient(listOf(Color(0xFF4FA8FF), Color(0xFF2F64F5)))
-    SendMode.MEDIA -> Brush.linearGradient(listOf(Color(0xFFFF9A5A), Color(0xFFFF4F8B)))
-    SendMode.LATEST_MEDIA -> Brush.linearGradient(listOf(Color(0xFFFFC24A), Color(0xFFFF8A3D)))
-    SendMode.SCREENSHOT -> Brush.linearGradient(listOf(Color(0xFF2ED3B0), Color(0xFF14A08F)))
-    SendMode.TEXT -> Brush.linearGradient(listOf(Color(0xFF9B7BFF), Color(0xFF6A3FF0)))
-    SendMode.OFF -> Brush.linearGradient(listOf(Color(0xFF9097A6), Color(0xFF6B7180)))
+/** Each mode's chip hue (the brand family; Off is a neutral gray). */
+fun SendMode.hue(): Color = when (this) {
+    SendMode.SMART -> Brand.Violet
+    SendMode.LINK -> Brand.Blue
+    SendMode.MEDIA -> Brand.Orchid
+    SendMode.LATEST_MEDIA -> Brand.Warning
+    SendMode.SCREENSHOT -> Brand.Teal
+    SendMode.TEXT -> Brand.Sky
+    SendMode.OFF -> Color(0xFF8E90A2)
 }
 
 private fun loadApps(ctx: Context): List<AppEntry> {
@@ -111,210 +148,300 @@ private fun loadApps(ctx: Context): List<AppEntry> {
         .sortedBy { it.label.lowercase() }
 }
 
-@Composable
-private fun AppIcon(pkg: String, size: Int = 44) {
-    val ctx = LocalContext.current
-    val img by produceState(iconCache[pkg], pkg) {
-        if (value == null) {
-            value = withContext(Dispatchers.IO) {
-                runCatching { ctx.packageManager.getApplicationIcon(pkg).toBitmap(144, 144).asImageBitmap() }.getOrNull()
-                    ?.also { iconCache[pkg] = it }
-            }
-        }
-    }
-    Box(Modifier.size(size.dp).clip(RoundedCornerShape((size * 0.28f).dp)).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
-        img?.let { Image(it, null, Modifier.fillMaxSize()) }
-    }
-}
-
-/** "What each app sends" — per-app mode for holding the phone to the Mac's notch. */
+/**
+ * "What each app sends": every app with the mode a tap uses there (Smart unless changed), searchable. Tap an
+ * app to choose its mode from a segmented list in a glass sheet. Its header chip arrives from Settings.
+ */
 @Composable
 fun AppRulesScreen(onClose: () -> Unit) {
     val ctx = LocalContext.current
     val app = TapDropApp.instance
+    val c = Td.colors
     val modes by app.prefs.appModes.collectAsStateWithLifecycle()
     var apps by remember { mutableStateOf<List<AppEntry>?>(null) }
-    var query by remember { mutableStateOf("") }
+    var failed by remember { mutableStateOf(false) }
+    var attempt by remember { mutableIntStateOf(0) }
+    var query by rememberSaveable { mutableStateOf("") }
     var picking by remember { mutableStateOf<AppEntry?>(null) }
-    LaunchedEffect(Unit) { apps = withContext(Dispatchers.IO) { loadApps(ctx) } }
-    BackHandler(enabled = picking == null) { onClose() }
+    val list = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focus = LocalFocusManager.current
+    // The mode sheet needs the whole screen: put the keyboard away (and leave the search box) as it opens.
+    fun pick(a: AppEntry) {
+        keyboard?.hide()
+        focus.clearFocus(force = true)
+        picking = a
+    }
+    LaunchedEffect(attempt) {
+        failed = false
+        withContext(Dispatchers.IO) { runCatching { loadApps(ctx) } }
+            .onSuccess { apps = it }
+            .onFailure { failed = true }
+    }
 
     val all = apps.orEmpty()
-    val filtered = if (query.isBlank()) all else all.filter { it.label.contains(query, ignoreCase = true) }
-    val customized = if (query.isBlank()) all.filter { it.pkg in modes } else emptyList()
+    val q = query.trim()
+    val filtered = if (q.isEmpty()) all else all.filter { it.label.contains(q, ignoreCase = true) }
+    val changed = if (q.isEmpty()) all.filter { it.pkg in modes } else emptyList()
 
-    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        GlowBackdrop(Modifier.fillMaxWidth().height(300.dp), intensity = 0.7f)
-        val bars = WindowInsets.systemBars.asPaddingValues()
-        LazyColumn(
-            contentPadding = PaddingValues(
-                start = 20.dp, end = 20.dp,
-                top = bars.calculateTopPadding() + 8.dp,
-                bottom = bars.calculateBottomPadding() + 24.dp,
-            ),
-        ) {
-            item("bar") {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    FilledTonalIconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
-                }
+    LargeTitleScaffold(
+        title = "What each app sends",
+        subtitle = "When you touch your phone to the notch",
+        onBack = onClose,
+        state = list,
+        chrome = {
+            picking?.let { a ->
+                GlassSheet(onDismissed = { picking = null }) { close -> ModeSheet(a, modes[a.pkg] ?: SendMode.SMART, close) }
             }
-            item("title") {
-                Column(Modifier.padding(top = 14.dp, bottom = 18.dp).enter(0)) {
-                    Text("What each app sends", style = MaterialTheme.typography.headlineMedium)
-                    VSpace(6.dp)
-                    Text(
-                        "When you hold your phone to your Mac's notch. Smart picks for you — change any app here.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        },
+    ) {
+        item("smart") { SmartCard(changed = modes.size) }
+        item("search") {
+            // Searching brings the field up under the bar, so the results get the room above the keyboard.
+            TdSearchField(
+                query, { query = it }, "Search apps",
+                Modifier
+                    .padding(top = 16.dp)
+                    .onFocusChanged { if (it.isFocused) scope.launch { list.animateScrollToItem(SEARCH_INDEX) } },
+            )
+        }
+        when {
+            failed -> item("failed") {
+                EmptyState(
+                    icon = Icons.Rounded.ErrorOutline,
+                    title = "Couldn't list your apps",
+                    body = "Android didn't answer in time.",
+                    accent = c.danger,
+                    action = { SmallButton("Try again", { attempt++ }, prominent = true) },
+                )
+            }
+            apps == null -> {
+                item("loadingHeader") { SectionHeader("All apps") }
+                items(7) { i -> SkeletonRow(segmentShape(i, 7), Modifier.padding(bottom = 2.dp), titleWidth = 0.38f + (i % 3) * 0.12f) }
+            }
+            else -> {
+                if (changed.isNotEmpty()) {
+                    item("changedHeader") { SectionHeader("Changed") }
+                    itemsIndexed(changed, key = { _, a -> "changed:" + a.pkg }) { i, a ->
+                        AppRow(
+                            a, modes[a.pkg] ?: SendMode.SMART, segmentShape(i, changed.size),
+                            Modifier.animateItem().padding(bottom = 2.dp),
+                        ) { pick(a) }
+                    }
+                }
+                if (filtered.isNotEmpty()) item("allHeader") {
+                    SectionHeader(
+                        when {
+                            q.isEmpty() -> "All apps"
+                            filtered.size == 1 -> "1 app"
+                            else -> "${filtered.size} apps"
+                        }
                     )
                 }
-            }
-            item("search") {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .enter(1)
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Box(Modifier.padding(start = 12.dp).weight(1f)) {
-                        if (query.isEmpty()) Text("Search apps", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        BasicTextField(
-                            value = query,
-                            onValueChange = { query = it },
-                            singleLine = true,
-                            textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
-                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                            modifier = Modifier.fillMaxWidth(),
+                if (filtered.isEmpty()) {
+                    item("none") {
+                        EmptyState(
+                            icon = Icons.Rounded.SearchOff,
+                            title = "No apps match “$q”",
+                            body = "Check the spelling, or search for part of the name.",
+                            accent = Brand.Blue,
+                            shape = TdShapes.Cookie9,
                         )
                     }
                 }
-                VSpace(20.dp)
-            }
-            if (customized.isNotEmpty()) {
-                item("customLabel") { Text("Customized", style = sectionLabel, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)) }
-                itemsIndexed(customized, key = { _, a -> "c_" + a.pkg }) { i, a ->
-                    AppRow(a, modes[a.pkg] ?: SendMode.SMART, i, customized.size, Modifier.animateItem()) { picking = a }
+                itemsIndexed(filtered, key = { _, a -> a.pkg }) { i, a ->
+                    AppRow(
+                        a, modes[a.pkg] ?: SendMode.SMART, segmentShape(i, filtered.size),
+                        Modifier.animateItem().padding(bottom = 2.dp),
+                    ) { pick(a) }
                 }
-                item("gap") { VSpace(20.dp) }
-            }
-            item("allLabel") {
-                Text(
-                    when {
-                        apps == null -> "Loading apps…"
-                        query.isBlank() -> "All apps"
-                        filtered.isEmpty() -> "No apps match “$query”"
-                        filtered.size == 1 -> "1 app"
-                        else -> "${filtered.size} apps"
-                    },
-                    style = sectionLabel, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
-                )
-            }
-            itemsIndexed(filtered, key = { _, a -> a.pkg }) { i, a ->
-                AppRow(a, modes[a.pkg] ?: SendMode.SMART, i, filtered.size, Modifier.animateItem()) { picking = a }
             }
         }
-
-        StatusBarScrim()
-        picking?.let { a ->
-            SheetHost(onClosed = { picking = null }) { close -> ModePicker(a, modes[a.pkg] ?: SendMode.SMART, close) }
-        }
+        // Room to scroll the last apps up above the keyboard.
+        item("ime") { Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.ime)) }
     }
 }
 
+/** The search field's place in the list (after the large title and the Smart card). */
+private const val SEARCH_INDEX = 2
+
+/** The header: what Smart does, and how many apps are set to something else. */
 @Composable
-private fun AppRow(a: AppEntry, mode: SendMode, index: Int, count: Int, modifier: Modifier, onClick: () -> Unit) {
-    val top = if (index == 0) 22.dp else 4.dp
-    val bottom = if (index == count - 1) 22.dp else 4.dp
-    val shape = RoundedCornerShape(topStart = top, topEnd = top, bottomStart = bottom, bottomEnd = bottom)
-    val resolved = if (mode == SendMode.SMART) AppRules.smart(a.pkg) else mode
-    Row(
-        modifier
-            .padding(bottom = 2.dp)
-            .fillMaxWidth()
-            .tappable(shape, pressedScale = 0.985f, onClick = onClick)
-            .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .padding(horizontal = 14.dp, vertical = 11.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        AppIcon(a.pkg)
-        Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
-            Text(a.label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(
-                when {
-                    mode != SendMode.SMART -> mode.title
-                    resolved == SendMode.MEDIA -> "Smart · photo, video or screenshot"
-                    else -> "Smart · ${resolved.title.lowercase()}"
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = if (mode == SendMode.OFF) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
+private fun SmartCard(changed: Int) {
+    val c = Td.colors
+    GlassCard(Modifier.fillMaxWidth(), padding = PaddingValues(18.dp)) {
+        Row(verticalAlignment = Alignment.Top) {
+            IconChip(
+                Icons.Rounded.AutoAwesome, Brand.Violet, size = 48.dp, iconSize = 24.dp,
+                modifier = Modifier.tdSharedBounds(APP_RULES_CHIP_KEY),
             )
-        }
-        val shown = if (mode == SendMode.SMART && resolved == SendMode.MEDIA) SendMode.SMART else resolved
-        Box(Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(shown.accent()), contentAlignment = Alignment.Center) {
-            Icon(shown.icon(), null, tint = Color.White, modifier = Modifier.size(18.dp))
-        }
-    }
-}
-
-@Composable
-private fun ModePicker(a: AppEntry, current: SendMode, close: () -> Unit) {
-    val app = TapDropApp.instance
-    val scope = rememberCoroutineScope()
-    val view = LocalView.current
-    var selected by remember { mutableStateOf(current) }
-
-    Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-        AppIcon(a.pkg, size = 48)
-        Column(Modifier.padding(start = 14.dp)) {
-            Text(a.label, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text("When you hold your phone to the notch", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        AppRules.options(a.pkg).forEachIndexed { i, m ->
-            val on = m == selected
-            val border by animateColorAsState(if (on) MaterialTheme.colorScheme.primary else Color.Transparent, tween(180), label = "b")
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .enter(i)
-                    .tappable(RoundedCornerShape(20.dp), pressedScale = 0.98f) {
-                        selected = m
-                        app.prefs.setAppMode(a.pkg, m)
-                        view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
-                        scope.launch {
-                            delay(280)
-                            close()
-                        }
-                    }
-                    .background(MaterialTheme.colorScheme.surfaceContainer)
-                    .border(1.5.dp, border, RoundedCornerShape(20.dp))
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(Modifier.size(40.dp).clip(RoundedCornerShape(13.dp)).background(m.accent()), contentAlignment = Alignment.Center) {
-                    Icon(m.icon(), null, tint = Color.White, modifier = Modifier.size(22.dp))
-                }
-                Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
-                    Text(m.title, style = MaterialTheme.typography.titleSmall)
+            Column(Modifier.padding(start = 14.dp)) {
+                AnimatedContent(
+                    targetState = changed,
+                    transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(120)) },
+                    label = "smartTitle",
+                ) { n ->
                     Text(
-                        if (m == SendMode.SMART) m.detail else m.detail,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        when (n) {
+                            0 -> "Smart in every app"
+                            1 -> "Smart, except 1 app"
+                            else -> "Smart, except $n apps"
+                        },
+                        style = TdType.subtitle, color = c.text,
                     )
                 }
-                AnimatedVisibility(on, enter = scaleIn() + fadeIn(), exit = scaleOut() + fadeOut()) {
-                    Box(Modifier.size(26.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
-                    }
+                Text(
+                    "In a browser, the page. In a camera app, your newest shot. Elsewhere, the photo, video or " +
+                        "file on screen, or a screenshot.",
+                    style = TdType.bodySmall, color = c.textSecondary, modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * One app: its icon and name, and the mode a tap uses there on the trailing side, where the eye runs down the
+ * list: a quiet "Smart" for the default, a tinted badge for a mode you chose.
+ */
+@Composable
+private fun AppRow(a: AppEntry, mode: SendMode, shape: Shape, modifier: Modifier, onClick: () -> Unit) {
+    val c = Td.colors
+    Row(
+        modifier
+            .fillMaxWidth()
+            .heightIn(min = 64.dp)
+            .pressable(shape, pressedScale = 0.985f, onClickLabel = "Choose what ${a.label} sends", onClick = onClick)
+            .background(c.surface, shape)
+            .padding(start = 14.dp, end = 12.dp, top = 10.dp, bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AppIcon(a.pkg, 40.dp)
+        Text(
+            a.label, style = TdType.body.copy(fontWeight = FontWeight.Medium), color = c.text,
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).padding(start = 14.dp, end = 10.dp),
+        )
+        AnimatedContent(
+            targetState = mode,
+            transitionSpec = { (fadeIn(tween(180, delayMillis = 60)) + scaleIn(initialScale = 0.85f)) togetherWith fadeOut(tween(90)) },
+            label = "appMode",
+        ) { m ->
+            if (m == SendMode.SMART) RowValue(m.short)
+            else TdBadge(m.short, m.hue(), icon = m.icon(), ink = m.ink())
+        }
+        RowChevron()
+    }
+}
+
+/** A mode's name where room is short (the list's trailing badge). */
+private val SendMode.short: String
+    get() = when (this) {
+        SendMode.SMART -> "Smart"
+        SendMode.LINK -> "Link"
+        SendMode.MEDIA -> "Photo on screen"
+        SendMode.LATEST_MEDIA -> "Latest photo"
+        SendMode.SCREENSHOT -> "Screenshot"
+        SendMode.TEXT -> "Text"
+        SendMode.OFF -> "Off"
+    }
+
+/** A mode's hue as legible text on the current surface. */
+@Composable
+private fun SendMode.ink(): Color {
+    val c = Td.colors
+    return if (this == SendMode.OFF) c.textSecondary
+    else lerp(hue(), if (c.isDark) Color.White else Color.Black, if (c.isDark) 0.12f else 0.32f)
+}
+
+/**
+ * The app's launcher icon (masked by the system, cached), on a quiet disc while it loads. In light mode a
+ * hairline follows the icon's own mask, so white icons (Calendar, Drive, Maps…) keep their edge on a white row.
+ */
+@Composable
+private fun AppIcon(pkg: String, size: Dp) {
+    val ctx = LocalContext.current
+    val c = Td.colors
+    val art by produceState(iconCache[pkg], pkg) {
+        if (value == null) {
+            value = withContext(Dispatchers.IO) { loadIcon(ctx, pkg)?.also { iconCache[pkg] = it } }
+        }
+    }
+    Box(Modifier.size(size)) {
+        val a = art
+        if (a != null) {
+            Image(
+                a.bitmap, null,
+                Modifier
+                    .fillMaxSize()
+                    .drawWithCache {
+                        val outline = a.mask?.takeIf { !c.isDark }?.let { mask ->
+                            val k = this.size.width / ICON_PX
+                            android.graphics.Path(mask).apply { transform(android.graphics.Matrix().apply { setScale(k, k) }) }.asComposePath()
+                        }
+                        val stroke = Stroke(1.dp.toPx())
+                        onDrawWithContent {
+                            drawContent()
+                            if (outline != null) drawPath(outline, Color.Black.copy(alpha = 0.08f), style = stroke)
+                        }
+                    },
+            )
+        } else {
+            Box(Modifier.fillMaxSize().background(c.surfaceSunken, CircleShape))
+        }
+    }
+}
+
+/** The mode picker for one app: its icon and name, then every mode as a segmented choice. */
+@Composable
+private fun ModeSheet(a: AppEntry, current: SendMode, close: () -> Unit) {
+    val app = TapDropApp.instance
+    val c = Td.colors
+    val scope = rememberCoroutineScope()
+    var selected by remember { mutableStateOf(current) }
+    val maxList = (LocalConfiguration.current.screenHeightDp * 0.62f).dp
+    Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+        AppIcon(a.pkg, 52.dp)
+        Column(Modifier.padding(start = 14.dp)) {
+            Text(a.label, style = TdType.title, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("When you touch your phone to the notch", style = TdType.bodySmall, color = c.textSecondary)
+        }
+    }
+    Column(Modifier.heightIn(max = maxList).verticalScroll(rememberScrollState())) {
+        SettingsGroup {
+            AppRules.options(a.pkg).forEach { m ->
+                item { shape ->
+                    ChoiceRow(
+                        title = m.title,
+                        selected = selected == m,
+                        detail = m.blurb(a.pkg),
+                        icon = m.icon(),
+                        accent = m.hue(),
+                        shape = shape,
+                        color = c.sheetSegment,
+                        onClick = {
+                            selected = m
+                            app.prefs.setAppMode(a.pkg, m)
+                            scope.launch {
+                                delay(260)
+                                close()
+                            }
+                        },
+                    )
                 }
             }
         }
     }
-    VSpace(8.dp)
+}
+
+/** What a mode sends in this app, in a line. Smart says what it picks here (see [AppRules.smart]). */
+private fun SendMode.blurb(pkg: String): String = when (this) {
+    SendMode.SMART -> when (AppRules.smart(pkg)) {
+        SendMode.LINK -> "Here: the page itself, so it opens on your Mac"
+        SendMode.LATEST_MEDIA -> "Here: your newest photo or video, full quality"
+        else -> "Here: the photo, video or file on screen, or else a screenshot"
+    }
+    SendMode.OFF -> "Touching your phone to the notch does nothing here"
+    else -> detail
 }

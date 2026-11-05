@@ -5,23 +5,16 @@ import android.net.Uri
 import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.os.Bundle
-import android.view.HapticFeedbackConstants
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -31,146 +24,97 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.InsertDriveFile
 import androidx.compose.material.icons.rounded.LaptopMac
 import androidx.compose.material.icons.rounded.Smartphone
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathMeasure
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import app.tapdrop.ui.design.AuroraBackdrop
+import app.tapdrop.ui.design.CheckBurst
+import app.tapdrop.ui.design.GlassSheet
+import app.tapdrop.ui.design.MediaThumb
+import app.tapdrop.ui.design.ProgressRing
+import app.tapdrop.ui.design.entrance
+import app.tapdrop.ui.design.pressable
 import kotlin.math.hypot
+
+// Shared building blocks from before the design system, kept so every screen still compiles.
+// They now render with the design system; new code should use app.tapdrop.ui.design directly:
+//   tappable → pressable · enter → entrance · GlowBackdrop → AuroraBackdrop · SheetHost → GlassSheet
+//   Thumb → MediaThumb · DeviceOrb → DeviceHero / CheckBurst / ProgressRing · TapHint → HowToTapIllustration
 
 // MARK: - interaction
 
-/** Springy press feedback + subtle haptic, the basic "premium" touch for every tappable surface. */
+/** Legacy name for [pressable]: springy press, ripple and a haptic tick. */
 @Composable
 fun Modifier.tappable(
     shape: Shape = RectangleShape,
     enabled: Boolean = true,
-    pressedScale: Float = 0.965f,
+    pressedScale: Float = 0.97f,
     onClick: () -> Unit,
-): Modifier {
-    val src = remember { MutableInteractionSource() }
-    val pressed by src.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        if (pressed && enabled) pressedScale else 1f,
-        spring(dampingRatio = 0.55f, stiffness = 650f), label = "press",
-    )
-    val view = LocalView.current
-    return this
-        .graphicsLayer { scaleX = scale; scaleY = scale }
-        .clip(shape)
-        .clickable(interactionSource = src, indication = ripple(), enabled = enabled) {
-            view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-            onClick()
-        }
-}
+): Modifier = pressable(shape = shape, enabled = enabled, pressedScale = pressedScale, onClick = onClick)
 
-/** Staggered rise-and-fade entrance. */
+/** Legacy name for [entrance]: staggered rise-and-fade. */
 @Composable
-fun Modifier.enter(index: Int, key: Any = Unit): Modifier {
-    val a = remember(key) { Animatable(0f) }
-    LaunchedEffect(key) {
-        delay(40L + index * 55L)
-        a.animateTo(1f, spring(dampingRatio = 0.78f, stiffness = 240f))
-    }
-    return this.graphicsLayer {
-        alpha = a.value.coerceIn(0f, 1f)
-        translationY = (1f - a.value) * 26.dp.toPx()
-        val s = 0.97f + 0.03f * a.value
-        scaleX = s
-        scaleY = s
-    }
-}
+fun Modifier.enter(index: Int, key: Any = Unit): Modifier = entrance(index, key)
 
 // MARK: - motion graphics
 
-/** AirDrop-style expanding radar rings. */
+/** AirDrop-style expanding radar rings (used while discovering Macs). */
 @Composable
 fun Ripples(
     modifier: Modifier,
-    color: Color = MaterialTheme.colorScheme.primary,
+    color: Color = Td.colors.accent,
     rings: Int = 3,
     periodMs: Int = 2600,
     start: Float = 0.32f,
     stroke: Dp = 1.5.dp,
 ) {
+    if (Td.reducedMotion) return
     val t = rememberInfiniteTransition(label = "ripples")
     val p by t.animateFloat(0f, 1f, infiniteRepeatable(tween(periodMs, easing = LinearEasing)), label = "p")
     Canvas(modifier) {
@@ -180,54 +124,17 @@ fun Ripples(
             val eased = 1f - (1f - f) * (1f - f)
             val r = maxR * (start + (1f - start) * eased)
             val alpha = (1f - f) * 0.6f
-            drawCircle(color.copy(alpha = alpha * 0.10f), r)
+            drawCircle(color.copy(alpha = alpha * 0.08f), r)
             drawCircle(color.copy(alpha = alpha), r, style = Stroke(stroke.toPx()))
         }
-    }
-}
-
-@Composable
-fun ProgressRing(progress: Float?, modifier: Modifier, stroke: Dp = 4.dp, track: Color = Color.White.copy(alpha = 0.14f)) {
-    val animated by animateFloatAsState(progress ?: 0f, spring(stiffness = Spring.StiffnessLow), label = "ring")
-    val t = rememberInfiniteTransition(label = "spin")
-    val rot by t.animateFloat(0f, 360f, infiniteRepeatable(tween(1000, easing = LinearEasing)), label = "rot")
-    Canvas(modifier) {
-        val w = stroke.toPx()
-        val tl = Offset(w / 2, w / 2)
-        val s = Size(size.width - w, size.height - w)
-        drawArc(track, 0f, 360f, false, tl, s, style = Stroke(w))
-        val brush = Brush.sweepGradient(listOf(Brand.A, Brand.B, Brand.C, Brand.A))
-        rotate(if (progress == null) rot - 90f else -90f) {
-            drawArc(brush, 0f, if (progress == null) 100f else 360f * animated, false, tl, s, style = Stroke(w, cap = StrokeCap.Round))
-        }
-    }
-}
-
-@Composable
-fun AnimatedCheck(modifier: Modifier, color: Color = Color.White, strokeWidth: Dp = 4.dp, delayMs: Long = 90) {
-    val p = remember { Animatable(0f) }
-    LaunchedEffect(Unit) {
-        delay(delayMs)
-        p.animateTo(1f, tween(380, easing = FastOutSlowInEasing))
-    }
-    Canvas(modifier) {
-        val path = Path().apply {
-            moveTo(size.width * 0.2f, size.height * 0.53f)
-            lineTo(size.width * 0.42f, size.height * 0.74f)
-            lineTo(size.width * 0.82f, size.height * 0.29f)
-        }
-        val pm = PathMeasure().apply { setPath(path, false) }
-        val seg = Path()
-        pm.getSegment(0f, pm.length * p.value, seg, true)
-        drawPath(seg, color, style = Stroke(strokeWidth.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
     }
 }
 
 enum class OrbState { Idle, Working, Done, Failed }
 
 /**
- * The device "orb": glowing gradient circle with gloss, a progress ring while working,
- * morphing into an animated check (or ✕) when finished.
+ * Legacy device "orb": a glowing gradient disc with the device symbol, a progress ring while working,
+ * a check (or ✕) when finished. New screens use [app.tapdrop.ui.design.DeviceHero].
  */
 @Composable
 fun DeviceOrb(
@@ -242,30 +149,30 @@ fun DeviceOrb(
 ) {
     val src = remember { MutableInteractionSource() }
     val pressed by src.collectIsPressedAsState()
+    val haptics = rememberHaptics()
     val scale by animateFloatAsState(
         when {
-            pressed -> 0.9f
-            state == OrbState.Done -> 1.06f
+            pressed -> 0.92f
+            state == OrbState.Done -> 1.04f
             else -> 1f
         },
-        spring(dampingRatio = 0.42f, stiffness = 420f), label = "orb",
+        TdMotion.snappy(), label = "orb",
     )
     val c1 by animateColorAsState(
         when (state) {
-            OrbState.Done -> Brand.Green
-            OrbState.Failed -> Brand.Red
-            else -> Brand.A
+            OrbState.Done -> Brand.Success
+            OrbState.Failed -> Brand.Danger
+            else -> Brand.Blue
         }, tween(450), label = "c1",
     )
     val c2 by animateColorAsState(
         when (state) {
             OrbState.Done -> Brand.GreenDeep
             OrbState.Failed -> Color(0xFFD63A4A)
-            else -> Brand.B
+            else -> Brand.Violet
         }, tween(450), label = "c2",
     )
-    val glow by animateFloatAsState(if (state == OrbState.Working || pulsing) 1f else 0.55f, tween(600), label = "glow")
-    val view = LocalView.current
+    val glow by animateFloatAsState(if (state == OrbState.Working || pulsing) 1f else 0.5f, tween(600), label = "glow")
 
     Box(modifier.size(size * 1.9f), contentAlignment = Alignment.Center) {
         if (pulsing || state == OrbState.Working) {
@@ -276,7 +183,7 @@ fun DeviceOrb(
             Modifier
                 .size(size * scale * 1.05f)
                 .blur(26.dp, BlurredEdgeTreatment.Unbounded)
-                .background(Brush.linearGradient(listOf(c1.copy(alpha = 0.6f * glow), c2.copy(alpha = 0.6f * glow))), CircleShape)
+                .background(Brush.linearGradient(listOf(c1.copy(alpha = 0.55f * glow), c2.copy(alpha = 0.55f * glow))), CircleShape)
         )
         AnimatedVisibility(
             visible = state == OrbState.Working,
@@ -293,7 +200,7 @@ fun DeviceOrb(
                 .background(Brush.linearGradient(listOf(c1, c2)))
                 .then(
                     if (onClick != null) Modifier.clickable(src, ripple(color = Color.White)) {
-                        view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+                        haptics.click()
                         onClick()
                     } else Modifier
                 ),
@@ -302,7 +209,7 @@ fun DeviceOrb(
             Box(
                 Modifier
                     .fillMaxSize()
-                    .background(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.34f), 0.55f to Color.Transparent))
+                    .background(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.30f), 0.55f to Color.Transparent))
             )
             AnimatedContent(
                 targetState = state,
@@ -315,7 +222,7 @@ fun DeviceOrb(
             ) { s ->
                 Box(Modifier.size(size), contentAlignment = Alignment.Center) {
                     when (s) {
-                        OrbState.Done -> AnimatedCheck(Modifier.size(size * 0.56f), strokeWidth = (size.value / 18).dp)
+                        OrbState.Done -> CheckBurst(true, size = size * 0.62f, color = Color.Transparent)
                         OrbState.Failed -> Icon(Icons.Rounded.Close, null, tint = Color.White, modifier = Modifier.size(size * 0.42f))
                         else -> Icon(icon, contentDescription, tint = Color.White, modifier = Modifier.size(size * 0.42f))
                     }
@@ -332,7 +239,9 @@ fun DeviceOrb(
 @Composable
 fun loopPhase(periodMs: Int, loops: Int = 3): Float {
     val a = remember { Animatable(0f) }
+    val reduced = Td.reducedMotion
     LaunchedEffect(Unit) {
+        if (reduced) return@LaunchedEffect
         repeat(loops) {
             a.snapTo(0f)
             a.animateTo(1f, tween(periodMs, easing = LinearEasing))
@@ -350,16 +259,16 @@ fun bump(t: Float, rise: Float, hold: Float, fall: Float): Float = when {
     else -> 0f
 }
 
-/** A phone bumping a laptop — "tap your phone on the Mac". */
+/** A phone bumping a laptop: a compact "tap your phone on the Mac" hint. */
 @Composable
-fun TapHint(modifier: Modifier = Modifier, tint: Color = MaterialTheme.colorScheme.primary) {
+fun TapHint(modifier: Modifier = Modifier, tint: Color = Td.colors.accent) {
     val p = bump(loopPhase(2400), rise = 750 / 2400f, hold = 1250 / 2400f, fall = 2000 / 2400f)
     val touching = p > 0.97f
     val pulse by animateFloatAsState(if (touching) 1f else 0f, tween(if (touching) 500 else 0), label = "pulse")
     Box(modifier.size(72.dp), contentAlignment = Alignment.Center) {
         Icon(
             Icons.Rounded.LaptopMac, null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+            tint = Td.colors.textSecondary.copy(alpha = 0.8f),
             modifier = Modifier.size(46.dp).offset(y = 10.dp),
         )
         if (pulse > 0f) {
@@ -377,7 +286,7 @@ fun TapHint(modifier: Modifier = Modifier, tint: Color = MaterialTheme.colorSche
     }
 }
 
-/** Full-screen shockwave when an NFC sticker is detected. */
+/** Full-screen shockwave from the top when a tap lands (NFC sticker, notch). */
 @Composable
 fun TapBurst(trigger: Int, modifier: Modifier = Modifier.fillMaxSize()) {
     val a = remember { Animatable(1f) }
@@ -392,14 +301,14 @@ fun TapBurst(trigger: Int, modifier: Modifier = Modifier.fillMaxSize()) {
             val c = Offset(size.width / 2, size.height * 0.08f)
             val maxR = hypot(size.width, size.height)
             drawCircle(
-                Brush.radialGradient(listOf(Brand.B.copy(alpha = 0.35f * (1 - a.value)), Color.Transparent), c, maxR * a.value + 1f),
+                Brush.radialGradient(listOf(Brand.Violet.copy(alpha = 0.35f * (1 - a.value)), Color.Transparent), c, maxR * a.value + 1f),
                 radius = maxR * a.value + 1f, center = c,
             )
             for (i in 0..2) {
                 val f = (a.value * 1.35f - i * 0.17f).coerceIn(0f, 1f)
                 if (f in 0.001f..0.999f) {
                     drawCircle(
-                        Brand.A.copy(alpha = (1 - f) * 0.7f), radius = maxR * f, center = c,
+                        Brand.Blue.copy(alpha = (1 - f) * 0.7f), radius = maxR * f, center = c,
                         style = Stroke((10.dp.toPx() * (1 - f)).coerceAtLeast(1f)),
                     )
                 }
@@ -408,68 +317,25 @@ fun TapBurst(trigger: Int, modifier: Modifier = Modifier.fillMaxSize()) {
     }
 }
 
-/**
- * Two soft brand-colored glows; gives screens depth.
- * Drawn as plain radial gradients, once — a blurred, drifting version re-rendered a 100 dp blur
- * every frame for as long as the screen was open, which is exactly what makes phones warm.
- */
+/** Legacy name for [AuroraBackdrop]: soft brand light behind the top of a screen. */
 @Composable
 fun GlowBackdrop(modifier: Modifier = Modifier, intensity: Float = 1f) {
-    val dark = isSystemInDarkTheme()
-    val k = (if (dark) 0.42f else 0.22f) * intensity
-    Box(
-        modifier.drawBehind {
-            fun glow(color: Color, center: Offset, radius: Float) = drawCircle(
-                Brush.radialGradient(
-                    0f to color.copy(alpha = k),
-                    0.4f to color.copy(alpha = k * 0.75f),
-                    0.7f to color.copy(alpha = k * 0.25f),
-                    1f to Color.Transparent,
-                    center = center,
-                    radius = radius,
-                ),
-                radius = radius,
-                center = center,
-            )
-            glow(Brand.A, Offset(80.dp.toPx(), 110.dp.toPx()), 270.dp.toPx())
-            glow(Brand.B, Offset(size.width - 80.dp.toPx(), 180.dp.toPx()), 255.dp.toPx())
-        }
-    )
+    AuroraBackdrop(modifier, intensity = intensity * 0.85f)
 }
 
 // MARK: - media
 
+/** Legacy name for [MediaThumb] (Coil, crossfade, video frames). */
 @Composable
-fun Thumb(uri: Uri?, modifier: Modifier, fallback: ImageVector = Icons.Rounded.InsertDriveFile) {
-    val ctx = LocalContext.current
-    val bmp by produceState<ImageBitmap?>(null, uri) {
-        value = uri?.let {
-            withContext(Dispatchers.IO) {
-                runCatching {
-                    if (it.scheme == "file") android.graphics.BitmapFactory.decodeFile(it.path)?.asImageBitmap()
-                    else ctx.contentResolver.loadThumbnail(it, android.util.Size(360, 360), null).asImageBitmap()
-                }.getOrNull()
-            }
-        }
-    }
-    Box(modifier.background(MaterialTheme.colorScheme.surfaceContainerHighest), contentAlignment = Alignment.Center) {
-        Crossfade(bmp, label = "thumb") { b ->
-            if (b != null) {
-                Image(b, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-            } else {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Icon(fallback, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(26.dp))
-                }
-            }
-        }
-    }
+fun Thumb(uri: Uri?, modifier: Modifier, fallback: ImageVector = Icons.AutoMirrored.Rounded.InsertDriveFile) {
+    MediaThumb(uri, modifier, fallback)
 }
 
-// MARK: - bottom sheet for the translucent activities
+// MARK: - bottom sheet
 
 /**
- * Scrim + bottom sheet that springs up, can be flung down to dismiss, and handles back.
- * [onClosed] fires once the exit animation has finished.
+ * Legacy name for [GlassSheet]: scrim + sheet that springs up, can be flung down, and follows predictive
+ * back. [onClosed] fires once the exit animation has finished.
  */
 @Composable
 fun SheetHost(
@@ -477,72 +343,8 @@ fun SheetHost(
     overlay: @Composable BoxScope.() -> Unit = {},
     content: @Composable ColumnScope.(close: () -> Unit) -> Unit,
 ) {
-    val scope = rememberCoroutineScope()
-    val slide = remember { Animatable(1f) }
-    val drag = remember { Animatable(0f) }
-    var height by remember { mutableIntStateOf(1) }
-    var closing by remember { mutableStateOf(false) }
-    val latestOnClosed by rememberUpdatedState(onClosed)
-
-    LaunchedEffect(Unit) { slide.animateTo(0f, spring(dampingRatio = 0.8f, stiffness = 360f)) }
-
-    val close: () -> Unit = {
-        if (!closing) {
-            closing = true
-            scope.launch {
-                slide.animateTo(1f, tween(240, easing = FastOutLinearInEasing))
-                latestOnClosed()
-            }
-        }
-    }
-    BackHandler { close() }
-
-    val visibleFraction = (1f - slide.value).coerceIn(0f, 1f) * (1f - (drag.value / height).coerceIn(0f, 1f))
-    Box(Modifier.fillMaxSize()) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.55f * visibleFraction))
-                .pointerInputTap { close() }
-        )
-        overlay()
-        Column(
-            Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .onSizeChanged { height = it.height.coerceAtLeast(1) }
-                .graphicsLayer { translationY = slide.value * height + drag.value }
-                .draggable(
-                    orientation = Orientation.Vertical,
-                    state = rememberDraggableState { d -> scope.launch { drag.snapTo((drag.value + d).coerceAtLeast(0f)) } },
-                    onDragStopped = { v ->
-                        if (drag.value > height * 0.28f || v > 1800f) close()
-                        else drag.animateTo(0f, spring(dampingRatio = 0.7f, stiffness = 500f))
-                    },
-                )
-                .clip(RoundedCornerShape(topStart = 34.dp, topEnd = 34.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                .pointerInputTap { }
-                .navigationBarsPadding()
-                .padding(horizontal = 22.dp)
-                .padding(bottom = 18.dp),
-        ) {
-            Box(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 6.dp), contentAlignment = Alignment.Center) {
-                Box(
-                    Modifier
-                        .width(38.dp)
-                        .height(5.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
-                )
-            }
-            content(close)
-        }
-    }
+    GlassSheet(onDismissed = onClosed, overlay = overlay, content = content)
 }
-
-private fun Modifier.pointerInputTap(onTap: () -> Unit) =
-    this.then(Modifier.pointerInput(Unit) { detectTapGestures { onTap() } })
 
 // MARK: - NFC
 
@@ -583,11 +385,11 @@ fun VSpace(h: Dp) = Spacer(Modifier.height(h))
 /** Soft fade under the status bar so scrolling content never collides with the clock. */
 @Composable
 fun StatusBarScrim() {
-    val bg = MaterialTheme.colorScheme.background
+    val bg = Td.colors.bg
     Box(
         Modifier
             .fillMaxWidth()
-            .height(androidx.compose.foundation.layout.WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 18.dp)
+            .height(WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 18.dp)
             .background(Brush.verticalGradient(0f to bg, 0.6f to bg.copy(alpha = 0.85f), 1f to bg.copy(alpha = 0f)))
     )
 }

@@ -102,7 +102,9 @@ final class Store: ObservableObject {
             outbox = p.outbox.filter { item in
                 item.path.map { FileManager.default.fileExists(atPath: $0) } ?? true
             }
-            settings = p.settings
+            // The backing store, so `didSet` doesn't run while loading: with Tap to Send off it would reach
+            // `Store.shared` from inside its own initializer and crash at launch.
+            _settings = Published(initialValue: p.settings)
         } else {
             macId = TDCrypto.random(8).map { String(format: "%02x", $0) }.joined()
             save()

@@ -39,6 +39,8 @@ class MacFinder(ctx: Context, private val prefs: Prefs) {
     private val callbacks = mutableMapOf<String, NsdManager.ServiceInfoCallback>()
     private val legacyQueue = ArrayDeque<NsdServiceInfo>()
     private var legacyBusy = false
+    /** Macs Bonjour just called lost, by service name: they leave [found] only if they don't come back first. */
+    private val leaving = mutableMapOf<String, Runnable>()
 
     @MainThread
     fun start() {
@@ -80,7 +82,7 @@ class MacFinder(ctx: Context, private val prefs: Prefs) {
             override fun onServiceLost(info: NsdServiceInfo) {
                 main.post {
                     unwatch(info.serviceName)
-                    _found.update { it - info.serviceName }
+                    lost(info.serviceName)
                 }
             }
         }
@@ -108,7 +110,7 @@ class MacFinder(ctx: Context, private val prefs: Prefs) {
                     main.post { publish(serviceInfo) }
                 }
                 override fun onServiceLost() {
-                    main.post { _found.update { it - name } }
+                    main.post { lost(name) }
                 }
                 override fun onServiceInfoCallbackUnregistered() {}
             }
@@ -124,6 +126,21 @@ class MacFinder(ctx: Context, private val prefs: Prefs) {
         if (Build.VERSION.SDK_INT >= 34) {
             callbacks.remove(name)?.let { runCatching { nsd.unregisterServiceInfoCallback(it) } }
         }
+    }
+
+    /**
+     * Bonjour on phones (and Wi‑Fi that drops multicast now and then) often reports a Mac lost and finds it again a
+     * moment later; the list of nearby Macs mustn't blink empty each time. A lost Mac leaves after a short grace
+     * unless it's heard from again ([publish] keeps it).
+     */
+    private fun lost(name: String) {
+        if (name !in _found.value || name in leaving) return
+        val gone = Runnable {
+            leaving.remove(name)
+            _found.update { it - name }
+        }
+        leaving[name] = gone
+        main.postDelayed(gone, LOST_GRACE_MS)
     }
 
     @Suppress("DEPRECATION")
@@ -146,14 +163,19 @@ class MacFinder(ctx: Context, private val prefs: Prefs) {
         val addresses = if (Build.VERSION.SDK_INT >= 34) si.hostAddresses else listOfNotNull(si.host)
         val addr = addresses.firstOrNull { it is Inet4Address } ?: addresses.firstOrNull() ?: return
         val host = addr.hostAddress ?: return
-        val id = si.attributes["id"]?.let { String(it) }
+        // An update can come without the TXT record (when Bonjour finds a Mac again it may send the address first);
+        // the Mac it's about keeps the id it had, so it doesn't drop out of the list for a moment.
+        val id = si.attributes["id"]?.let { String(it) } ?: _found.value[si.serviceName]?.id
         val mac = FoundMac(decodeName(si.serviceName), id, host, si.port)
+        leaving.remove(si.serviceName)?.let(main::removeCallbacks)
         _found.update { it + (si.serviceName to mac) }
         if (id != null) prefs.updateEndpoint(id, host, si.port)
     }
 
     companion object {
         const val SERVICE_TYPE = "_tapdrop._tcp"
+        /** How long a Mac Bonjour lost stays listed, in case it's found again (ms). */
+        private const val LOST_GRACE_MS = 8_000L
 
         /** DNS-SD escapes non-ASCII bytes as \DDD; turn "Studio\226\128\153s" back into "Studio’s". */
         fun decodeName(raw: String): String {
