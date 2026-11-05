@@ -68,6 +68,8 @@ import app.tapdrop.ui.design.rememberNavStack
 import app.tapdrop.ui.home.HomeScreen
 import app.tapdrop.ui.home.WelcomeScreen
 import app.tapdrop.ui.sheet.fileKind
+import app.tapdrop.update.UpdateSheetHost
+import app.tapdrop.update.Updates
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -77,6 +79,13 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContent { TapDropTheme { AppRoot() } }
+        // "TapDrop 2.1.1 is available" (the notification) opens the What's new sheet.
+        if (savedInstanceState == null) Updates.handleIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        Updates.handleIntent(intent)
     }
 }
 
@@ -108,6 +117,7 @@ private fun AppRoot() {
                 Root.Main -> MainNav(macs)
             }
         }
+        if (root != Root.Main) UpdateSheetHost()
     }
 }
 
@@ -128,6 +138,7 @@ private fun MainNav(macs: List<SavedMac>) {
             if (sticker && mac != null) {
                 GlassSheet(onDismissed = { sticker = false }) { close -> StickerSheet(mac, close) }
             }
+            UpdateSheetHost()
         },
     ) {
         NavHost(stack) { dest ->

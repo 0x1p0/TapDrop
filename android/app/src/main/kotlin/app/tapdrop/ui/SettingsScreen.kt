@@ -101,6 +101,7 @@ import app.tapdrop.ui.design.TdShapes
 import app.tapdrop.ui.design.TdTextButton
 import app.tapdrop.ui.design.sheetSegment
 import app.tapdrop.ui.design.tdSharedBounds
+import app.tapdrop.update.UpdatesSettingsGroup
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -393,6 +394,8 @@ fun SettingsScreen(
                 }
             }
         }
+
+        item("updates") { UpdatesSettingsGroup() }
 
         item("help") {
             SettingsGroup(title = "Help") {

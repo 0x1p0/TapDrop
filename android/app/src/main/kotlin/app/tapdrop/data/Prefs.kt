@@ -78,6 +78,15 @@ class Prefs(ctx: Context) {
     private val _otpCopyOnPhone = MutableStateFlow(sp.getBoolean("otpCopyOnPhone", true))
     val otpCopyOnPhone: StateFlow<Boolean> = _otpCopyOnPhone.asStateFlow()
 
+    private val _autoUpdates = MutableStateFlow(sp.getBoolean("autoUpdates", true))
+    /** "Check for updates automatically": once a day in the background (see app.tapdrop.update.Updates). */
+    val autoUpdates: StateFlow<Boolean> = _autoUpdates.asStateFlow()
+
+    fun setAutoUpdates(on: Boolean) {
+        _autoUpdates.value = on
+        sp.edit { putBoolean("autoUpdates", on) }
+    }
+
     private val _history = MutableStateFlow(loadHistory())
     val history: StateFlow<List<HistoryEntry>> = _history.asStateFlow()
 

@@ -119,7 +119,9 @@ import app.tapdrop.ui.openUri
 import app.tapdrop.ui.rememberHaptics
 import app.tapdrop.ui.rememberTapSetupState
 import app.tapdrop.ui.sheet.fileKind
+import app.tapdrop.update.UpdateCard
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 
 /**
  * Home: the paired Mac as the hero (with the live link drawn as light), tap-to-send setup or status,
@@ -161,6 +163,8 @@ fun HomeScreen(
             while (true) {
                 wifi = DeviceSupport.onWifi(ctx)
                 val pong = app.transfers.ping(mac)
+                // ping() also answers null when cancelled: a newer run (the live link just came up) has the say.
+                ensureActive()
                 online = pong != null
                 if (pong != null && pong.pending > 0 && !app.transfers.busy) {
                     app.transfers.receiveInbox(mac).join()
@@ -285,6 +289,7 @@ fun HomeScreen(
                     TapStalledCard(Modifier.padding(top = 18.dp).entrance(1, enabled = intro))
                 }
             }
+            item("update") { UpdateCard(Modifier.entrance(1, enabled = intro)) }
             item("sendHeader") { SectionHeader("Send", Modifier.entrance(2, enabled = intro)) }
             item("send") {
                 QuickActions(

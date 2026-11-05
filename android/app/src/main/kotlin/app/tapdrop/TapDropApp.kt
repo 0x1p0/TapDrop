@@ -9,6 +9,7 @@ import app.tapdrop.net.MacFinder
 import app.tapdrop.net.Transfers
 import app.tapdrop.ui.Shortcuts
 import app.tapdrop.ui.TapActivity
+import app.tapdrop.update.Updates
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -32,6 +33,8 @@ class TapDropApp : Application() {
         transfers = Transfers(this, prefs, finder, scope)
         // Keep the Mac(s) as Direct Share targets at the top of Android's share sheet.
         prefs.macs.onEach { Shortcuts.publish(this, it) }.launchIn(scope)
+        // New versions: the daily check, the check on coming to the front, and what was found.
+        Updates.init(this)
     }
 
     companion object {

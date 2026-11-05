@@ -34,6 +34,7 @@ import androidx.compose.material.icons.rounded.Flare
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Sms
@@ -78,6 +79,7 @@ import app.tapdrop.ui.design.StepRow
 import app.tapdrop.ui.design.StepState
 import app.tapdrop.ui.design.TdShapes
 import app.tapdrop.ui.design.tdSharedBounds
+import app.tapdrop.update.rememberNotificationAsk
 
 /**
  * The words for the tap (the same on the Mac). Use these everywhere the gesture is explained: there is one
@@ -428,7 +430,12 @@ fun ExtrasChecklist(modifier: Modifier = Modifier) {
     val askMedia = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { tick++ }
     val askSms = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { tick++ }
 
-    val checks = listOfNotNull(e.media, e.sms, e.files, e.battery)
+    // Update notifications only matter while TapDrop checks for updates by itself.
+    val autoUpdates by app.tapdrop.TapDropApp.instance.prefs.autoUpdates.collectAsStateWithLifecycle()
+    val notify = rememberNotificationAsk()
+    val notifyOk = if (autoUpdates) notify.allowed else null
+
+    val checks = listOfNotNull(e.media, e.sms, e.files, notifyOk, e.battery)
     val done = checks.count { it }
     val total = checks.size
     if (done >= total) return
@@ -502,6 +509,15 @@ fun ExtrasChecklist(modifier: Modifier = Modifier) {
                                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             )
                         }
+                    }
+                }
+                if (notifyOk != null) {
+                    item { shape ->
+                        ExtraRow(
+                            Icons.Rounded.NotificationsActive, Brand.Violet, "Update notifications",
+                            if (notifyOk) "You'll hear when a new version of TapDrop is out" else "So you hear when a new version of TapDrop is out",
+                            notifyOk, "Allow", shape, notify.ask,
+                        )
                     }
                 }
                 if (e.battery != null) {

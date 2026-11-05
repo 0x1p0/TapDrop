@@ -8,7 +8,7 @@ What's new in each version, newest first. The notes under a version are what Tap
 - TapDrop is now free and open source under the MIT License. Everything is on GitHub, with a step-by-step install guide.
 
 ### New
-- **Updates in the app.** TapDrop checks for a new version once a day and shows you what's new. Update with one click on the Mac and one tap on your phone.
+- **Updates in the app.** TapDrop checks for a new version once a day and shows you what's new. Update with one click on the Mac; on your phone, tap Update and confirm.
 - **One-time codes you can trust.** Codes are only picked up from messages that are clearly about a code. Amounts, dates, phone numbers and order numbers are left alone.
 
 ### Better

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only: a plain-HTTP exception for the emulator's view of this Mac (10.0.2.2), where a local test
+     server stands in for GitHub's releases, and the adb hook that points the updater at it. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application android:networkSecurityConfig="@xml/update_test_network">
+        <receiver
+            android:name=".update.UpdateLab"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
+    </application>
+</manifest>

@@ -35,13 +35,28 @@ if [[ ! -f "$P12" || -z "$P12_PW" ]]; then
   exit 1
 fi
 KC="$(mktemp -d)/release.keychain-db"
-KC_PW=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 24)
+KC_PW=$(uuidgen)
 security create-keychain -p "$KC_PW" "$KC"
 trap 'security delete-keychain "$KC" 2>/dev/null || true' EXIT
 security unlock-keychain -p "$KC_PW" "$KC"
 security import "$P12" -k "$KC" -P "$P12_PW" -T /usr/bin/codesign > /dev/null
 security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KC_PW" "$KC" > /dev/null
 TAPDROP_SIGN_ID="TapDrop Release Signing" TAPDROP_SIGN_KEYCHAIN="$KC" mac/scripts/build-app.sh --no-install
+
+# Signed like every release before them, or installed copies can't update to these.
+MAC_REQ='identifier "app.tapdrop.mac" and certificate root = H"a21607d15f9769c0770406f27c1b5c79e69c8288"'
+APK_CERT=47f48d3374bd2ea3082d04d0ffaf6c9f3616ee8bc007feadd736225a93bac90c
+codesign --verify --deep --strict mac/build/TapDrop.app
+if ! codesign -dr - mac/build/TapDrop.app 2>&1 | grep -qF "$MAC_REQ"; then
+  echo "The Mac app isn't signed with the release identity (TapDrop Release Signing)."
+  exit 1
+fi
+SDK="${ANDROID_HOME:-$(sed -n 's/^sdk.dir=//p' android/local.properties 2>/dev/null)}"
+APKSIGNER=$(ls "$SDK"/build-tools/*/apksigner 2>/dev/null | tail -1)
+if ! "$APKSIGNER" verify --print-certs android/app/build/outputs/apk/release/app-release.apk | grep -q "certificate SHA-256 digest: $APK_CERT"; then
+  echo "The Android app isn't signed with the release key."
+  exit 1
+fi
 
 OUT=release
 rm -rf "$OUT"
