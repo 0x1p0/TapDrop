@@ -21,10 +21,26 @@ final class InstallServer: @unchecked Sendable {
     /// Demo: act as a copy of TapDrop without the Android app.
     nonisolated(unsafe) static var demoNoAPK = false
 
-    var apkURL: URL? {
+    /// The Android app to hand out: the one bundled with this Mac app, or a newer one placed in TapDrop's folder
+    /// (TapDrop.apk with TapDrop.apk.json beside it), so the phone app can be updated without reinstalling the Mac app.
+    var apkURL: URL? { apk?.url }
+
+    /// The Android app's version ("2.0.6"), from the .json beside the APK.
+    var apkVersion: String? { apk?.version }
+
+    private var apk: (url: URL, version: String?)? {
         if Self.demoNoAPK { return nil }
-        if let p = ProcessInfo.processInfo.environment["TAPDROP_APK"] { return URL(fileURLWithPath: p) }
-        return Bundle.main.url(forResource: "TapDrop", withExtension: "apk")
+        if let p = ProcessInfo.processInfo.environment["TAPDROP_APK"] { return (URL(fileURLWithPath: p), nil) }
+        func info(_ url: URL?) -> (url: URL, version: String?, code: Int)? {
+            guard let url, FileManager.default.fileExists(atPath: url.path) else { return nil }
+            let side = url.appendingPathExtension("json")
+            let json = (try? Data(contentsOf: side)).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+            return (url, json?["version"] as? String, json?["code"] as? Int ?? 0)
+        }
+        let bundled = info(Bundle.main.url(forResource: "TapDrop", withExtension: "apk"))
+        let placed = info(Store.dir.appendingPathComponent("TapDrop.apk"))
+        let pick = [bundled, placed].compactMap { $0 }.max { $0.code < $1.code }
+        return pick.map { ($0.url, $0.version) }
     }
 
     var pageURL: String? { Net.lanIPv4().map { "http://\($0):\(Self.port)/" } }
@@ -169,7 +185,7 @@ final class InstallServer: @unchecked Sendable {
             $0.lastVisit = Date()
         }
         let apkSize = apkURL.map { Int64(FileNames.size(of: $0)) }
-        let body = Data(InstallPage.html(macName: Store.computerName, apkSize: apkSize).utf8)
+        let body = Data(InstallPage.html(macName: Store.computerName, apkSize: apkSize, version: apkVersion).utf8)
         let head = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: \(body.count)\r\n"
             + "Cache-Control: no-store\r\nConnection: close\r\n\r\n"
         try? await c.write(Data(head.utf8) + body)

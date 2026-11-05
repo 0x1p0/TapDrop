@@ -17,6 +17,11 @@ cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 APK="../android/app/build/outputs/apk/release/app-release.apk"
 if [[ -f "$APK" ]]; then
   cp "$APK" "$APP/Contents/Resources/TapDrop.apk"
+  # Its version, for the install page (and to tell it from a newer one placed in TapDrop's folder).
+  GRADLE=../android/app/build.gradle.kts
+  VNAME=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' "$GRADLE" | head -1)
+  VCODE=$(sed -n 's/.*versionCode = \([0-9]*\).*/\1/p' "$GRADLE" | head -1)
+  printf '{"version":"%s","code":%s}\n' "$VNAME" "${VCODE:-0}" > "$APP/Contents/Resources/TapDrop.apk.json"
   echo "bundled APK ($(du -h "$APK" | cut -f1))"
 else
   echo "warning: no APK found at $APK — the setup QR page will say so"
