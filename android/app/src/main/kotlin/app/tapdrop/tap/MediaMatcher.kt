@@ -18,7 +18,11 @@ import android.util.Size
 import app.tapdrop.core.TimeHints
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.DataInputStream
+import java.io.DataOutputStream
+import java.io.File
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.concurrent.thread
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -55,6 +59,8 @@ class MediaMatcher(private val ctx: Context) {
     private val denseFrames = ConcurrentHashMap<Uri, List<Print>>()
     @Volatile private var recent: List<Media> = emptyList()
     @Volatile private var recentAt = 0L
+    @Volatile private var videosList: List<Media> = emptyList()
+    @Volatile private var videosAt = 0L
     @Volatile private var lastWarm = 0L
 
     /** What the last [find] looked at and why it chose what it did (for the Mac's tap log). */
@@ -72,9 +78,8 @@ class MediaMatcher(private val ctx: Context) {
         lastWarm = now
         val all = recentMedia(force = true)
         all.take(160).forEach { thumb(it) }
-        val videos = all.filter { it.isVideo }
-        videos.take(10).forEach { videoFrames(it, dense = false) }
-        videos.take(2).forEach { videoFrames(it, dense = true) }
+        index(recentVideos(force = true))
+        all.filter { it.isVideo }.take(10).forEach { videoFrames(it, dense = false) }
     }
 
     suspend fun latest(): Media? = withContext(Dispatchers.IO) { if (hasAccess()) recentMedia(force = true).firstOrNull() else null }
@@ -103,12 +108,21 @@ class MediaMatcher(private val ctx: Context) {
             add(Rect(0, 0, small.width, small.height))
             add(Rect(0, (small.height * 0.08f).toInt(), small.width, (small.height * 0.88f).toInt()))
         }
-        fun score(p: Print) = bands.minOf { distance(p, small, it) }
+        // The screen's hash per band and media shape, computed once (the index compares thousands of frames).
+        val memo = HashMap<Long, Long?>()
+        fun score(p: Print) = bands.indices.minOf { i ->
+            val k = (i.toLong() shl 32) or (p.aspect * 100).toInt().toLong()
+            val here = memo.getOrPut(k) { regionHash(small, bands[i], (k and 0xffffffffL).toFloat() / 100) }
+            if (here == null) 64 else java.lang.Long.bitCount(p.hash xor here)
+        }
         // Everything below reads thumbnails and decodes video frames: it stops at the budget, best effort so far.
         val start = SystemClock.elapsedRealtime()
         fun inTime(ms: Long = BUDGET_MS) = SystemClock.elapsedRealtime() - start < ms
         val until = start + BUDGET_MS
         val good = 8
+
+        // 0) the video index: about a frame a second of every indexed video, compared at once (no decoding).
+        val indexed = indexBest(recentVideos()) { score(it) }
 
         // 1) thumbnails: cheap, mostly cached
         val pool = (strong + all.filter { if (video) it.isVideo else true }.take(if (video) 60 else 160)).distinctBy { it.uri }
@@ -170,6 +184,9 @@ class MediaMatcher(private val ctx: Context) {
 
         var found: Media? = when {
             atFrame != null && atFrame!!.second <= 12 -> atFrame!!.first
+            // A frame of an indexed video, at least as close as anything else on screen.
+            indexed != null && indexed.second <= (if (video) 12 else if (hit == null) 8 else 10) &&
+                indexed.second <= (best?.second ?: 64) -> indexed.first
             // Nothing on screen looks like a photo/video: only an unmistakable match counts.
             hit == null -> best?.takeIf { it.second <= 5 }?.first
             best != null && best.second <= 10 -> best.first
@@ -206,6 +223,8 @@ class MediaMatcher(private val ctx: Context) {
             append(" · ${all.count { it.isVideo }} videos, ${all.count { !it.isVideo }} photos in library")
             best?.let { append(" · closest ${it.first.name} ${it.second}") }
             atFrame?.let { append(" · frame at position ${it.first.name} ${it.second}") }
+            append(" · index ${indexEntries.size}/${recentVideos().size} videos")
+            indexed?.let { append(" · closest indexed frame ${it.first.name} ${it.second}") }
             videoBest?.let { append(" · closest video frame ${it.first.name} ${it.second}") }
             append(" → ${found?.name ?: "no match"} in ${SystemClock.elapsedRealtime() - start} ms")
         }
@@ -221,17 +240,27 @@ class MediaMatcher(private val ctx: Context) {
 
     // MARK: library
 
+    /** Every video, newest first (the index covers up to 400). */
+    private fun recentVideos(force: Boolean = false): List<Media> {
+        val now = SystemClock.elapsedRealtime()
+        if (!force && videosList.isNotEmpty() && now - videosAt < 15_000) return videosList
+        return queryMedia(videosOnly = true, limit = 400).also { videosList = it; videosAt = now }
+    }
+
     private fun recentMedia(force: Boolean = false): List<Media> {
         val now = SystemClock.elapsedRealtime()
         if (!force && recent.isNotEmpty() && now - recentAt < 15_000) return recent
+        return queryMedia(videosOnly = false, limit = 500).also { recent = it; recentAt = now }
+    }
+
+    private fun queryMedia(videosOnly: Boolean, limit: Int): List<Media> {
+        val types = if (videosOnly) "${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO}"
+        else "${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE}, ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO}"
         val args = Bundle().apply {
-            putString(
-                ContentResolver.QUERY_ARG_SQL_SELECTION,
-                "${MediaStore.Files.FileColumns.MEDIA_TYPE} IN (${MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE}, ${MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO})",
-            )
+            putString(ContentResolver.QUERY_ARG_SQL_SELECTION, "${MediaStore.Files.FileColumns.MEDIA_TYPE} IN ($types)")
             putStringArray(ContentResolver.QUERY_ARG_SORT_COLUMNS, arrayOf(MediaStore.MediaColumns.DATE_ADDED))
             putInt(ContentResolver.QUERY_ARG_SORT_DIRECTION, ContentResolver.QUERY_SORT_DIRECTION_DESCENDING)
-            putInt(ContentResolver.QUERY_ARG_LIMIT, 500)
+            putInt(ContentResolver.QUERY_ARG_LIMIT, limit)
         }
         val out = mutableListOf<Media>()
         runCatching {
@@ -263,8 +292,6 @@ class MediaMatcher(private val ctx: Context) {
             }
         }
         out.sortByDescending { max(it.addedMs, it.takenMs) }
-        recent = out
-        recentAt = now
         return out
     }
 
@@ -316,6 +343,129 @@ class MediaMatcher(private val ctx: Context) {
         return out
     }
 
+    // MARK: video index
+
+    /** One video's fingerprint: a dHash about every second, and the frames' aspect. [key] changes if the file does. */
+    private class Indexed(val key: String, val aspect: Float, val hashes: LongArray)
+
+    private val indexEntries = ConcurrentHashMap<String, Indexed>()  // media uri → fingerprint
+    private val indexFile = File(ctx.filesDir, "video-index.bin")
+    @Volatile private var indexLoaded = false
+    @Volatile private var indexing = false
+
+    private fun key(m: Media) = "${m.size}:${m.addedMs}:${m.durationMs}"
+
+    /** The indexed video whose frames come closest to the screen. */
+    private fun indexBest(all: List<Media>, score: (Print) -> Int): Pair<Media, Int>? {
+        loadIndex()
+        var best: Pair<Media, Int>? = null
+        for (m in all) {
+            if (!m.isVideo) continue
+            val e = indexEntries[m.uri.toString()]?.takeIf { it.key == key(m) } ?: continue
+            for (h in e.hashes) {
+                val d = score(Print(h, e.aspect))
+                if (best == null || d < best.second) best = m to d
+            }
+        }
+        return best
+    }
+
+    /**
+     * Fingerprints every video not yet in the index (newest first, up to 400), in the background at low priority,
+     * saving as it goes. Videos up to 90 s get the exact frame every second; longer ones the nearest keyframe at up to
+     * 90 points, so a frame from anywhere in a clip is close to one of them.
+     */
+    private fun index(videos: List<Media>) {
+        loadIndex()
+        val todo = videos.take(400).filter { indexEntries[it.uri.toString()]?.key != key(it) && it.durationMs > 0 }
+        if (todo.isEmpty() || indexing) return
+        indexing = true
+        thread(name = "TapDrop video index", isDaemon = true, priority = Thread.MIN_PRIORITY) {
+            try {
+                var n = 0
+                for (m in todo) {
+                    if (!hasAccess()) break
+                    fingerprint(m)?.let { indexEntries[m.uri.toString()] = it }
+                    if (++n % 5 == 0) saveIndex()
+                }
+                // Forget videos that are gone.
+                val live = videos.map { it.uri.toString() }.toSet()
+                if (videos.size < 400) indexEntries.keys.retainAll(live)
+                saveIndex()
+                Log.i("TapDrop", "video index: ${indexEntries.size} videos")
+            } finally {
+                indexing = false
+            }
+        }
+    }
+
+    private fun fingerprint(m: Media): Indexed? {
+        val exact = m.durationMs <= 90_000
+        val step = if (exact) 1000L else max(1000L, m.durationMs / 90)
+        val times = (0L until m.durationMs step step).toList().take(91)
+        val out = ArrayList<Long>(times.size)
+        var aspect = 0f
+        val r = MediaMetadataRetriever()
+        try {
+            r.setDataSource(ctx, m.uri)
+            for (t in times) {
+                val f = runCatching {
+                    r.getScaledFrameAtTime(
+                        t * 1000, if (exact) MediaMetadataRetriever.OPTION_CLOSEST else MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
+                        192, 192,
+                    )
+                }.getOrNull() ?: continue
+                aspect = f.width.toFloat() / f.height
+                dHash(f, 0, 0, f.width, f.height)?.let { out += it }
+                f.recycle()
+            }
+        } catch (_: Exception) {
+            return null
+        } finally {
+            runCatching { r.release() }
+        }
+        return Indexed(key(m), aspect, out.toLongArray())
+    }
+
+    private fun loadIndex() {
+        if (indexLoaded) return
+        synchronized(indexEntries) {
+            if (indexLoaded) return
+            runCatching {
+                DataInputStream(indexFile.inputStream().buffered()).use { d ->
+                    if (d.readInt() != INDEX_VERSION) return@use
+                    repeat(d.readInt()) {
+                        val uri = d.readUTF()
+                        val key = d.readUTF()
+                        val aspect = d.readFloat()
+                        val hashes = LongArray(d.readInt()) { d.readLong() }
+                        indexEntries[uri] = Indexed(key, aspect, hashes)
+                    }
+                }
+            }
+            indexLoaded = true
+        }
+    }
+
+    private fun saveIndex() = synchronized(indexFile) {
+        runCatching {
+            val tmp = File(indexFile.path + ".tmp")
+            DataOutputStream(tmp.outputStream().buffered()).use { d ->
+                val snapshot = indexEntries.entries.toList()
+                d.writeInt(INDEX_VERSION)
+                d.writeInt(snapshot.size)
+                for ((uri, e) in snapshot) {
+                    d.writeUTF(uri)
+                    d.writeUTF(e.key)
+                    d.writeFloat(e.aspect)
+                    d.writeInt(e.hashes.size)
+                    e.hashes.forEach { d.writeLong(it) }
+                }
+            }
+            tmp.renameTo(indexFile)
+        }
+    }
+
     /** The frame at [ms] exactly (the player's position). */
     private fun frameAt(m: Media, ms: Long): Print? {
         val r = MediaMetadataRetriever()
@@ -331,16 +481,16 @@ class MediaMatcher(private val ctx: Context) {
     }
 
     /** Where the media would sit if fit-centred in [band] (small-screenshot coords), then hashed. */
-    private fun distance(p: Print, screen: Bitmap, band: Rect): Int {
+    /** The hash of where media of this [aspect] would sit fit-centred in [band] (null: too small, or one shade). */
+    private fun regionHash(screen: Bitmap, band: Rect, aspect: Float): Long? {
         val b = Rect(band)
-        if (!b.intersect(0, 0, screen.width, screen.height)) return 64
+        if (!b.intersect(0, 0, screen.width, screen.height)) return null
         val bw = b.width()
         val bh = b.height()
-        if (bw < 8 || bh < 8) return 64
-        val (w, h) = if (bw.toFloat() / bh > p.aspect) (bh * p.aspect).toInt() to bh else bw to (bw / p.aspect).toInt()
-        if (w < 8 || h < 8) return 64
-        val here = dHash(screen, b.left + (bw - w) / 2, b.top + (bh - h) / 2, w, h) ?: return 64
-        return java.lang.Long.bitCount(p.hash xor here)
+        if (bw < 8 || bh < 8) return null
+        val (w, h) = if (bw.toFloat() / bh > aspect) (bh * aspect).toInt() to bh else bw to (bw / aspect).toInt()
+        if (w < 8 || h < 8) return null
+        return dHash(screen, b.left + (bw - w) / 2, b.top + (bh - h) / 2, w, h)
     }
 
     /** dHash of the central 70% of a region (ignores viewer chrome near the edges). */
@@ -373,6 +523,7 @@ class MediaMatcher(private val ctx: Context) {
     private fun luma(c: Int) = Color.red(c) * 299 + Color.green(c) * 587 + Color.blue(c) * 114
 
     private companion object {
+        const val INDEX_VERSION = 1
         /** How long a match may read thumbnails and decode frames before it settles for what it has. */
         const val BUDGET_MS = 2600L
         /** Luma spread (in 0…255 000) below which a region counts as one shade: about 6 % of full range. */
