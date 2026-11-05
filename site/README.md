@@ -23,10 +23,20 @@ npm run build        # writes the static site to site/dist
 npm run preview      # serves dist on http://localhost:4321
 ```
 
-`dist/` is plain static files (HTML, CSS, JS, images, the film), so any static host can serve it. Before you put it
-online, set the real address in two places: `site` in `astro.config.mjs` and `url` in `src/data/site.ts` (canonical
-links, Open Graph tags and the sitemap use it), plus the `Sitemap:` line in `public/robots.txt`. The placeholder is
-`https://tapdrop.app`.
+`dist/` is plain static files (HTML, CSS, JS, images, the film).
+
+## Deploy
+
+The site is the `tapdrop` project on Cloudflare Pages, at https://tapdrop.pages.dev. Every push to `main` that
+changes `site/` deploys it (`.github/workflows/website.yml`, with the `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID` secrets). To deploy by hand, logged in with `npx wrangler login`:
+
+```sh
+npm run deploy       # builds, then uploads dist to the tapdrop project
+```
+
+The address lives in `site` in `astro.config.mjs`, `url` in `src/data/site.ts` (canonical links, Open Graph tags and
+the sitemap) and the `Sitemap:` line in `public/robots.txt`.
 
 ## Where things live
 

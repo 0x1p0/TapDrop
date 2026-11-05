@@ -39,7 +39,7 @@ export const links = {
 export const site = {
   name: 'TapDrop',
   version: '2.0',
-  url: 'https://0x1p0.github.io/TapDrop/',
+  url: 'https://tapdrop.pages.dev/',
   tagline: 'Touch. It’s there.',
   title: 'TapDrop: touch your phone to your Mac’s notch',
   description:

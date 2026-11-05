@@ -1,0 +1,8 @@
+// The website, on Cloudflare Pages: its own project, "tapdrop", at tapdrop.pages.dev.
+// `npm run deploy` builds and deploys it; .github/workflows/website.yml does the same on every push to main.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "tapdrop",
+  "pages_build_output_dir": "./dist",
+  "compatibility_date": "2026-11-01"
+}
