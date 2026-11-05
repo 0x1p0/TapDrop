@@ -115,6 +115,8 @@ class NotchTapService : AccessibilityService() {
     private lateinit var overlay: SendOverlay
     private lateinit var matcher: MediaMatcher
     private lateinit var files: FileFinder
+    /** The last window title an app announced, with its package. */
+    @Volatile private var lastTitle: Pair<String, String>? = null
     private lateinit var light: LightKey
 
     private var watchJob: Job? = null
@@ -243,6 +245,8 @@ class NotchTapService : AccessibilityService() {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                 if (pkg == "com.android.systemui" || pkg.contains("inputmethod")) return
                 lastPackage = pkg
+                // Viewers announce what they show ("Boarding pass.pdf", a video's name) as their window's title.
+                event.text.joinToString(" ").trim().takeIf { it.isNotEmpty() }?.let { lastTitle = pkg to it }
                 // Opening a gallery: pre-compute photo fingerprints so a tap matches instantly.
                 if (AppRules.isGallery(pkg) && app.prefs.effectiveMode(pkg) == SendMode.MEDIA) {
                     scope.launch(Dispatchers.IO) { runCatching { matcher.warm() } }
@@ -481,10 +485,15 @@ class NotchTapService : AccessibilityService() {
         val labels: List<String>,
         val boxes: List<ScreenText.Box>,
         val shot: Shot,
+        /** The window's own title and the title the app last announced: viewers put the document's name there. */
+        val titles: List<String?> = emptyList(),
     )
 
     /** The part of the capture that has to come before the light: whose screen it is, and its screenshot. */
-    private class Glance(val root: AccessibilityNodeInfo?, val pkg: String, val self: Boolean, val appName: String, val mode: SendMode, val shot: Shot)
+    private class Glance(
+        val root: AccessibilityNodeInfo?, val pkg: String, val self: Boolean, val appName: String, val mode: SendMode, val shot: Shot,
+        val titles: List<String?> = emptyList(),
+    )
 
     private suspend fun glance(): Glance {
         val root: AccessibilityNodeInfo? = appRoot()
@@ -493,7 +502,8 @@ class NotchTapService : AccessibilityService() {
         val name = appName(pkg)
         val mode = app.prefs.effectiveMode(pkg)
         if (mode == SendMode.OFF) return Glance(null, pkg, false, name, mode, Shot.Failed)
-        return Glance(root, pkg, false, name, mode, screenshot())
+        val titles = listOf(appWindowTitle(), lastTitle?.takeIf { it.first == pkg }?.second)
+        return Glance(root, pkg, false, name, mode, screenshot(), titles)
     }
 
     /**
@@ -507,7 +517,7 @@ class NotchTapService : AccessibilityService() {
         }
         val url = if (g.mode == SendMode.LINK) findUrl(root, g.pkg) else null
         val screenText = if (g.mode == SendMode.TEXT) ScreenText.collect(root) else ""
-        return Capture(g.pkg, false, g.appName, g.mode, url, screenText, ScreenText.labels(root), ScreenText.boxes(root), g.shot)
+        return Capture(g.pkg, false, g.appName, g.mode, url, screenText, ScreenText.labels(root), ScreenText.boxes(root), g.shot, g.titles)
     }
 
     /**
@@ -714,7 +724,12 @@ class NotchTapService : AccessibilityService() {
         val hit = shot?.let { MediaDetector.detect(boxes, it.width, it.height) }
         val docName = if (mode == SendMode.MEDIA && shot != null) FileFinder.fileOnScreen(boxes, shot.height) else null
         val what = if (hit?.kind == MediaDetector.Kind.VIDEO) "video" else "photo"
-        Log.i("TapDrop", "tap $id: pkg=$pkg mode=$mode shot=${shot != null} media=${hit?.kind} doc=${docName != null}")
+        // A document viewer or a video player: the file itself, found by the name the app shows for it.
+        val docViewer = AppRules.isDocViewer(pkg)
+        val videoShown = hit?.kind == MediaDetector.Kind.VIDEO || AppRules.isVideoPlayer(pkg)
+        val titles = if (mode == SendMode.MEDIA && shot != null && (docViewer || videoShown))
+            FileFinder.titlesOnScreen(boxes, shot.height, cap.titles) else emptyList()
+        Log.i("TapDrop", "tap $id: pkg=$pkg mode=$mode shot=${shot != null} media=${hit?.kind} doc=${docName != null} titles=${titles.size}")
 
         val planJob: Deferred<Plan> = scope.async(Dispatchers.Default) {
             runCatching {
@@ -725,9 +740,13 @@ class NotchTapService : AccessibilityService() {
                     mode == SendMode.LATEST_MEDIA -> matcher.latest()?.let { Plan.Media(it) } ?: Plan.Shot(false, "No photos found")
                     mode == SendMode.MEDIA -> {
                         val doc = docName?.let { n -> (files.find(n, null) as? FileFinder.Outcome.Found)?.file }
+                            ?: titles.firstNotNullOfOrNull { t -> files.findTitled(t, docs = docViewer, videos = videoShown) }
                         when {
                             doc != null -> Plan.File(doc)
                             shot == null -> Plan.Shot(false, null)
+                            // A viewer showing a document TapDrop isn't allowed to see yet: say how to send the file itself.
+                            docViewer && hit == null && !files.hasAllFiles() ->
+                                Plan.Shot(false, "Turn on File access in TapDrop to send the file itself")
                             else -> when (val o = matcher.find(shot, labels, hit)) {
                                 is MediaMatcher.Outcome.Found -> Plan.Media(o.media)
                                 MediaMatcher.Outcome.NoAccess -> Plan.Shot(false, if (hit != null) "Allow photo access in TapDrop to send the $what itself" else null)
@@ -753,13 +772,14 @@ class NotchTapService : AccessibilityService() {
             frozen = f
             // Live preview of what goes if nothing is picked (runs once the picker is on screen).
             val previewJob = scope.launch(Dispatchers.Main) {
-                if (hit != null || docName != null) {
+                val docHint = docName ?: titles.firstOrNull()?.takeIf { docViewer }
+                if (hit != null || docHint != null) {
                     val kind = when {
-                        docName != null -> PickOverlay.Kind.FILE
+                        docHint != null && hit == null -> PickOverlay.Kind.FILE
                         hit?.kind == MediaDetector.Kind.VIDEO -> PickOverlay.Kind.VIDEO
                         else -> PickOverlay.Kind.PHOTO
                     }
-                    f.preview(PickOverlay.Plan(kind, docName, finding = true))
+                    f.preview(PickOverlay.Plan(kind, docHint, finding = true))
                     f.hold(true)
                 }
                 val plan = withTimeoutOrNull(4000) { planJob.await() } ?: Plan.Shot(false, null)
@@ -1020,6 +1040,14 @@ class NotchTapService : AccessibilityService() {
         }
         return app?.root ?: runCatching { rootInActiveWindow }.getOrNull()
     }
+
+    /** The title of the window [appRoot] reads (activities often title themselves with the open document). */
+    private fun appWindowTitle(): String? = runCatching {
+        windows.firstOrNull { w ->
+            w.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION &&
+                w.root?.packageName?.toString().let { it != null && it != packageName && it != "com.android.systemui" }
+        }?.title?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+    }.getOrNull()
 
     private fun appName(pkg: String?): String = runCatching {
         pkg ?: return "Screenshot"

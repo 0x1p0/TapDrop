@@ -78,7 +78,81 @@ class FileFinder(private val ctx: Context) {
         return Outcome.Found(best ?: rows.first())
     }
 
+    /**
+     * A title shown without its extension ("Boarding pass" for "Boarding pass.pdf", a player's "Holiday clip"):
+     * the newest document ([docs]) or video ([videos]) whose name is exactly that plus an extension.
+     */
+    fun findTitled(title: String, docs: Boolean, videos: Boolean): Hit? {
+        val stem = (if (looksLikeFile(title)) title.substringBeforeLast('.') else title).trim()
+        if (stem.length < 3 || (!docs && !videos)) return null
+        val esc = stem.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        return runCatching {
+            val args = Bundle().apply {
+                putString(ContentResolver.QUERY_ARG_SQL_SELECTION, "${MediaStore.MediaColumns.DISPLAY_NAME} LIKE ? ESCAPE '\\'")
+                putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, arrayOf("$esc.%"))
+                putStringArray(ContentResolver.QUERY_ARG_SORT_COLUMNS, arrayOf(MediaStore.MediaColumns.DATE_MODIFIED))
+                putInt(ContentResolver.QUERY_ARG_SORT_DIRECTION, ContentResolver.QUERY_SORT_DIRECTION_DESCENDING)
+                putInt(ContentResolver.QUERY_ARG_LIMIT, 20)
+            }
+            ctx.contentResolver.query(
+                MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL),
+                arrayOf(
+                    MediaStore.Files.FileColumns._ID, MediaStore.Files.FileColumns.MEDIA_TYPE,
+                    MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.MediaColumns.MIME_TYPE, MediaStore.MediaColumns.SIZE,
+                    @Suppress("DEPRECATION") MediaStore.MediaColumns.DATA,
+                ),
+                args, null,
+            )?.use { c ->
+                while (c.moveToNext()) {
+                    val name = c.getString(2) ?: continue
+                    // LIKE ignores case and "name.part.pdf"; insist on exactly the title plus one extension.
+                    if (!name.substringBeforeLast('.').equals(stem, ignoreCase = true)) continue
+                    val ext = name.substringAfterLast('.', "").lowercase()
+                    val type = c.getInt(1)
+                    val video = type == MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO
+                    if (!(videos && video) && !(docs && ext in docExt)) continue
+                    val base = if (video) MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
+                    else MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL)
+                    return@runCatching Hit(
+                        ContentUris.withAppendedId(base, c.getLong(0)), name,
+                        c.getString(3) ?: "application/octet-stream", c.getLong(4), c.getString(5),
+                    )
+                }
+                null
+            }
+        }.getOrNull()
+    }
+
     companion object {
+        /** Documents a viewer shows one at a time. */
+        val docExt = setOf(
+            "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "odp", "rtf", "txt", "md", "csv",
+            "epub", "pages", "numbers", "key", "zip", "rar", "7z",
+        )
+        private val clock = Regex("^\\d{1,2}:\\d{2}(\\s?[AaPp][Mm])?$")
+        private val uiWords = setOf(
+            "back", "navigate up", "more options", "more", "share", "search", "open with", "print", "edit", "done", "close",
+            "menu", "options", "download", "save", "delete", "info", "details", "favorite", "add to", "send", "play", "pause",
+        )
+
+        /**
+         * What a viewer calls the thing it shows: the window's title, the last title the app announced, and the texts
+         * in its top bar — best first, without buttons, clocks and the like.
+         */
+        fun titlesOnScreen(boxes: List<ScreenText.Box>, height: Int, extra: List<String?>): List<String> {
+            val top = boxes.filter { it.rect.bottom < height * 0.22 && it.rect.height() < height * 0.12 }
+                .sortedBy { it.rect.top }
+                .mapNotNull { it.text ?: it.desc }
+            return (extra.filterNotNull() + top)
+                .map { it.trim() }
+                .filter { t ->
+                    t.length in 3..160 && t.count { it.isLetterOrDigit() } >= 3 && !clock.matches(t) &&
+                        t.lowercase() !in uiWords && !t.contains("://")
+                }
+                .distinct()
+                .take(10)
+        }
+
         private val fileName = Regex("^[^/\\\\\\n]{1,200}\\.[A-Za-z0-9]{1,8}$")
         private val size = Regex("(\\d+(?:[.,]\\d+)?)\\s*(bytes|B|KB|kB|MB|GB)\\b")
         private val mediaExt = setOf("jpg", "jpeg", "png", "heic", "heif", "gif", "webp", "mp4", "mov", "mkv", "webm", "3gp", "mp3", "m4a", "aac", "ogg", "opus", "wav", "flac")

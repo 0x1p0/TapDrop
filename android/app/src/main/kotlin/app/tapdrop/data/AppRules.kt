@@ -2,7 +2,7 @@ package app.tapdrop.data
 
 /** What holding the phone to the Mac's notch sends, chosen per app. */
 enum class SendMode(val title: String, val detail: String) {
-    SMART("Smart", "The page in browsers, the photo or video on screen, otherwise a screenshot"),
+    SMART("Smart", "The page in browsers, the PDF, video or photo on screen, otherwise a screenshot"),
     LINK("Page link", "Opens the same page on your Mac"),
     MEDIA("Photo or video on screen", "The original file when it's in your gallery, else a screenshot"),
     LATEST_MEDIA("Latest photo or video", "Your newest shot, full quality"),
@@ -45,7 +45,47 @@ object AppRules {
         "com.google.android.documentsui",
     )
 
+    /** Apps that show one document at a time (PDF and office viewers, file managers' viewers). */
+    val DOC_VIEWERS = setOf(
+        "com.google.android.apps.docs",
+        "com.google.android.apps.pdfviewer",
+        "com.google.android.apps.nbu.files",
+        "com.google.android.documentsui",
+        "com.adobe.reader",
+        "com.microsoft.office.officehubrow",
+        "com.microsoft.office.word",
+        "com.microsoft.office.excel",
+        "com.microsoft.office.powerpoint",
+        "cn.wps.moffice_eng",
+        "cn.wps.moffice_lite",
+        "com.sec.android.app.myfiles",
+        "com.xodo.pdf.reader",
+        "com.foxit.mobile.pdf.lite",
+        "com.dropbox.android",
+        "com.microsoft.skydrive",
+        "org.fossify.filemanager",
+        "com.simplemobiletools.filemanager.pro",
+        "com.mi.android.globalFileexplorer",
+    )
+
+    /** Video players that play files from the phone (their title is usually the file's name). */
+    val VIDEO_PLAYERS = setOf(
+        "org.videolan.vlc",
+        "com.mxtech.videoplayer.ad",
+        "com.mxtech.videoplayer.pro",
+        "com.google.android.apps.photos",
+        "com.google.android.apps.photosgo",
+        "com.google.android.apps.nbu.files",
+        "com.sec.android.app.videoplayer",
+        "com.samsung.android.video",
+        "com.miui.videoplayer",
+        "is.xyz.mpv",
+        "com.brouken.player",
+    )
+
     fun isBrowser(pkg: String) = pkg in URL_BARS
+    fun isDocViewer(pkg: String) = pkg in DOC_VIEWERS
+    fun isVideoPlayer(pkg: String) = pkg in VIDEO_PLAYERS
     fun isGallery(pkg: String) = pkg in GALLERIES
     fun isCamera(pkg: String) = pkg == "com.google.android.GoogleCamera" || pkg.contains("camera", ignoreCase = true)
 
