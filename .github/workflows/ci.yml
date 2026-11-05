@@ -1,0 +1,43 @@
+name: Checks
+
+# Builds both apps and runs the checks on every push to main and every pull request.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools platforms;android-37 build-tools;37.0.0
+
+      - name: Mac app
+        run: cd mac && swift build
+
+      - name: Changelog has notes for this version
+        run: scripts/release-notes.sh "$(tr -d '[:space:]' < VERSION)" > /dev/null
+
+      - name: Android checks and app
+        run: cd android && ./gradlew :core:keyCheck :core:otpCheck :core:timeCheck :app:assembleDebug --console=plain
