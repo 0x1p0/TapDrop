@@ -37,6 +37,8 @@ class MediaMatcher(
     private val ctx: Context,
     /** How many of the library's videos are fingerprinted (done, total), as the index grows. */
     private val onIndex: (done: Int, total: Int) -> Unit = { _, _ -> },
+    /** Fingerprinting waits while this is true: a tap in progress, or a warm phone (which dims its screen). */
+    private val busy: () -> Boolean = { false },
 ) {
     data class Media(
         val uri: Uri,
@@ -435,10 +437,14 @@ class MediaMatcher(
                 var n = 0
                 for (m in todo) {
                     if (!hasAccess()) break
+                    // Go easy on the phone: decoding hundreds of videos warms it, and a warm phone caps its screen's
+                    // brightness, which taps need. Wait while it's warm or a tap is happening, and rest between videos.
+                    while (busy()) Thread.sleep(5_000)
                     // A video that can't be read is recorded empty, so it isn't retried (and counts as done).
                     indexEntries[m.uri.toString()] = fingerprint(m) ?: Indexed(key(m), 1f, emptyList())
                     onIndex(++done, eligible.size)
                     if (++n % 5 == 0) saveIndex()
+                    Thread.sleep(250)
                 }
                 // Forget videos that are gone.
                 val live = videos.map { it.uri.toString() }.toSet()

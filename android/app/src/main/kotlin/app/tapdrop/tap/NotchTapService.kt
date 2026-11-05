@@ -219,10 +219,14 @@ class NotchTapService : AccessibilityService() {
     override fun onServiceConnected() {
         instance = this
         overlay = SendOverlay(this)
-        matcher = MediaMatcher(this) { done, total ->
-            _videoIndex.value = done to total
-            sendIndex(done, total)
-        }
+        matcher = MediaMatcher(
+            this,
+            onIndex = { done, total ->
+                _videoIndex.value = done to total
+                sendIndex(done, total)
+            },
+            busy = { keying || picking || warm() },
+        )
         files = FileFinder(this)
         light = LightKey(this)
         registerReceiver(screenReceiver, IntentFilter().apply {
@@ -575,6 +579,8 @@ class NotchTapService : AccessibilityService() {
                 Log.i("TapDrop", "light key $id: calibration hold (peak=${round.peak} need=${round.need})")
             } else {
                 Log.i("TapDrop", "light key $id ✗ ${round.why} (peak=${round.peak} need=${round.need})")
+                // Anything on the phone that dims its screen, for the Mac's tap log.
+                screenDimmers()?.let { pickNote(s, "light key didn't count · $it") }
             }
             ack(s, id, false, "none", "no-light")
             trace(if (inbox.lit) src.wire else null, false, round.peak, round.need, round.why)
@@ -1010,6 +1016,28 @@ class NotchTapService : AccessibilityService() {
     }
 
     /** Sends the picked element/region: its text if it has any, otherwise the cropped image. */
+    /** The phone is warm enough that Android may cap the screen's brightness. */
+    private fun warm(): Boolean =
+        getSystemService(PowerManager::class.java).currentThermalStatus >= PowerManager.THERMAL_STATUS_LIGHT
+
+    /** Whatever is dimming the screen right now ("phone warm (moderate) · Battery Saver on"), or null. */
+    private fun screenDimmers(): String? {
+        val pm = getSystemService(PowerManager::class.java)
+        val heat = when (pm.currentThermalStatus) {
+            PowerManager.THERMAL_STATUS_NONE -> null
+            PowerManager.THERMAL_STATUS_LIGHT -> "phone warm (light)"
+            PowerManager.THERMAL_STATUS_MODERATE -> "phone warm (moderate)"
+            PowerManager.THERMAL_STATUS_SEVERE -> "phone hot (severe)"
+            else -> "phone very hot"
+        }
+        val saver = "Battery Saver on".takeIf { pm.isPowerSaveMode }
+        val dim = "Extra dim on".takeIf {
+            runCatching { android.provider.Settings.Secure.getInt(contentResolver, "reduce_bright_colors_activated", 0) == 1 }
+                .getOrDefault(false)
+        }
+        return listOfNotNull(heat, saver, dim).takeIf { it.isNotEmpty() }?.joinToString(" · ")
+    }
+
     /** What the pick step chose, for the Mac's tap log. */
     private fun pickNote(s: WatchSession, note: String) {
         scope.launch(Dispatchers.IO) { runCatching { s.send("t" to "tap-note", "text" to note.take(400)) } }
