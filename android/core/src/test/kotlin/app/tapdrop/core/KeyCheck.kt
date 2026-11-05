@@ -29,7 +29,7 @@ import kotlin.system.exitProcess
  *     fail (it never comes), uncover (a bright room's light comes back: the hand that covered the notch left);
  *  4. calibration (TAPDROP_TEST_CALIBRATE=1: the test Mac calibrates the first light-key phone without one, and its
  *     simulated light reads TAPDROP_TEST_PEAK): three holds end in key-fail "calibrating", nothing is sent, the
- *     phone's taps then need clamp(½ × median, 300, 1000), kept per phone across a restart;
+ *     phone's taps then need clamp(½ × median, 220, 1000), kept per phone across a restart;
  *  5. the live link: a phone's newer link replaces its older one (only the newest gets grabs), and a link the phone
  *     has gone silent on is dropped (TAPDROP_TEST_WATCH_SILENCE shortens the Mac's 45 s).
  *
@@ -65,8 +65,11 @@ fun main(args: Array<String>) {
     println("Calibration — three holds measure the phone (1480 lux at the notch), then its taps need half that")
     TestMac(bin, port + 4, dir, "pass", calibrate = true, peak = 1480).use { calibrationRounds(it, calibrated) }
 
-    println("Calibration — kept across a restart; a dim phone (420 lux) gets the 300-lux floor; a phone that leaves stops it")
+    println("Calibration — kept across a restart; a dim phone (420 lux) gets the 220-lux floor; a phone that leaves stops it")
     TestMac(bin, port + 4, dir, "pass", calibrate = true, peak = 420, keepHome = true).use { calibrationKept(it, calibrated) }
+
+    println("Rounds — sun on the notch (B 2000): the phone covers it and its screen reads a steady 650 lux")
+    TestMac(bin, port + 6, dir, "pass", room = 2000, peak = 650).use { sunRounds(it) }
 
     println("Live link — the newest link per phone wins; a silent link is dropped (silence limit 3 s)")
     TestMac(bin, port + 5, dir, "pass", env = mapOf("TAPDROP_TEST_WATCH_SILENCE" to "3")).use { liveness(it) }
@@ -343,14 +346,14 @@ private fun passRounds(mac: TestMac) {
                 p.s.keyOn(id, Src.SCREEN)
                 t = now()
                 val seen = p.expectAny(setOf("key-seen", "key-ok", "key-fail"), 1500) { it.id() == id }
-                check("key-on → key-seen: need max(600, B + 200) = 600, simulated 900 lux",
-                    seen?.optString("t") == "key-seen" && seen.optDouble("peak") >= 900 && seen.optDouble("need") == 600.0, "$seen in ${now() - t} ms")
+                check("key-on → key-seen: need max(300, B + 120) = 300, simulated 900 lux",
+                    seen?.optString("t") == "key-seen" && seen.optDouble("peak") >= 900 && seen.optDouble("need") == 300.0, "$seen in ${now() - t} ms")
                 check("no key-ok while the phone's light is still on", p.none("key-ok", 300))
                 t = now()
                 p.s.keyOff(id)
                 val ok = p.expectAny(setOf("key-ok", "key-fail"), 1500) { it.id() == id }
                 check("key-off → the notch goes dark with it → key-ok (fall ≤ min(peak/3, 0.6·B) = 72)",
-                    ok?.optString("t") == "key-ok" && ok.optDouble("fall") <= 72 && ok.optDouble("need") == 600.0, "$ok in ${now() - t} ms")
+                    ok?.optString("t") == "key-ok" && ok.optDouble("fall") <= 72 && ok.optDouble("need") == 300.0, "$ok in ${now() - t} ms")
                 check("a session without caps gets no grab", old.none("grab", 300))
                 check("a session with the previous light key (2) gets no grab", key2.none("grab", 300))
                 p.s.grabAck(id, true, "screenshot")
@@ -373,8 +376,8 @@ private fun passRounds(mac: TestMac) {
                 check("knock → grab with key (a round started by the phone)", gk != null && gk.optInt("key") == LightKeyRules.VERSION, "$gk in ${now() - t} ms")
                 p.s.keyOn(gk.id(), Src.SCREEN)
                 val (kseen, kok) = p.key(gk.id())
-                check("knock round, screen content on an open notch (P 300): need 600 → key-seen → key-ok",
-                    kseen?.optDouble("need") == 600.0 && kok?.optString("t") == "key-ok", "${kseen.desc()} / ${kok.desc()}")
+                check("knock round, screen content on an open notch (P 300): need 300 → key-seen → key-ok",
+                    kseen?.optDouble("need") == 300.0 && kok?.optString("t") == "key-ok", "${kseen.desc()} / ${kok.desc()}")
                 mac.signal("USR2")
                 check("knock round releases once the phone leaves", p.expect("release", 1500) { it.id() == gk.id() } != null)
 
@@ -504,8 +507,8 @@ private fun passRounds(mac: TestMac) {
     val log = mac.logText()
     check("Mac log: 'Covered 120 → 4 lux · asked Key Pixel'", log.contains("Covered 120 → 4 lux · asked Key Pixel"))
     check("Mac log: older phones need the update", log.contains("needs the TapDrop update") && log.contains("Old Pixel") && log.contains("Key2 Pixel"))
-    check("Mac log: 'Light key ✓ screen 4 → 900 lux (needed 600), dark again at 1 lux'",
-        log.contains("Light key ✓ screen 4 → 900 lux (needed 600), dark again at 1 lux"))
+    check("Mac log: 'Light key ✓ screen 4 → 900 lux (needed 300), dark again at 1 lux'",
+        log.contains("Light key ✓ screen 4 → 900 lux (needed 300), dark again at 1 lux"))
     check("Mac log: 'Key Pixel knocked · notch 300 lux'", log.contains("Key Pixel knocked · notch 300 lux"))
     check("Mac log: a torch doesn't count", log.contains("only the phone's screen counts"))
     check("Mac log: decline with its reason", log.contains("Key Pixel declined: still"))
@@ -552,7 +555,7 @@ private fun failRounds(mac: TestMac) {
         val after = now() - t
         check("the notch never sees the light → key-fail not-seen ~900 ms after key-on (no key-seen)",
             f?.optString("why") == "not-seen" && after in 800..1200, "$f after $after ms")
-        check("key-fail carries the numbers: peak 6 lux, need 600", f?.optDouble("peak") == 6.0 && f.optDouble("need") == 600.0)
+        check("key-fail carries the numbers: peak 6 lux, need 300", f?.optDouble("peak") == 6.0 && f.optDouble("need") == 300.0)
         p.s.keyOff(g.id())
         p.s.grabAck(g.id(), false, "none", "no-light")
         check("no release follows a failed key", p.none("release", 600))
@@ -561,7 +564,7 @@ private fun failRounds(mac: TestMac) {
     }
     Thread.sleep(300)
     check("nothing was sent", mac.save.listFiles().isNullOrEmpty(), "${mac.save.list()?.toList()}")
-    check("Mac log: 'Light key ✗ screen 4 → 6 lux (needed 600)'", mac.logText().contains("Light key ✗ screen 4 → 6 lux (needed 600)"))
+    check("Mac log: 'Light key ✗ screen 4 → 6 lux (needed 300)'", mac.logText().contains("Light key ✗ screen 4 → 6 lux (needed 300)"))
 }
 
 private fun uncoverRounds(mac: TestMac) {
@@ -574,8 +577,10 @@ private fun uncoverRounds(mac: TestMac) {
         p.s.keyOn(g.id(), Src.SCREEN)
         val f = p.expectAny(setOf("key-seen", "key-ok", "key-fail"), 1500) { it.id() == g.id() }
         // (The simulated cover reading nudges B by a lux or so before the round freezes it.)
-        check("bright room (B 1500): the hand leaves the covered notch as the phone lights elsewhere → never seen (need B + 200 ≈ 1700)",
-            f.desc() == "key-fail not-seen" && (f?.optDouble("need") ?: 0.0) in 1690.0..1710.0 && f?.optDouble("peak") == 1500.0,
+        // Brighter than a phone screen can give: the bright-light rule looks for a steady level under half the room.
+        check("bright room (B 1500): the hand leaves the covered notch as the phone lights elsewhere → never seen " +
+            "(the room's light, 1500, is above the phone's band of 300…750)",
+            f.desc() == "key-fail not-seen" && f.need() == 300.0 && (f?.optDouble("peak") ?: 9e9) < 750.0,
             "room $room, ${f.desc()} $f")
         p.s.keyOff(g.id())
         p.s.grabAck(g.id(), false, "none", "no-light")
@@ -584,6 +589,17 @@ private fun uncoverRounds(mac: TestMac) {
     }
     Thread.sleep(300)
     check("nothing was sent", mac.save.listFiles().isNullOrEmpty(), "${mac.save.list()?.toList()}")
+}
+
+/** Sun on the notch: a covered round's light is the phone's steady level under the room's; the fall still counts. */
+private fun sunRounds(mac: TestMac) {
+    val ep = Endpoint("127.0.0.1", mac.port)
+    Phone("Sun Pixel", ep, caps = LightKeyRules.VERSION).use { p ->
+        p.expect("room", 2500)
+        val (seen, v) = hold(p, mac, wait = 600) { gid -> p.s.grabAck(gid, true, "screenshot") }
+        check("sun (B 2000), covered: need max(300, P + 200) = 300 under a cap of 1000 → key-seen at 650 → key-ok",
+            seen.desc() == "key-seen" && seen.need() == 300.0 && v.desc() == "key-ok", "${seen.desc()} ${seen} / ${v.desc()} $v")
+    }
 }
 
 // MARK: 4. calibration
@@ -660,8 +676,8 @@ private fun calibrationKept(mac: TestMac, id: String) {
         check("a dim phone's three holds (420 lux) are calibration holds",
             holds.all { it.desc() == "key-fail calibrating" && it?.optDouble("peak") == 420.0 }, holds.joinToString { it.desc() })
         val (seen, ok) = hold(d, mac) { gid -> d.s.grabAck(gid, false, "none", "self") }
-        check("½ × 420 = 210 is raised to the 300-lux floor; need = max(300, B + 200) ≈ 320 → key-ok",
-            seen.need() in 318.0..322.0 && ok.desc() == "key-ok", "${seen.desc()} need ${seen.need()} / ${ok.desc()}")
+        check("½ × 420 = 210 is raised to the 220-lux floor; need = max(220, B + 120) ≈ 240 → key-ok",
+            seen.need() in 238.0..242.0 && ok.desc() == "key-ok", "${seen.desc()} need ${seen.need()} / ${ok.desc()}")
     }
     // A phone that connects (so its calibration starts) and goes away stops the calibration.
     Phone("Gone Pixel", ep, caps = LightKeyRules.VERSION).use { it.expect("room", 2500) }
@@ -670,9 +686,9 @@ private fun calibrationKept(mac: TestMac, id: String) {
     check("a phone that leaves mid-calibration stops it (after a grace period)", log.contains("Calibration stopped · Gone Pixel · Gone Pixel disconnected"),
         log.lines().filter { "Calibration" in it }.joinToString(" | ").takeLast(300))
     val all = runCatching { JSONObject(File(mac.home, "calibration.json").readText()) }.getOrNull()
-    check("each phone keeps its own calibration (Cal Android phone40, Dim Pixel 300)",
+    check("each phone keeps its own calibration (Cal Android phone40, Dim Pixel 220)",
         all?.optJSONObject(id)?.optDouble("screenMin") == 740.0 && all.keySet().size == 2 &&
-            all.keySet().any { all.optJSONObject(it)?.optDouble("screenMin") == 300.0 }, "$all")
+            all.keySet().any { all.optJSONObject(it)?.optDouble("screenMin") == 220.0 }, "$all")
     check("nothing was sent", mac.save.listFiles().isNullOrEmpty(), "${mac.save.list()?.toList()}")
 }
 

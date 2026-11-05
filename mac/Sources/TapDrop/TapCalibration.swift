@@ -5,7 +5,7 @@ import SwiftUI
 // Calibration: how bright each phone's white screen reads on this Mac's notch, so the light key asks for what that
 // phone really gives (PROTOCOL.md → "Calibration"). Three holds at the notch, each a full light key that ends in
 // key-fail "calibrating", so nothing is sent. The result is that phone's own floor for the rise:
-// need = max(screenMin, B + 200), with screenMin = clamp(round(0.5 × median sample), 300, 1000).
+// need = max(screenMin, B + 120), with screenMin = clamp(round(0.5 × median sample), 220, 1000).
 
 /// One phone's calibration on this Mac.
 struct TapCalibrationRecord: Codable, Equatable {

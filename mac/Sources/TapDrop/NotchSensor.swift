@@ -63,12 +63,24 @@ enum LightKey {
     /// Covered: a lit room and P ≤ max(2, 0.30·B) — something sits on the sensor (logged, and how release is judged).
     static let coverFloor = 2.0
     static let coverFraction = 0.30
-    /// The rise, need = max(screenMin, B + 200) in any room. A white phone screen at full brightness pressed on the
-    /// notch reads ~1 500 lux (≈ π × 500 nits); 10 cm away ~400, 30 cm away tens. B + 200 keeps the room itself
-    /// (a hand leaving the notch in a bright room) from ever counting as the phone's light. 600 is the floor for a
-    /// phone that hasn't been calibrated on this Mac; a calibrated one uses its own (see below).
-    static let screenMin = 600.0
-    static let overRoom = 200.0
+    /// The rise, need = max(screenMin, B + 120) in any room. Measured on a MacBook Air M4 with an Android phone: its white
+    /// screen at full brightness reads 400–800 lux at the notch depending on how squarely it sits, and well under
+    /// half that a few centimetres away. The fall (below) is what proves the phone is on the sensor in a lit room;
+    /// the rise only has to show the light is the phone's screen, facing the notch. B + 120 keeps the room itself
+    /// (a hand leaving the notch) from ever counting as the phone's light; 300 is the floor for a phone that hasn't
+    /// been calibrated on this Mac, and in a dark room it keeps a screen held away from counting. A calibrated
+    /// phone uses its own floor (see below).
+    static let screenMin = 300.0
+    static let overRoom = 120.0
+
+    /// Bright light (sun on the notch): a phone screen can't outshine a room brighter than about its own contact level
+    /// (calibrated, or `screenTop` for a phone that isn't), so B + 120 is out of reach. When the phone covers the
+    /// notch (P ≤ 0.3·B), its light is instead a steady level between max(screenMin, P + 200) and half the room —
+    /// two readings in a row in that band. The sun or a hand coming off the notch reads near B, above the band, and
+    /// the fall (≤ peak / 3) still needs the black phone right on the sensor.
+    static let screenTop = 900.0
+    static let brightRise = 200.0
+    static let brightCap = 0.5
 
     // MARK: calibration (per phone, see TapCalibration.swift)
     // How bright a phone's white screen reads on this Mac's notch depends on the phone and the Mac. Calibrating
@@ -86,18 +98,18 @@ enum LightKey {
     /// phone showed before it lit up (bright content can reach the lower calibration level) is never a sample.
     static let calibrateFrom = 0.100
     static let calibrationSamples = 3
-    /// The phone's own floor: half its contact level (the median sample), within 300…1 000 lux. Half leaves room for a
-    /// phone held a little off-centre; 300 still needs the screen within a few centimetres; 1 000 keeps a very bright
+    /// The phone's own floor: half its contact level (the median sample), within 220…1 000 lux. Half leaves room for a
+    /// phone held a little off-centre; 220 still needs the screen within a few centimetres; 1 000 keeps a very bright
     /// phone from being asked for more than it gives through a smudge or a case lip.
     static let calibrateFraction = 0.5
-    static let calibratedMin = 300.0
+    static let calibratedMin = 220.0
     static let calibratedMax = 1000.0
     /// Calibration stops after 45 s without a sample.
     static let calibrateIdle = 45.0
     /// A tap the notch didn't see, whose peak still reached 40 % of need, suggests calibrating.
     static let suggestCalibrate = 0.4
 
-    /// The floor a calibrated phone's taps use (need = max(this, B + 200)).
+    /// The floor a calibrated phone's taps use (need = max(this, B + 120)).
     static func screenMin(contact: Double) -> Double {
         min(max((calibrateFraction * contact).rounded(), calibratedMin), calibratedMax)
     }
@@ -112,8 +124,8 @@ enum LightKey {
     /// busy phone can take a few hundred ms to get there). A reading taken after key-off, within 450 ms, must fall to
     /// ≤ peak / 3 and, in a lit room, ≤ max(0.6·B, 8) — the black phone blocks the room's light, so it's on the
     /// sensor ("stayed-lit" otherwise: a lamp, the sun, a hand that just left, or a phone held off the notch). The
-    /// 8-lux floor leaves room for a little leak around a real phone in a dim room, where the 600-lux rise already
-    /// rules out a phone held away.
+    /// 8-lux floor leaves room for a little leak around a real phone in a dim room, where the rise already rules out a
+    /// phone held away.
     static let keyOffWithin = 1.0
     static let fallWithin = 0.45
     static let fallFraction = 1.0 / 3
@@ -791,11 +803,12 @@ extension NotchDetector {
         let gapOK = tooSoon == nil
         print("  \(gapOK ? "PASS" : "FAIL")  no trigger within 1.5 s of the last round")
         if !gapOK { failures.append("round gap") }
-        // calibration: the median sample, halved, within 300…1 000 lux
+        // calibration: the median sample, halved, within 220…1 000 lux
         let cal: [(String, [Double], Double)] = [
             ("1480, 1390, 1530 → contact 1480 → taps need 740", [1480, 1390, 1530], 740),
             ("2600, 2900, 2400 → 1300, capped at 1000", [2600, 2900, 2400], 1000),
-            ("420, 380, 450 → 210, raised to 300", [420, 380, 450], 300),
+            ("600, 520, 640 → 300", [600, 520, 640], 300),
+            ("400, 380, 430 → 200, raised to 220", [400, 380, 430], 220),
             ("one stray sample doesn't move it: 1200, 90, 1250 → 600", [1200, 90, 1250], 600),
         ]
         for (name, samples, want) in cal {
