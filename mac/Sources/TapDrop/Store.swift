@@ -28,6 +28,8 @@ struct AppSettings: Codable, Equatable {
     var playSound = true
     var didFirstLaunch = false
     var notchTap = true
+    /// Look for a new TapDrop once a day (Settings → About).
+    var checkForUpdates = true
 
     init() {}
 
@@ -38,6 +40,7 @@ struct AppSettings: Codable, Equatable {
         playSound = try c.decodeIfPresent(Bool.self, forKey: .playSound) ?? true
         didFirstLaunch = try c.decodeIfPresent(Bool.self, forKey: .didFirstLaunch) ?? false
         notchTap = try c.decodeIfPresent(Bool.self, forKey: .notchTap) ?? true
+        checkForUpdates = try c.decodeIfPresent(Bool.self, forKey: .checkForUpdates) ?? true
     }
 }
 
@@ -62,7 +65,12 @@ final class Store: ObservableObject {
             guard settings != oldValue else { return }
             save()
             if settings.notchTap != oldValue.notchTap { WatchHub.shared.settingsChanged() }
+            if settings.checkForUpdates != oldValue.checkForUpdates { Updater.shared.settingsChanged() }
         }
+    }
+    /// What the update check remembers: the last check, what it found, a skipped version (Updater keeps it).
+    var updates = UpdateRecord() {
+        didSet { if updates != oldValue { save() } }
     }
     @Published var recent: [RecentEvent] = []
     @Published var status = "Starting…"
@@ -77,6 +85,7 @@ final class Store: ObservableObject {
         var devices: [PairedDevice]
         var outbox: [OutboxItem]
         var settings: AppSettings
+        var updates: UpdateRecord?
     }
 
     nonisolated static var dir: URL {
@@ -109,6 +118,7 @@ final class Store: ObservableObject {
             // The backing store, so `didSet` doesn't run while loading: with Tap to Send off it would reach
             // `Store.shared` from inside its own initializer and crash at launch.
             _settings = Published(initialValue: p.settings)
+            updates = p.updates ?? UpdateRecord()
         } else {
             macId = TDCrypto.random(8).map { String(format: "%02x", $0) }.joined()
             save()
@@ -116,7 +126,7 @@ final class Store: ObservableObject {
     }
 
     func save() {
-        let p = Persisted(macId: macId, devices: devices, outbox: outbox, settings: settings)
+        let p = Persisted(macId: macId, devices: devices, outbox: outbox, settings: settings, updates: updates)
         guard let data = try? JSONEncoder().encode(p) else { return }
         try? data.write(to: Self.stateURL, options: .atomic)
         try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: Self.stateURL.path)

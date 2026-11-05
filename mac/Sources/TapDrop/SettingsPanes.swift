@@ -457,17 +457,20 @@ struct AboutPane: View {
             hero
                 .tdReveal(0, visible)
 
+            UpdatesGroup()
+                .tdReveal(1, visible)
+
             SettingsGroup("Privacy") {
                 SettingsRow("lock.fill", tint: TDTint.green, title: "End-to-end encrypted",
                             subtitle: "Every transfer is sealed with a key only this Mac and your phone share.")
                 SettingsRow("wifi", tint: TDTint.blue, title: "Stays on your Wi-Fi",
-                            subtitle: "Nothing goes through a server or the internet.")
+                            subtitle: "What you send goes straight between your phone and this Mac, never through a server.")
                 SettingsRow("checkmark.shield.fill", tint: TDTint.aurora, title: "Only your phone's screen can send",
                             subtitle: TapCopy.safety)
                 SettingsRow("eye.slash.fill", tint: TDTint.gray, title: "Looks only when you tap",
                             subtitle: "Your phone reads its screen at the moment you tap, never in the background.")
             }
-            .tdReveal(1, visible)
+            .tdReveal(2, visible)
 
             SettingsGroup {
                 SettingsRow("qrcode", tint: TDTint.aurora, title: "Set Up a Phone",
@@ -475,7 +478,7 @@ struct AboutPane: View {
                 SettingsRow("list.bullet.rectangle", tint: TDTint.slate, title: "Tap Log",
                             subtitle: "Every tap, with the light levels behind it.", action: { TapLogFile.open() })
             }
-            .tdReveal(2, visible)
+            .tdReveal(3, visible)
         }
     }
 

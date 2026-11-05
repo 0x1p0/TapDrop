@@ -94,6 +94,11 @@ struct PanelView: View {
                     .padding(.top, TD.Space.xl)
                     .tdReveal(3, state.visible)
             }
+
+            PanelUpdateRow(close: close)
+                .padding(.horizontal, TD.Space.l)
+                .padding(.top, TD.Space.m)
+                .tdReveal(4, state.visible)
         }
         .padding(.bottom, TD.Space.m)
         .overlay {

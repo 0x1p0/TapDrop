@@ -161,6 +161,36 @@ Use these words on both platforms (shorten for small surfaces, keep the voice: p
   phone's screen facing the viewer for the tap. Android's `HowToTapIllustration` (the back-facing variant) is the
   reference.
 
+## Updates, in words
+
+Both apps check GitHub for a new release once a day and say so quietly; nothing about the person is sent. Same
+voice as everywhere else: plain, short, second person.
+
+- **Found one:** "TapDrop 2.1.1 is available", with "You have 2.1.0." under it and **What's new** (the release notes:
+  headings, bullets, bold, code and links; links open in the browser).
+- **Actions:** **Update Now** (primary), **Later**, **Skip This Version** (quiet).
+- **Under way:** "Downloading… 42%" (with the sizes and **Cancel**), "Checking the download…", "Restarting TapDrop…",
+  and "TapDrop restarts when the transfer finishes…" when a transfer is running (never cut one short).
+- **Status:** "Checking…", "You're up to date" ("TapDrop 2.1.0 is the newest version · Checked today at 9:41."),
+  "Not checked yet", "You skipped TapDrop 2.1.1" ("Check for Updates shows it again."), "Couldn't check for updates".
+- **When it can't update itself:** say why in one sentence and offer **Download from GitHub** (the release page), plus
+  **Try Again** when trying again could help.
+
+  | Why | Words |
+  |---|---|
+  | Offline | "Couldn't reach GitHub. Check your internet connection and try again." |
+  | Rate limited | "GitHub is limiting checks from your network right now. Try again in an hour." |
+  | Checksum | "The download didn't match its checksum, so nothing was installed." |
+  | Signed differently (a copy built or signed elsewhere) | "This copy of TapDrop is signed differently from the release, so it can't update itself." |
+  | Ad hoc / unsigned copy | "This copy of TapDrop isn't signed like the releases, so it can't update itself." |
+  | Can't write where it is | "TapDrop doesn't have permission to replace itself in Applications." |
+  | Run from a download | "Move TapDrop to your Applications folder and open it from there to update it." |
+  | Didn't take after restarting | "The update didn't finish, so TapDrop is still on 2.1.0." |
+- **Where (Mac):** Settings → About (the Updates group: status, What's new, the "Check for updates automatically"
+  switch), **Check for Updates…** in the TapDrop menu, an **Update available** row at the foot of the menu bar panel
+  ("TapDrop 2.1.1 · See what's new"), and one notch notice per version ("TapDrop 2.1.1 is available" · "See what's new
+  in Settings" · **Details**), only while the island is idle and never with a sound.
+
 ## Quality bar
 
 Every screen ships with:

@@ -65,6 +65,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { SetupWindow.shared.show() }
             }
         }
+        // Once a day: is there a newer TapDrop? (Not in demos or test runs, unless a debug build has a test feed.)
+        Updater.shared.start()
         if let demo = ProcessInfo.processInfo.environment["TAPDROP_DEMO"] {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { Demo.run(demo, status: self.status) }
         }
@@ -204,8 +206,9 @@ final class ServiceProvider: NSObject {
 
 /// Screens on demand for visual QA (TAPDROP_DEMO=panel[:state]|receiving|received|pair|setup|queued|failed|otp|settings:<pane>).
 /// Panel states: live (= plain `panel`), new, empty, waiting, away, starting, offline, transfer, done, failed,
-/// queued, drop, hover, longname. TAPDROP_APPEARANCE=dark|light forces the appearance; TAPDROP_SNAP=<dir> makes the run
-/// photograph its windows and quit (see DSSnapshot).
+/// queued, drop, hover, longname, update (a new TapDrop is out: the row at the foot of the panel).
+/// TAPDROP_APPEARANCE=dark|light forces the appearance; TAPDROP_SNAP=<dir> makes the run photograph its windows and quit
+/// (see DSSnapshot).
 @MainActor
 enum Demo {
     static func run(_ what: String, status: StatusController?) {
@@ -313,6 +316,8 @@ enum Demo {
         case "queued", "longname":
             s.enqueue(urls: Array(files.prefix(3)) + [files.last!])
             s.enqueue(text: "Gate B32 · boarding at 7:40")
+        case "update":
+            Updater.shared.demo("available")
         default:
             break
         }

@@ -23,6 +23,8 @@ final class Activity: ObservableObject {
         case asleep
         /// A TapDrop update is needed, on the phone or on this Mac.
         case update
+        /// A new TapDrop for this Mac is out (once per version; "Details" opens Settings → About).
+        case appUpdate
         /// TapDrop itself was open on the phone.
         case openApp
         case paired

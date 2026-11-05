@@ -10,9 +10,13 @@ import SwiftUI
 ///                               details, sim; calibration: calibrate, calibrating1, calibrating2, calmissed,
 ///                               calibrated, nearmiss
 ///     settings:phones:<state>   empty, forget, update
+///     settings:about:<state>    the Updates group: available (default), downloading, verifying, restarting, waiting,
+///                               failed (checksum), mismatch (signed differently), uptodate, checking, checkfailed,
+///                               never, skipped, later
 ///     setup[:<step>]            install (default), visited, downloading, downloaded, dlfailed, portbusy, noapk, nowifi,
 ///                               pair, paired, tap, tapready, tapped, nosensor, done, live (nothing staged)
 ///     qrcheck                   decodes the rendered setup QR code and prints the result
+///     updatecheck               the updater's logic (versions, checksums, the release feed, What's new), then quits
 ///     presence                  opens Settings, then closes it: prints whether TapDrop is in the Dock and ⌘-Tab
 extension Demo {
     /// Returns true when `what` is one of this file's modes.
@@ -27,6 +31,11 @@ extension Demo {
             return true
         case "qrcheck":
             DemoWindows.qrCheck()
+            return true
+        case "updatecheck":
+            #if DEBUG
+            UpdateSelfTest.run()
+            #endif
             return true
         case "presence":
             let policy = { NSApp.activationPolicy() == .regular ? "in the Dock and ⌘-Tab" : "menu bar only" }
@@ -83,6 +92,8 @@ private enum DemoWindows {
             if state == "update" { SettingsDemo.outdatedPhones = ["Android phone"] }
             s.clearOutbox()
             if state != "empty" { s.enqueue(text: "Gate B32 · boarding at 7:40") }
+        case .about:
+            Updater.shared.demo(state.isEmpty ? "available" : state)
         default:
             break
         }

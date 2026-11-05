@@ -89,7 +89,8 @@ enum IslandFit {
             switch a.kind {
             case .otp: return nil
             case .transfer, .pick: return fit(title: a.title, subtitle: IslandResult.subtitle(a), trailing: IslandResult.trailingWidth(a))
-            case .paired, .queued, .clipboard: return fit(title: a.title, subtitle: a.detail, trailing: 0)
+            case .paired, .queued, .clipboard:
+                return fit(title: a.title, subtitle: a.detail, trailing: a.noticeStyle == .appUpdate ? IslandNotice.detailsWidth : 0)
             }
         }
     }
@@ -705,11 +706,21 @@ struct IslandCode: View {
 struct IslandNotice: View {
     let activity: IslandSnapshot
 
+    /// The "Details" button of a new-version notice (for fitting the island to it).
+    static let detailsWidth: CGFloat = 74
+
     var body: some View {
         IslandRow(title: activity.title, subtitle: activity.detail, subtitleLines: 2, titleLines: 2, titleTruncation: .tail) {
             glyph
         } trailing: {
-            EmptyView()
+            if activity.noticeStyle == .appUpdate {
+                Button("Details") {
+                    SettingsWindow.shared.show(.about)
+                    Activity.shared.dismiss()
+                }
+                .buttonStyle(IslandButtonStyle(prominent: true))
+                .help("See what's new in Settings")
+            }
         }
     }
 
@@ -721,6 +732,7 @@ struct IslandNotice: View {
         case .locked: IconChip("lock.fill", tint: TDTint.orange, size: s)
         case .asleep: IconChip("moon.zzz.fill", tint: TDTint.slate, size: s)
         case .update: IconChip("arrow.down.circle.fill", tint: TDTint.blue, size: s)
+        case .appUpdate: AppGlyph(size: s - 4)
         case .openApp: IconChip("square.on.square", tint: TDTint.aurora, size: s)
         case .paired: CheckBurst(tint: TD.violet)
         case .clipboard: IconChip("doc.on.clipboard.fill", tint: TDTint.aurora, size: s)

@@ -47,6 +47,13 @@ enum MainMenu {
         @objc func settings(_ sender: Any?) {
             MainActor.assumeIsolated { SettingsWindow.shared.show() }
         }
+
+        @objc func checkForUpdates(_ sender: Any?) {
+            MainActor.assumeIsolated {
+                SettingsWindow.shared.show(.about)
+                Updater.shared.check(manual: true)
+            }
+        }
     }
 
     private static let actions = Actions()
@@ -56,6 +63,8 @@ enum MainMenu {
 
         let app = NSMenu(title: "TapDrop")
         app.addItem(withTitle: "About TapDrop", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        let updates = app.addItem(withTitle: "Check for Updates…", action: #selector(Actions.checkForUpdates(_:)), keyEquivalent: "")
+        updates.target = actions
         app.addItem(.separator())
         let settings = app.addItem(withTitle: "Settings…", action: #selector(Actions.settings(_:)), keyEquivalent: ",")
         settings.target = actions

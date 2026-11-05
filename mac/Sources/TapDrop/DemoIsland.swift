@@ -11,6 +11,7 @@ import Foundation
 ///   hint-<reason>: a tap that didn't count (not-seen, no-light-sent, stayed-lit, no-key-off, facing, screen-only,
 ///     other-phone, late, gone, busy, cooldown; calibrating says nothing)
 ///   locked, asleep, update-phone, update-mac, open-app, long-name   (the phone's declines and other notices)
+///   app-update   a new TapDrop for this Mac is out
 ///   failed, sequence (a tap from the light key to the result, live), dismiss, handover
 /// Every island mode draws a stand-in for the hardware notch, so screenshots show the island in place.
 /// Prefix a state with `nonotch-` (island:nonotch-received) to see it as on a Mac without a notch, and set
@@ -179,6 +180,10 @@ extension Demo {
             hint("Update TapDrop on Android phone", "It needs the new version to keep tapping")
         case "update-mac":
             hint("Update TapDrop on this Mac", "Then touch the top of its screen to the notch")
+        case "app-update":
+            // a new TapDrop for this Mac is out (Updater says so once per version)
+            a.notice(.queued, title: "TapDrop 2.1.1 is available", detail: "See what's new in Settings", sound: false, hideAfter: 60,
+                     style: .appUpdate)
         case "open-app":
             hint("Open what you want to send on Android phone", "Then touch the top of its screen to the notch")
         case "long-name":
