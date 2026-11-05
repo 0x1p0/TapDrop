@@ -9,6 +9,7 @@ What's new in each version, newest first. The notes under a version are what Tap
 
 ### New
 - **Updates in the app.** TapDrop checks for a new version once a day and shows you what's new. Update with one click on the Mac; on your phone, tap Update and confirm.
+- **A proper Mac installer.** Open the DMG and drag TapDrop into Applications.
 - **One-time codes you can trust.** Codes are only picked up from messages that are clearly about a code. Amounts, dates, phone numbers and order numbers are left alone.
 
 ### Better
