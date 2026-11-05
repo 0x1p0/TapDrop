@@ -372,8 +372,8 @@ class MediaMatcher(private val ctx: Context) {
 
     /**
      * Fingerprints every video not yet in the index (newest first, up to 400), in the background at low priority,
-     * saving as it goes. Videos up to 90 s get the exact frame every second; longer ones the nearest keyframe at up to
-     * 90 points, so a frame from anywhere in a clip is close to one of them.
+     * saving as it goes: the keyframe nearest each second (60 points at most across longer videos), so a frame from
+     * anywhere in a clip is close to one of them. Keyframes decode on their own, so a video takes well under a second.
      */
     private fun index(videos: List<Media>) {
         loadIndex()
@@ -400,9 +400,9 @@ class MediaMatcher(private val ctx: Context) {
     }
 
     private fun fingerprint(m: Media): Indexed? {
-        val exact = m.durationMs <= 90_000
-        val step = if (exact) 1000L else max(1000L, m.durationMs / 90)
-        val times = (0L until m.durationMs step step).toList().take(91)
+        val step = max(1000L, m.durationMs / 60)
+        val times = (0L until m.durationMs step step).toList().take(61)
+        val seen = HashSet<Long>()
         val out = ArrayList<Long>(times.size)
         var aspect = 0f
         val r = MediaMetadataRetriever()
@@ -410,13 +410,11 @@ class MediaMatcher(private val ctx: Context) {
             r.setDataSource(ctx, m.uri)
             for (t in times) {
                 val f = runCatching {
-                    r.getScaledFrameAtTime(
-                        t * 1000, if (exact) MediaMetadataRetriever.OPTION_CLOSEST else MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
-                        192, 192,
-                    )
+                    r.getScaledFrameAtTime(t * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 160, 160)
                 }.getOrNull() ?: continue
                 aspect = f.width.toFloat() / f.height
-                dHash(f, 0, 0, f.width, f.height)?.let { out += it }
+                // Neighbouring seconds often land on the same keyframe: keep each hash once.
+                dHash(f, 0, 0, f.width, f.height)?.let { if (seen.add(it)) out += it }
                 f.recycle()
             }
         } catch (_: Exception) {
