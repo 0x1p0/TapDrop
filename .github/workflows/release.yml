@@ -110,7 +110,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           V: ${{ steps.version.outputs.version }}
         run: |
-          gh release create "v$V" release/TapDrop-* release/SHA256SUMS.txt \
+          gh release create "v$V" release/TapDrop* release/SHA256SUMS.txt \
             --title "TapDrop $V" --notes-file release/NOTES.md --target "$GITHUB_SHA" --latest
 
       - name: Clean up the keys

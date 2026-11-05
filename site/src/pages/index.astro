@@ -42,10 +42,10 @@ import sunset from '../assets/photo/Sunset.jpg';
         <p class="hero__lede css-in" style="--d:0.3s">
           <strong>Touch the top of your Android phone’s screen to your Mac’s notch</strong> and hold it until it buzzes. The page, photo, video or PDF on it lands on your Mac.
         </p>
-        <p class="hero__open css-in" style="--d:0.36s">{hero.open}</p>
+        <p class="hero__open css-in" style="--d:0.36s">{hero.open} <a class="link" href={links.repo}>Source on GitHub</a></p>
         <div class="hero__ctas css-in" style="--d:0.4s">
-          <Btn href={links.releases} solid>Download for Mac</Btn>
-          <Btn href={links.repo}>View on GitHub</Btn>
+          <Btn href={links.dmg} solid>Download for Mac</Btn>
+          <Btn href={links.apk}>Download for Android</Btn>
         </div>
       </div>
       </div>
@@ -196,10 +196,10 @@ import sunset from '../assets/photo/Sunset.jpg';
       ))}
     </ol>
     <div class="get__cta">
-      <Btn href={links.releases} solid>Download for Mac</Btn>
+      <Btn href={links.dmg} solid>Download for Mac</Btn>
+      <Btn href={links.apk}>Download for Android</Btn>
       <Btn href={to('/get-started/')}>Read the install guide</Btn>
-      <Btn href={links.repo}>Source code</Btn>
     </div>
-    <p class="get__note">Android 13 or newer: the phone gets its app from your Mac’s setup QR code, or as an APK from <a class="link" href={links.releases}>Releases</a>.</p>
+    <p class="get__note">Mac: macOS 15 or newer, with a notch for tap to send. Android: 13 or newer, any brand, or let your Mac hand it over with its setup QR code. Always the latest version. <a class="link" href={links.releases}>All releases</a> · <a class="link" href={links.repo}>Source code</a></p>
   </section>
 </Base>

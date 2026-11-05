@@ -19,7 +19,9 @@ one-time codes. Everything stays on your own Wi-Fi, end-to-end encrypted.
 ![Free](https://img.shields.io/badge/price-free-2ea44f)
 
 **[Website](https://tapdrop.pages.dev)** ·
-**[Download for Mac (.dmg) and Android (.apk)](https://github.com/0x1p0/TapDrop/releases/latest)** ·
+**[Download for Mac (.dmg)](https://github.com/0x1p0/TapDrop/releases/latest/download/TapDrop.dmg)** ·
+**[Download for Android (.apk)](https://github.com/0x1p0/TapDrop/releases/latest/download/TapDrop.apk)** ·
+**[All releases](https://github.com/0x1p0/TapDrop/releases)** ·
 **[Step-by-step install guide](docs/INSTALL.md)**
 
 Free and open source. No accounts, no cloud, no tracking.
@@ -164,7 +166,7 @@ The [install guide](docs/INSTALL.md) (also on the [website](https://tapdrop.page
 
 ### 1. Install the Mac app
 
-1. Download **TapDrop-*version*-mac.dmg** from [Releases](https://github.com/0x1p0/TapDrop/releases/latest).
+1. Download **[TapDrop.dmg](https://github.com/0x1p0/TapDrop/releases/latest/download/TapDrop.dmg)**. It's always the latest version.
 2. Open it, drag **TapDrop** onto **Applications**, then eject the TapDrop disk.
 3. Open **TapDrop** from Applications. macOS says *"TapDrop" Not Opened*. Click **Done**, not Move to Trash.
 
@@ -183,7 +185,7 @@ TapDrop lives in the menu bar (**((·))**) and opens at login. A **Set Up a Phon
 
 ### 2. Install the Android app
 
-1. On the Mac, **Set Up a Phone** shows a QR code. Scan it with your phone's camera and tap **Download TapDrop**. Your Mac serves the app over your Wi‑Fi. Or download **TapDrop-*version*-android.apk** from [Releases](https://github.com/0x1p0/TapDrop/releases/latest) on the phone.
+1. On the Mac, **Set Up a Phone** shows a QR code. Scan it with your phone's camera and tap **Download TapDrop**. Your Mac serves the app over your Wi‑Fi. Or download **[TapDrop.apk](https://github.com/0x1p0/TapDrop/releases/latest/download/TapDrop.apk)** on the phone directly.
 2. Open the downloaded **TapDrop.apk**. When Android says it isn't allowed to install unknown apps from this source, tap **Settings**, switch on **Allow from this source**, go back, and tap **Install**.
 3. If **Play Protect** warns ("Unsafe app blocked", "doesn't recognise this app"), tap **More details → Install anyway**.
 
@@ -193,7 +195,7 @@ TapDrop lives in the menu bar (**((·))**) and opens at login. A **Set Up a Phon
    Or install from your Mac over USB or wireless debugging:
 
    ```sh
-   adb install -r TapDrop-<version>-android.apk
+   adb install -r TapDrop.apk
    ```
 
 ### 3. Pair
@@ -228,7 +230,7 @@ Both apps check for a new version once a day (you can switch this off in Setting
 - **Mac:** click **Update Now** in the menu bar panel or in **Settings → About**. TapDrop downloads the new version, checks it, replaces itself and reopens. **Check for Updates…** checks right away.
 - **Phone:** tap the notification or the card on Home, then **Update**. The first time, switch on **Allow from this source**. Android then asks you to confirm. TapDrop stays paired, with tap to send on.
 
-To update by hand, install the new DMG or APK from [Releases](https://github.com/0x1p0/TapDrop/releases/latest) over the old one.
+To update by hand, install the new [TapDrop.dmg](https://github.com/0x1p0/TapDrop/releases/latest/download/TapDrop.dmg) or [TapDrop.apk](https://github.com/0x1p0/TapDrop/releases/latest/download/TapDrop.apk) over the old one.
 
 ## Troubleshooting
 
@@ -371,6 +373,7 @@ Both apps share one version, in [`VERSION`](VERSION). Android's `versionCode` an
    - `TapDrop-<version>-mac.dmg`, the installer;
    - `TapDrop-<version>-mac.zip`, what the Mac app's updater downloads;
    - `TapDrop-<version>-android.apk`;
+   - `TapDrop.dmg` and `TapDrop.apk`, the same two under names that never change, so `releases/latest/download/TapDrop.dmg` (and `.apk`) is always the newest;
    - `SHA256SUMS.txt`.
 4. Within a day, both apps offer the update. They download it, check it against `SHA256SUMS.txt` and check that it's signed like the installed app, then update in place.
 

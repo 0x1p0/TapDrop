@@ -3,6 +3,8 @@
 #   TapDrop-<version>-mac.dmg       the Mac app's installer (drag TapDrop into Applications)
 #   TapDrop-<version>-mac.zip       the same Mac app, zipped: what the app's own updater downloads
 #   TapDrop-<version>-android.apk   the Android app
+#   TapDrop.dmg, TapDrop.apk        the same two, by names that never change, so
+#                                   …/releases/latest/download/TapDrop.dmg (and .apk) is always the newest
 #   SHA256SUMS.txt                  checksums the in-app updaters verify
 #   NOTES.md                        this version's notes from CHANGELOG.md
 # The version comes from VERSION. The Mac app is signed with the release identity ("TapDrop Release Signing", which
@@ -82,11 +84,13 @@ BG="$(mktemp -d)/background.tiff"
 tiffutil -cathidpicheck mac/dmg/background.png mac/dmg/background@2x.png -out "$BG" > /dev/null
 "$DMGBUILD" -s mac/dmg/settings.py -D app=mac/build/TapDrop.app -D background="$BG" TapDrop "$OUT/TapDrop-$V-mac.dmg" > /dev/null
 cp android/app/build/outputs/apk/release/app-release.apk "$OUT/TapDrop-$V-android.apk"
-(cd "$OUT" && shasum -a 256 TapDrop-* > SHA256SUMS.txt)
+cp "$OUT/TapDrop-$V-mac.dmg" "$OUT/TapDrop.dmg"
+cp "$OUT/TapDrop-$V-android.apk" "$OUT/TapDrop.apk"
+(cd "$OUT" && shasum -a 256 TapDrop* > SHA256SUMS.txt)
 scripts/release-notes.sh "$V" > "$OUT/NOTES.md"
 
 echo
 ls -lh "$OUT"
 echo
 echo "Publish by pushing the tag (GitHub Actions builds and publishes it):  git tag v$V && git push origin v$V"
-echo "Or publish these files yourself:  gh release create v$V $OUT/TapDrop-* $OUT/SHA256SUMS.txt --title \"TapDrop $V\" --notes-file $OUT/NOTES.md"
+echo "Or publish these files yourself:  gh release create v$V $OUT/TapDrop* $OUT/SHA256SUMS.txt --title \"TapDrop $V\" --notes-file $OUT/NOTES.md"

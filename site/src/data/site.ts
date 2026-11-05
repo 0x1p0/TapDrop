@@ -32,6 +32,9 @@ import macTapToSend from '../assets/mac/mac-tap-to-send.png';
 export const links = {
   repo: 'https://github.com/0x1p0/TapDrop',
   releases: 'https://github.com/0x1p0/TapDrop/releases/latest',
+  // The newest release's files, by names that never change (every release also carries TapDrop.dmg and TapDrop.apk).
+  dmg: 'https://github.com/0x1p0/TapDrop/releases/latest/download/TapDrop.dmg',
+  apk: 'https://github.com/0x1p0/TapDrop/releases/latest/download/TapDrop.apk',
   license: 'https://github.com/0x1p0/TapDrop/blob/main/LICENSE',
   guide: to('/get-started/'),
 };
@@ -241,13 +244,13 @@ export const getIt = {
   steps: [
     {
       title: 'Download for Mac',
-      text: 'Unzip it and drag TapDrop to Applications. It’s free, so it isn’t notarized by Apple: the first time, allow it once under Privacy & Security, Open Anyway.',
+      text: 'Open the DMG and drag TapDrop into Applications. It’s free, so it isn’t notarized by Apple: the first time, allow it once under Privacy & Security, Open Anyway.',
       href: to('/get-started/#open-it-the-first-time'),
       more: 'Opening it the first time',
     },
     {
       title: 'Scan the QR code',
-      text: 'The Mac’s Set Up a Phone window shows a QR code: scan it and tap Download TapDrop. It isn’t on the Play Store, so Android asks you to allow the install.',
+      text: 'The Mac’s Set Up a Phone window shows a QR code: scan it and tap Download TapDrop (or download the Android app directly). It isn’t on the Play Store, so Android asks you to allow the install.',
       href: to('/get-started/#part-2-the-android-app'),
       more: 'Installing on Android',
     },
