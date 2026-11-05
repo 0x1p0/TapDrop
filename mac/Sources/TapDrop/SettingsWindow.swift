@@ -99,7 +99,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
             model.visible = false
             DispatchQueue.main.async { self.model.visible = true }
         }
-        NSApp.activate(ignoringOtherApps: true)
+        AppPresence.windowOpened()
         window?.makeKeyAndOrderFront(nil)
     }
 
@@ -122,7 +122,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         model.visible = false
     }
 
-    /// A menu bar app has no main menu, so the window's shortcuts are handled here:
+    /// The window's shortcuts are handled here (before the main menu, which has them only while TapDrop is in front):
     /// ⌘W / Esc close, ⌘Q quits, ⌘1…⌘5 pick a pane, ↑ / ↓ move through the sidebar.
     private func installKeys() {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in

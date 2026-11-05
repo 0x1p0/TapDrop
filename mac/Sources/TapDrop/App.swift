@@ -53,6 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         NSApp.servicesProvider = services
         NSUpdateDynamicServices()
+        NSApp.mainMenu = MainMenu.make()
 
         let store = Store.shared
         if !store.settings.didFirstLaunch {
@@ -70,6 +71,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        // The Dock icon (there while a window is open) brings that window back; opening TapDrop again otherwise
+        // shows the panel.
+        if AppPresence.hasWindows { return true }
         status?.openPanel()
         return false
     }

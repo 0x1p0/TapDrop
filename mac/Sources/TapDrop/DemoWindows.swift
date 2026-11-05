@@ -13,6 +13,7 @@ import SwiftUI
 ///     setup[:<step>]            install (default), visited, downloading, downloaded, dlfailed, portbusy, noapk, nowifi,
 ///                               pair, paired, tap, tapready, tapped, nosensor, done, live (nothing staged)
 ///     qrcheck                   decodes the rendered setup QR code and prints the result
+///     presence                  opens Settings, then closes it: prints whether TapDrop is in the Dock and ⌘-Tab
 extension Demo {
     /// Returns true when `what` is one of this file's modes.
     @MainActor static func windows(_ what: String, files: [URL]) -> Bool {
@@ -26,6 +27,19 @@ extension Demo {
             return true
         case "qrcheck":
             DemoWindows.qrCheck()
+            return true
+        case "presence":
+            let policy = { NSApp.activationPolicy() == .regular ? "in the Dock and ⌘-Tab" : "menu bar only" }
+            print("TapDrop[demo]: presence at launch: \(policy())")
+            SettingsWindow.shared.show()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                print("TapDrop[demo]: presence with Settings open: \(policy()), active: \(NSApp.isActive)")
+                NSApp.windows.first { AppPresence.isAppWindow($0) && $0.isVisible }?.performClose(nil)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                    print("TapDrop[demo]: presence after closing it: \(policy()), still running, active: \(NSApp.isActive)")
+                    fflush(stdout)
+                }
+            }
             return true
         case "installpage":
             // The served install page, written out for a browser check (with and without the APK).

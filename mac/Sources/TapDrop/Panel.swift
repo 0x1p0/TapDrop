@@ -66,7 +66,8 @@ final class PanelController: NSObject, NSWindowDelegate {
             let top = bw.frame.minY - 2
             p.setFrame(NSRect(x: x, y: top - Self.windowHeight, width: w, height: Self.windowHeight), display: false)
         }
-        NSApp.activate(ignoringOtherApps: true)
+        // A non-activating panel takes the keyboard without activating TapDrop, so other TapDrop windows (Setup,
+        // Settings) stay where they are instead of jumping to the front with it.
         p.makeKeyAndOrderFront(nil)
         DispatchQueue.main.async {
             withTDAnimation(TD.Motion.island) { self.state.visible = true }

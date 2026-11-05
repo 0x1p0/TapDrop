@@ -280,7 +280,7 @@ final class SetupWindow: NSObject, NSWindowDelegate {
     func show() {
         InstallServer.shared.start()
         if let window {
-            NSApp.activate(ignoringOtherApps: true)
+            AppPresence.windowOpened()
             window.makeKeyAndOrderFront(nil)
             return
         }
@@ -302,7 +302,7 @@ final class SetupWindow: NSObject, NSWindowDelegate {
             }
             return e
         }
-        NSApp.activate(ignoringOtherApps: true)
+        AppPresence.windowOpened()
         w.makeKeyAndOrderFront(nil)
     }
 
