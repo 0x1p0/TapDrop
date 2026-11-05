@@ -248,7 +248,7 @@ class NotchTapService : AccessibilityService() {
                 // Viewers announce what they show ("Boarding pass.pdf", a video's name) as their window's title.
                 event.text.joinToString(" ").trim().takeIf { it.isNotEmpty() }?.let { lastTitle = pkg to it }
                 // Opening a gallery: pre-compute photo fingerprints so a tap matches instantly.
-                if (AppRules.isGallery(pkg) && app.prefs.effectiveMode(pkg) == SendMode.MEDIA) {
+                if ((AppRules.isGallery(pkg) || AppRules.isChat(pkg)) && app.prefs.effectiveMode(pkg) == SendMode.MEDIA) {
                     scope.launch(Dispatchers.IO) { runCatching { matcher.warm() } }
                 }
             }
@@ -731,6 +731,7 @@ class NotchTapService : AccessibilityService() {
             FileFinder.titlesOnScreen(boxes, shot.height, cap.titles) else emptyList()
         Log.i("TapDrop", "tap $id: pkg=$pkg mode=$mode shot=${shot != null} media=${hit?.kind} doc=${docName != null} titles=${titles.size}")
 
+        var matchNote = ""
         val planJob: Deferred<Plan> = scope.async(Dispatchers.Default) {
             runCatching {
                 when {
@@ -747,7 +748,7 @@ class NotchTapService : AccessibilityService() {
                             // A viewer showing a document TapDrop isn't allowed to see yet: say how to send the file itself.
                             docViewer && hit == null && !files.hasAllFiles() ->
                                 Plan.Shot(false, "Turn on File access in TapDrop to send the file itself")
-                            else -> when (val o = matcher.find(shot, labels, hit)) {
+                            else -> when (val o = matcher.find(shot, labels, hit).also { matchNote = matcher.lastNote }) {
                                 is MediaMatcher.Outcome.Found -> Plan.Media(o.media)
                                 MediaMatcher.Outcome.NoAccess -> Plan.Shot(false, if (hit != null) "Allow photo access in TapDrop to send the $what itself" else null)
                                 MediaMatcher.Outcome.NotFound -> Plan.Shot(false, if (hit != null) "Couldn't find this $what in your gallery" else null)
@@ -848,7 +849,17 @@ class NotchTapService : AccessibilityService() {
         }
 
         // Nothing picked → the plan.
-        val plan = withTimeoutOrNull(4000) { planJob.await() } ?: Plan.Shot(false, null)
+        val plan = withTimeoutOrNull(4000) { planJob.await() } ?: Plan.Shot(false, "took too long to find")
+        // What the phone decided and why, for the Mac's tap log (Settings → Tap to Send → Tap Log).
+        val decided = when (plan) {
+            is Plan.Link -> "the page link"
+            is Plan.Text -> "the text on screen"
+            is Plan.Media -> "the original ${plan.media.name}"
+            is Plan.File -> plan.file.name
+            is Plan.Shot -> "a screenshot" + (plan.why?.let { " ($it)" } ?: "")
+        }
+        val note = "sent $decided from $appName" + (matchNote.takeIf { it.isNotEmpty() }?.let { " · $it" } ?: "")
+        scope.launch(Dispatchers.IO) { runCatching { s.send("t" to "tap-note", "text" to note.take(400)) } }
         if (frozen == null) {
             if (shot == null && plan is Plan.Shot) {
                 if (shotResult == Shot.Secure) {

@@ -56,6 +56,10 @@ class MediaMatcher(private val ctx: Context) {
     @Volatile private var recentAt = 0L
     @Volatile private var lastWarm = 0L
 
+    /** What the last [find] looked at and why it chose what it did (for the Mac's tap log). */
+    @Volatile var lastNote: String = ""
+        private set
+
     fun hasAccess(): Boolean =
         listOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
             .all { ctx.checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }
@@ -67,7 +71,7 @@ class MediaMatcher(private val ctx: Context) {
         lastWarm = now
         val all = recentMedia(force = true)
         all.take(160).forEach { thumb(it) }
-        all.filter { it.isVideo }.take(12).forEach { videoFrames(it) }
+        all.filter { it.isVideo }.take(6).forEach { videoFrames(it) }
     }
 
     suspend fun latest(): Media? = withContext(Dispatchers.IO) { if (hasAccess()) recentMedia(force = true).firstOrNull() else null }
@@ -115,6 +119,17 @@ class MediaMatcher(private val ctx: Context) {
             }
         }
 
+        // The player shows where it is: the exact frame there, for the videos of the right length (or the newest).
+        val start = SystemClock.elapsedRealtime()
+        var atFrame: Pair<Media, Int>? = null
+        hit?.positionMs?.takeIf { video }?.let { pos ->
+            val cands = (byLength.ifEmpty { all.filter { it.isVideo }.take(4) }).filter { it.durationMs <= 0 || pos <= it.durationMs }.take(5)
+            for (m in cands) {
+                val d = frameAt(m, pos)?.let { score(it) } ?: continue
+                if (atFrame == null || d < atFrame!!.second) atFrame = m to d
+            }
+        }
+
         val ranked = scored.sortedBy { it.second }
         val best = ranked.firstOrNull()
         val bestStrong = ranked.firstOrNull { (m, _) -> strong.any { it.uri == m.uri } }
@@ -125,7 +140,8 @@ class MediaMatcher(private val ctx: Context) {
                 "best=${best?.second} strongBest=${bestStrong?.second}",
         )
 
-        val found: Media? = when {
+        var found: Media? = when {
+            atFrame != null && atFrame!!.second <= 12 -> atFrame!!.first
             // Nothing on screen looks like a photo/video: only an unmistakable match counts.
             hit == null -> best?.takeIf { it.second <= 5 }?.first
             best != null && best.second <= 10 -> best.first
@@ -136,7 +152,30 @@ class MediaMatcher(private val ctx: Context) {
                 now - max(newest.addedMs, newest.takenMs) < 30 * 60_000L -> best.first
             else -> null
         }
-        if (found != null) Outcome.Found(found) else Outcome.NotFound
+        // Chat viewers often hide a playing video's controls, so it may not have looked like one: the newest videos'
+        // frames against the screen too.
+        var videoBest: Pair<Media, Int>? = null
+        if (found == null && !video) {
+            for (m in all.filter { it.isVideo }.take(6)) {
+                if (SystemClock.elapsedRealtime() - start > 2500) break
+                val f = videoFrames(m)
+                if (f.isEmpty()) continue
+                val d = f.minOf { score(it) }
+                if (videoBest == null || d < videoBest.second) videoBest = m to d
+            }
+            videoBest?.takeIf { it.second <= if (hit == null) 8 else 12 }?.let { found = it.first }
+        }
+        lastNote = buildString {
+            append(if (video) "video on screen" else if (hit != null) "photo on screen" else "nothing photo-like on screen")
+            hit?.durationMs?.let { append(", ${it / 1000}s long") } ?: if (video) append(", no length shown") else Unit
+            hit?.positionMs?.let { append(" at ${it / 1000}s") }
+            append(" · ${all.count { it.isVideo }} videos, ${all.count { !it.isVideo }} photos in library")
+            best?.let { append(" · closest ${it.first.name} ${it.second}") }
+            atFrame?.let { append(" · frame at position ${it.first.name} ${it.second}") }
+            videoBest?.let { append(" · closest video frame ${it.first.name} ${it.second}") }
+            append(" → ${found?.name ?: "no match"}")
+        }
+        found?.let { Outcome.Found(it) } ?: Outcome.NotFound
     }
 
     /** The library original of one picture the user tapped in the picker (e.g. a photo in a chat). */
@@ -198,19 +237,25 @@ class MediaMatcher(private val ctx: Context) {
     // MARK: fingerprints
 
     private fun thumb(m: Media): Print? {
-        thumbs[m.uri]?.let { return it }
+        thumbs[m.uri]?.let { return it.takeIf { p -> !p.aspect.isNaN() } }
         val t = thumbnail(m, 192) ?: return null
-        val p = Print(dHash(t, 0, 0, t.width, t.height), t.width.toFloat() / t.height)
+        val h = dHash(t, 0, 0, t.width, t.height)
+        // A flat thumbnail is cached as such (NaN aspect) so it isn't loaded again, and never compared.
+        val p = if (h != null) Print(h, t.width.toFloat() / t.height) else Print(0L, Float.NaN)
         t.recycle()
         thumbs[m.uri] = p
-        return p
+        return p.takeIf { h != null }
     }
 
-    /** Frames from the start (where people usually are) and across the video. */
+    /**
+     * Frames from the start (where people usually are) and every second or so across the video (32 points at most),
+     * so a frame from anywhere in a playing clip is close to one of them.
+     */
     private fun videoFrames(m: Media): List<Print> {
         frames[m.uri]?.let { return it }
         if (m.durationMs <= 0) return emptyList()
-        val times = (listOf(0L, 600L, 1500L, 3000L) + listOf(0.2, 0.4, 0.6, 0.8).map { (m.durationMs * it).toLong() })
+        val step = max(1000L, m.durationMs / 32)
+        val times = (listOf(0L, 600L, 1500L, 3000L) + (step until m.durationMs step step).toList())
             .filter { it < m.durationMs }.distinct()
         val out = mutableListOf<Print>()
         val r = MediaMetadataRetriever()
@@ -220,7 +265,8 @@ class MediaMatcher(private val ctx: Context) {
                 val f = runCatching {
                     r.getScaledFrameAtTime(t * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 192, 192)
                 }.getOrNull() ?: continue
-                out += Print(dHash(f, 0, 0, f.width, f.height), f.width.toFloat() / f.height)
+                // A black or blank frame (a fade-in, a title card) matches any dark screen: never a fingerprint.
+                dHash(f, 0, 0, f.width, f.height)?.let { out += Print(it, f.width.toFloat() / f.height) }
                 f.recycle()
             }
         } catch (_: Exception) {
@@ -229,6 +275,20 @@ class MediaMatcher(private val ctx: Context) {
         }
         frames[m.uri] = out
         return out
+    }
+
+    /** The frame at [ms] exactly (the player's position). */
+    private fun frameAt(m: Media, ms: Long): Print? {
+        val r = MediaMetadataRetriever()
+        return try {
+            r.setDataSource(ctx, m.uri)
+            val f = r.getScaledFrameAtTime(ms * 1000, MediaMetadataRetriever.OPTION_CLOSEST, 192, 192) ?: return null
+            dHash(f, 0, 0, f.width, f.height)?.let { Print(it, f.width.toFloat() / f.height) }.also { f.recycle() }
+        } catch (_: Exception) {
+            null
+        } finally {
+            runCatching { r.release() }
+        }
     }
 
     /** Where the media would sit if fit-centred in [band] (small-screenshot coords), then hashed. */
@@ -240,11 +300,12 @@ class MediaMatcher(private val ctx: Context) {
         if (bw < 8 || bh < 8) return 64
         val (w, h) = if (bw.toFloat() / bh > p.aspect) (bh * p.aspect).toInt() to bh else bw to (bw / p.aspect).toInt()
         if (w < 8 || h < 8) return 64
-        return java.lang.Long.bitCount(p.hash xor dHash(screen, b.left + (bw - w) / 2, b.top + (bh - h) / 2, w, h))
+        val here = dHash(screen, b.left + (bw - w) / 2, b.top + (bh - h) / 2, w, h) ?: return 64
+        return java.lang.Long.bitCount(p.hash xor here)
     }
 
     /** dHash of the central 70% of a region (ignores viewer chrome near the edges). */
-    private fun dHash(src: Bitmap, x: Int, y: Int, w: Int, h: Int): Long {
+    private fun dHash(src: Bitmap, x: Int, y: Int, w: Int, h: Int): Long? {
         val cw = (w * 0.7f).toInt().coerceIn(9, src.width)
         val ch = (h * 0.7f).toInt().coerceIn(8, src.height)
         val cx = (x + (w * 0.15f).toInt()).coerceIn(0, src.width - cw)
@@ -253,14 +314,27 @@ class MediaMatcher(private val ctx: Context) {
         val tiny = Bitmap.createScaledBitmap(region, 9, 8, true)
         var hash = 0L
         var bit = 0
-        for (row in 0 until 8) for (col in 0 until 8) {
-            if (luma(tiny.getPixel(col, row)) > luma(tiny.getPixel(col + 1, row))) hash = hash or (1L shl bit)
-            bit++
+        var lo = Int.MAX_VALUE
+        var hi = Int.MIN_VALUE
+        for (row in 0 until 8) for (col in 0 until 9) {
+            val l = luma(tiny.getPixel(col, row))
+            lo = minOf(lo, l)
+            hi = maxOf(hi, l)
+            if (col < 8) {
+                if (l > luma(tiny.getPixel(col + 1, row))) hash = hash or (1L shl bit)
+                bit++
+            }
         }
         if (region !== src) region.recycle()
         tiny.recycle()
-        return hash
+        // Nearly one shade (black, white, a blank page): its bits are noise, so it can't identify anything.
+        return hash.takeIf { hi - lo >= FLAT_RANGE }
     }
 
     private fun luma(c: Int) = Color.red(c) * 299 + Color.green(c) * 587 + Color.blue(c) * 114
+
+    private companion object {
+        /** Luma spread (in 0…255 000) below which a region counts as one shade: about 6 % of full range. */
+        const val FLAT_RANGE = 15_000
+    }
 }

@@ -83,7 +83,20 @@ object AppRules {
         "com.brouken.player",
     )
 
+    /** Chat apps whose received photos and videos land in the phone's library (shown full screen in their viewers). */
+    val CHATS = setOf(
+        "com.whatsapp",
+        "com.whatsapp.w4b",
+        "org.telegram.messenger",
+        "org.telegram.messenger.web",
+        "org.thoughtcrime.securesms",
+        "com.facebook.orca",
+        "com.google.android.apps.messaging",
+        "com.samsung.android.messaging",
+    )
+
     fun isBrowser(pkg: String) = pkg in URL_BARS
+    fun isChat(pkg: String) = pkg in CHATS
     fun isDocViewer(pkg: String) = pkg in DOC_VIEWERS
     fun isVideoPlayer(pkg: String) = pkg in VIDEO_PLAYERS
     fun isGallery(pkg: String) = pkg in GALLERIES

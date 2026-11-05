@@ -228,6 +228,11 @@ final class Server: @unchecked Sendable {
                 KeyRounds.shared.keyOff(from: id, round: round ?? -1, at: at)
             case "diag":
                 WatchHub.shared.setDiag(id, on: m.bool("on"))
+            case "tap-note":
+                // What the phone sent for a tap and why (which file it matched), for the tap log.
+                if let text = m.str("text")?.prefix(400) {
+                    await MainActor.run { TapLog.shared.note("\(device.name) \(text)") }
+                }
             case "grab-ack" where !m.bool("ok"):
                 if TestMode.on { NSLog("TapDrop[test]: grab declined by phone (%@)", m.str("why") ?? "?") }
                 let why = m.str("why") ?? ""

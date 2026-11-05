@@ -9,7 +9,7 @@ import android.graphics.Rect
 object MediaDetector {
     enum class Kind { IMAGE, VIDEO }
 
-    data class Hit(val kind: Kind, val rect: Rect, val durationMs: Long?)
+    data class Hit(val kind: Kind, val rect: Rect, val durationMs: Long?, val positionMs: Long? = null)
 
     private val time = Regex("\\b(?:(\\d{1,2}):)?(\\d{1,2}):(\\d{2})\\b")
 
@@ -27,7 +27,10 @@ object MediaDetector {
         }
         val times = boxes.flatMap { b -> time.findAll(label(b)).map { toMs(it) }.toList() }
         if ((surface != null && surface.area > screen / 5) || (seek && times.isNotEmpty())) {
-            return Hit(Kind.VIDEO, surface?.rect ?: Rect(0, 0, w, h), times.maxOrNull()?.takeIf { it > 0 })
+            val total = times.maxOrNull()?.takeIf { it > 0 }
+            // A player shows where it is and how long it is: the smaller time is the position.
+            val at = times.minOrNull()?.takeIf { times.size >= 2 && total != null && it < total }
+            return Hit(Kind.VIDEO, surface?.rect ?: Rect(0, 0, w, h), total, at)
         }
 
         val image = boxes.filter {
