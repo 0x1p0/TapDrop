@@ -183,6 +183,7 @@ private struct ReadinessGroup: View {
     let phone: String
     let room: TapPane.RoomState
     @ObservedObject private var store = Store.shared
+    @ObservedObject private var status = TapStatus.shared
 
     var body: some View {
         SettingsGroup("Status", footer: footer) {
@@ -200,6 +201,23 @@ private struct ReadinessGroup: View {
                     CheckBadge(state: .ok)
                 default:
                     CheckBadge(state: store.liveDevices.isEmpty ? .warning : .ok)
+                }
+            }
+            ForEach(status.videos.keys.sorted(), id: \.self) { name in
+                if let v = status.videos[name], v.total > 0 {
+                    SettingsRow("film.stack.fill", tint: TDTint.pink, title: status.videos.count > 1 ? "Videos on \(name)" : "Videos",
+                                subtitle: v.ready
+                                    ? "All \(v.total) are ready: a tap sends the original video, even mid-clip."
+                                    : "Getting \(name)'s videos ready to send by tap: \(v.done) of \(v.total). It keeps going while the phone is unlocked.") {
+                        if v.ready {
+                            CheckBadge(state: .ok)
+                        } else {
+                            ProgressView(value: Double(v.done), total: Double(max(v.total, 1)))
+                                .progressViewStyle(.circular)
+                                .controlSize(.small)
+                                .accessibilityLabel("\(v.done) of \(v.total) videos ready")
+                        }
+                    }
                 }
             }
             if readiness != .unavailable {

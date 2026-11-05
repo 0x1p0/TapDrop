@@ -160,11 +160,11 @@ final class StatusController: NSObject, NSWindowDelegate, NSDraggingDestination 
     }
 
     func draggingExited(_ sender: NSDraggingInfo?) {
-        item.button?.highlight(false)
+        item.button?.highlight(panel.isShown)
     }
 
     func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        item.button?.highlight(false)
+        item.button?.highlight(panel.isShown)
         guard let urls = sender.draggingPasteboard.readObjects(
             forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty
         else { return false }

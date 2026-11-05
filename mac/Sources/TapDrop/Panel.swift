@@ -36,15 +36,25 @@ final class PanelController: NSObject, NSWindowDelegate {
     private var globalMonitor: Any?
     private var keyMonitor: Any?
     private var hideWork: DispatchWorkItem?
+    /// When the panel last started closing. A click on the menu bar icon first takes focus from the panel (which
+    /// closes it), then reaches the icon's toggle: that same click must not open it again.
+    private var hiddenAt = Date.distantPast
+    private weak var button: NSStatusBarButton?
 
     var isShown: Bool { panel?.isVisible == true && state.visible }
 
     func toggle(below button: NSStatusBarButton?) {
-        if isShown { hide() } else { show(below: button) }
+        if isShown {
+            hide()
+        } else if Date().timeIntervalSince(hiddenAt) > 0.4 {
+            show(below: button)
+        }
     }
 
     func show(below button: NSStatusBarButton?) {
         hideWork?.cancel()
+        self.button = button
+        button?.highlight(true)
         state.macOnline = !state.demoOffline && Net.lanIPv4() != nil
         let p = ensurePanel()
         if let bw = button?.window, let screen = bw.screen ?? NSScreen.main {
@@ -65,6 +75,8 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     func hide() {
         guard state.visible else { return }
+        hiddenAt = Date()
+        button?.highlight(false)
         withTDAnimation(.spring(response: 0.3, dampingFraction: 0.92)) { state.visible = false }
         removeMonitors()
         let work = DispatchWorkItem { [weak self] in self?.panel?.orderOut(nil) }

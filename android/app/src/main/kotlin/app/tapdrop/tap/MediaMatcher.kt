@@ -33,7 +33,11 @@ import kotlin.math.max
  * file arrived, and a perceptual hash (dHash) of what's on screen against thumbnails and — for videos —
  * several frames, so a video can be recognised mid-playback. Heavy work is pre-computed in the background.
  */
-class MediaMatcher(private val ctx: Context) {
+class MediaMatcher(
+    private val ctx: Context,
+    /** How many of the library's videos are fingerprinted (done, total), as the index grows. */
+    private val onIndex: (done: Int, total: Int) -> Unit = { _, _ -> },
+) {
     data class Media(
         val uri: Uri,
         val name: String,
@@ -74,7 +78,8 @@ class MediaMatcher(private val ctx: Context) {
     /** Pre-computes fingerprints (recent photos + video frames) so a tap matches instantly. */
     suspend fun warm() = withContext(Dispatchers.IO) {
         val now = SystemClock.elapsedRealtime()
-        if (!hasAccess() || now - lastWarm < 45_000) return@withContext
+        // (lastWarm 0 = never: right after a phone boots its clock is under 45 s too.)
+        if (!hasAccess() || (lastWarm != 0L && now - lastWarm < 45_000)) return@withContext
         lastWarm = now
         val all = recentMedia(force = true)
         all.take(160).forEach { thumb(it) }
@@ -377,15 +382,21 @@ class MediaMatcher(private val ctx: Context) {
      */
     private fun index(videos: List<Media>) {
         loadIndex()
-        val todo = videos.take(400).filter { indexEntries[it.uri.toString()]?.key != key(it) && it.durationMs > 0 }
-        if (todo.isEmpty() || indexing) return
+        val eligible = videos.take(400).filter { it.durationMs > 0 }
+        val todo = eligible.filter { indexEntries[it.uri.toString()]?.key != key(it) }
+        if (indexing) return
+        var done = eligible.size - todo.size
+        onIndex(done, eligible.size)
+        if (todo.isEmpty()) return
         indexing = true
         thread(name = "TapDrop video index", isDaemon = true, priority = Thread.MIN_PRIORITY) {
             try {
                 var n = 0
                 for (m in todo) {
                     if (!hasAccess()) break
-                    fingerprint(m)?.let { indexEntries[m.uri.toString()] = it }
+                    // A video that can't be read is recorded empty, so it isn't retried (and counts as done).
+                    indexEntries[m.uri.toString()] = fingerprint(m) ?: Indexed(key(m), 1f, LongArray(0))
+                    onIndex(++done, eligible.size)
                     if (++n % 5 == 0) saveIndex()
                 }
                 // Forget videos that are gone.

@@ -37,8 +37,9 @@ echo "built $APP"
 if [[ "${1:-}" != "--no-install" ]]; then
   pkill -x TapDrop 2>/dev/null || true
   sleep 0.5
-  rm -rf /Applications/TapDrop.app
-  cp -R "$APP" /Applications/TapDrop.app
+  # Update the installed copy in place (rather than deleting it), so macOS keeps treating it as the same app.
+  mkdir -p /Applications/TapDrop.app
+  rsync -a --delete "$APP/" /Applications/TapDrop.app/
   /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f /Applications/TapDrop.app
   /System/Library/CoreServices/pbs -update 2>/dev/null || true
   open /Applications/TapDrop.app

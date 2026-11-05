@@ -219,7 +219,10 @@ class NotchTapService : AccessibilityService() {
     override fun onServiceConnected() {
         instance = this
         overlay = SendOverlay(this)
-        matcher = MediaMatcher(this)
+        matcher = MediaMatcher(this) { done, total ->
+            _videoIndex.value = done to total
+            sendIndex(done, total)
+        }
         files = FileFinder(this)
         light = LightKey(this)
         registerReceiver(screenReceiver, IntentFilter().apply {
@@ -293,6 +296,17 @@ class NotchTapService : AccessibilityService() {
 
     // MARK: live link
 
+    @Volatile private var indexSentAt = 0L
+
+    /** The video index's progress, to the Mac's Settings (at most once a second, and always when it completes). */
+    private fun sendIndex(done: Int, total: Int) {
+        val s = session ?: return
+        val now = SystemClock.elapsedRealtime()
+        if (done < total && now - indexSentAt < 1000) return
+        indexSentAt = now
+        scope.launch(Dispatchers.IO) { runCatching { s.send("t" to "index", "done" to done, "total" to total) } }
+    }
+
     private fun startWatching() {
         startSensors()
         scope.launch(Dispatchers.IO) { runCatching { matcher.warm() } }
@@ -339,6 +353,7 @@ class NotchTapService : AccessibilityService() {
             val openedAt = SystemClock.elapsedRealtime()
             session = s
             _live.value = true
+            _videoIndex.value?.let { (done, total) -> runCatching { s.send("t" to "index", "done" to done, "total" to total) } }
             if (_diag.value) runCatching { s.diag(true) }
             if (s.pendingAtStart > 0) pullInbox(mac)
             val keepAlive = scope.launch(Dispatchers.IO) {
@@ -1187,6 +1202,10 @@ class NotchTapService : AccessibilityService() {
             if (!on) _lux.value = null
             instance?.sendDiag(on)
         }
+
+        private val _videoIndex = MutableStateFlow<Pair<Int, Int>?>(null)
+        /** (done, total): how many of the library's videos are fingerprinted, so a tap can send the original video. */
+        val videoIndex: StateFlow<Pair<Int, Int>?> = _videoIndex.asStateFlow()
 
         private val _lastTap = MutableStateFlow<TapTrace?>(null)
         /** How the latest grab ended: declined, light key ✓ (and sending) or ✗. */

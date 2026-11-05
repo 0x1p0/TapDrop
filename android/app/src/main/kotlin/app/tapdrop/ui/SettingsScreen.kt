@@ -45,6 +45,9 @@ import androidx.compose.material.icons.rounded.LaptopMac
 import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.Nfc
 import androidx.compose.material.icons.rounded.PhotoLibrary
+import androidx.compose.material.icons.rounded.VideoLibrary
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material.icons.rounded.Sensors
 import androidx.compose.material.icons.rounded.SettingsAccessibility
 import androidx.compose.material.icons.rounded.Shield
@@ -127,6 +130,7 @@ fun SettingsScreen(
     val macs by app.prefs.macs.collectAsStateWithLifecycle()
     val live by NotchTapService.live.collectAsStateWithLifecycle()
     val lastTap by NotchTapService.lastTap.collectAsStateWithLifecycle()
+    val videoIndex by NotchTapService.videoIndex.collectAsStateWithLifecycle()
     val modes by app.prefs.appModes.collectAsStateWithLifecycle()
     val pickOn by app.prefs.pickFirst.collectAsStateWithLifecycle()
     val otpOn by app.prefs.smartOtp.collectAsStateWithLifecycle()
@@ -223,6 +227,32 @@ fun SettingsScreen(
                         onClick = onTapTest,
                         trailing = { RowChevron() },
                     )
+                }
+                videoIndex?.takeIf { it.second > 0 }?.let { (done, total) ->
+                    item { shape ->
+                        SettingsRow(
+                            title = "Videos for tap",
+                            subtitle = if (done >= total) "All $total ready · a tap sends the original video"
+                            else "Getting ready · $done of $total · keeps going while unlocked",
+                            shape = shape,
+                            leading = { IconChip(Icons.Rounded.VideoLibrary, Brand.Orchid, size = 36.dp, iconSize = 20.dp) },
+                            trailing = {
+                                if (done >= total) {
+                                    androidx.compose.material3.Icon(
+                                        Icons.Rounded.CheckCircle, contentDescription = "Ready", tint = Td.colors.success,
+                                        modifier = Modifier.size(22.dp),
+                                    )
+                                } else {
+                                    CircularProgressIndicator(
+                                        progress = { done / total.toFloat() },
+                                        modifier = Modifier.size(22.dp),
+                                        strokeWidth = 2.5.dp,
+                                        color = Brand.Orchid,
+                                    )
+                                }
+                            },
+                        )
+                    }
                 }
                 item { shape ->
                     SettingsRow(

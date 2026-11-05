@@ -228,6 +228,10 @@ final class Server: @unchecked Sendable {
                 KeyRounds.shared.keyOff(from: id, round: round ?? -1, at: at)
             case "diag":
                 WatchHub.shared.setDiag(id, on: m.bool("on"))
+            case "index":
+                // The phone's progress fingerprinting its videos (Settings → Tap to Send → Status).
+                let (done, total) = (Int(m.int("done") ?? 0), Int(m.int("total") ?? 0))
+                await MainActor.run { TapStatus.shared.videoIndex(device.name, done: done, total: total) }
             case "tap-note":
                 // What the phone sent for a tap and why (which file it matched), for the tap log.
                 if let text = m.str("text")?.prefix(400) {

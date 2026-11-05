@@ -49,6 +49,19 @@ final class TapStatus: ObservableObject {
     @Published private(set) var phase: Phase = .idle
     @Published private(set) var last: TapResult?
 
+    /// How far each phone (by name) is with fingerprinting its videos, so a tap can send the original video.
+    struct VideoIndex: Equatable {
+        let done: Int
+        let total: Int
+        var ready: Bool { done >= total }
+    }
+    @Published private(set) var videos: [String: VideoIndex] = [:]
+
+    func videoIndex(_ phone: String, done: Int, total: Int) {
+        let v = VideoIndex(done: min(done, total), total: total)
+        if videos[phone] != v { videos[phone] = v }
+    }
+
     private var idleTask: Task<Void, Never>?
 
     /// Called with meaningful changes only (≥ 5 % or a dark flip, at most twice a second; see `KeyRounds`).
