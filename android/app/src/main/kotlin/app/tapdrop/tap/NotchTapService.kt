@@ -700,8 +700,29 @@ class NotchTapService : AccessibilityService() {
         val dm = resources.displayMetrics
         val area = dm.widthPixels.toLong() * dm.heightPixels
         FileFinder.fileAt(boxes, x, y, area)?.let { return Target(it.rect, null, it) }
-        val hits = boxes.filter { it.rect.contains(x, y) && it.area < area * 0.85 }
-        hits.filter { !it.text.isNullOrBlank() }.minByOrNull { it.area }?.let { return Target(it.rect, it.text, null) }
+        val under = boxes.filter { it.rect.contains(x, y) }
+        val hits = under.filter { it.area < area * 0.85 }
+        val text = hits.filter { !it.text.isNullOrBlank() }.minByOrNull { it.area }
+        // A picture: the whole picture, never a layer inside it (chat apps stack overlays, gradients and buttons on a
+        // photo, and the smallest of those is a sliver of it). The largest image element under the finger that isn't
+        // the whole screen (a chat's wallpaper is); a full-screen picture (a photo viewer) only if there's nothing else.
+        val side = (72 * dm.density).toInt()
+        val pictures = under.filter { b ->
+            b.text.isNullOrBlank() && b.rect.width() >= side && b.rect.height() >= side && (
+                b.cls.endsWith("ImageView") || b.cls.contains("Image", ignoreCase = true) || b.cls.contains("Photo", ignoreCase = true) ||
+                    b.cls.endsWith("TextureView") || b.cls.endsWith("SurfaceView") ||
+                    b.desc?.let { d -> d.contains("photo", true) || d.contains("image", true) || d.contains("picture", true) || d.contains("video", true) } == true
+                )
+        }
+        val picture = pictures.filter { it.area < area * 0.85 }.maxByOrNull { it.area }
+            ?: pictures.maxByOrNull { it.area }
+            // The screen's own photo or video, as the media detector sees it, if the finger is on it.
+            ?: MediaDetector.detect(boxes, dm.widthPixels, dm.heightPixels)?.rect?.takeIf { it.contains(x, y) }
+                ?.let { ScreenText.Box(it, null, "media") }
+        // Text wins only when it's what the finger is really on: a caption, a message, not a time stamped on a photo.
+        if (text != null && (picture == null || text.area * 4 > picture.area)) return Target(text.rect, text.text, null)
+        picture?.let { return Target(it.rect, null, null) }
+        text?.let { return Target(it.rect, it.text, null) }
         val minSide = (48 * dm.density).toInt()
         return hits.filter { it.rect.width() >= minSide && it.rect.height() >= minSide }.minByOrNull { it.area }?.let { Target(it.rect, null, null) }
     }
@@ -850,12 +871,15 @@ class NotchTapService : AccessibilityService() {
                 // A picture (e.g. a photo in a chat) → its original, if it's in the gallery.
                 if (t != null && t.text == null && t.rect.width() > dm.widthPixels / 4 && t.rect.height() > dm.widthPixels / 6) {
                     val original = matcher.findIn(shot!!, t.rect)
+                    pickNote(s, "picked a picture in $appName → ${original?.name ?: "sent that picture"} · ${matcher.lastNote}")
                     if (original != null) {
                         val pill = overlay.flyRegion(crop(shot, t.rect), clip(t.rect, shot), "Sending ${if (original.isVideo) "video" else "photo"}")
                         removeFrozen()
                         sendMedia(mac, original, pill)
                         return
                     }
+                } else {
+                    pickNote(s, "picked ${if (t?.text != null) "text" else "an area"} in $appName")
                 }
                 val rect = t?.rect ?: android.graphics.Rect(p.x - dm.widthPixels / 4, p.y - dm.widthPixels / 4, p.x + dm.widthPixels / 4, p.y + dm.widthPixels / 4)
                 sendPicked(mac, shot!!, rect, t?.text, ocr = false, appName = appName, then = removeFrozen)
@@ -986,6 +1010,11 @@ class NotchTapService : AccessibilityService() {
     }
 
     /** Sends the picked element/region: its text if it has any, otherwise the cropped image. */
+    /** What the pick step chose, for the Mac's tap log. */
+    private fun pickNote(s: WatchSession, note: String) {
+        scope.launch(Dispatchers.IO) { runCatching { s.send("t" to "tap-note", "text" to note.take(400)) } }
+    }
+
     private suspend fun sendPicked(
         mac: SavedMac,
         shot: Bitmap,

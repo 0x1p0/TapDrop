@@ -94,7 +94,9 @@ class MediaMatcher(
      * [allowVideos]: the library's videos may be what's on screen (a gallery, a chat, a video player, or a video
      * playing). Elsewhere (a social feed, a browser) its videos aren't there, so only an unmistakable photo counts.
      */
-    suspend fun find(screen: Bitmap, labels: List<String>, hit: MediaDetector.Hit?, allowVideos: Boolean = true): Outcome =
+    suspend fun find(
+        screen: Bitmap, labels: List<String>, hit: MediaDetector.Hit?, allowVideos: Boolean = true, picked: Boolean = false,
+    ): Outcome =
         withContext(Dispatchers.Default) {
         if (!hasAccess()) return@withContext Outcome.NoAccess
         val all = recentMedia()
@@ -147,6 +149,27 @@ class MediaMatcher(
         fun note(m: Media, d: Int) {
             val i = scored.indexOfFirst { it.first.uri == m.uri }
             if (i >= 0) scored[i] = m to minOf(scored[i].second, d) else scored += m to d
+        }
+
+        // A picture the user tapped in the picker: chats show photos cropped to their bubble, so also compare the
+        // newest photos cropped the way the bubble crops them (centre crop to its shape).
+        if (picked) hit?.rect?.let { r ->
+            val band = Rect(r.left / 4, r.top / 4, r.right / 4, r.bottom / 4)
+            band.intersect(0, 0, small.width, small.height)
+            val here = if (band.width() >= 17 && band.height() >= 16) dHash(small, band.left, band.top, band.width(), band.height()) else null
+            if (here != null) {
+                val shape = band.width().toFloat() / band.height()
+                for (m in all.filter { !it.isVideo }.take(80)) {
+                    if (!inTime(BUDGET_MS / 2)) break
+                    val t = thumbnail(m, 256) ?: continue
+                    val (cw, ch) = if (t.width.toFloat() / t.height > shape) (t.height * shape).toInt() to t.height else t.width to (t.width / shape).toInt()
+                    if (cw >= 17 && ch >= 16) {
+                        // dHash looks at the middle 70 % of what it's given, the same as for the screen's band.
+                        dHash(t, (t.width - cw) / 2, (t.height - ch) / 2, cw, ch)?.let { note(m, dist(it, here)) }
+                    }
+                    t.recycle()
+                }
+            }
         }
 
         // The player shows where it is: the exact frame there, for the videos of the right length.
@@ -204,6 +227,8 @@ class MediaMatcher(
             // Nothing on screen looks like a photo/video: only an unmistakable match counts.
             hit == null -> best?.takeIf { it.second <= 20 }?.first
             best != null && best.second <= 36 -> best.first
+            // A picture the user pointed at: a little looser, as long as it clearly beats every other photo.
+            picked && best != null && best.second <= 52 && (ranked.getOrNull(1)?.second ?: BITS) - best.second >= 16 -> best.first
             bestStrong != null && bestStrong.second <= 64 -> bestStrong.first
             strong.size == 1 -> strong[0]
             // Just arrived (e.g. received in a chat a moment ago) and it looks alike → that one.
@@ -248,7 +273,8 @@ class MediaMatcher(
 
     /** The library original of one picture the user tapped in the picker (e.g. a photo in a chat). */
     suspend fun findIn(screen: Bitmap, rect: Rect): Media? =
-        (find(screen, emptyList(), MediaDetector.Hit(MediaDetector.Kind.IMAGE, rect, null), allowVideos = false) as? Outcome.Found)?.media
+        (find(screen, emptyList(), MediaDetector.Hit(MediaDetector.Kind.IMAGE, rect, null), allowVideos = false, picked = true)
+            as? Outcome.Found)?.media
 
     fun thumbnail(m: Media, px: Int = 200): Bitmap? =
         runCatching { ctx.contentResolver.loadThumbnail(m.uri, Size(px, px), null) }.getOrNull()
