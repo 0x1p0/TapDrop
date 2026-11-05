@@ -52,6 +52,7 @@ class MediaMatcher(private val ctx: Context) {
 
     private val thumbs = ConcurrentHashMap<Uri, Print>()
     private val frames = ConcurrentHashMap<Uri, List<Print>>()
+    private val denseFrames = ConcurrentHashMap<Uri, List<Print>>()
     @Volatile private var recent: List<Media> = emptyList()
     @Volatile private var recentAt = 0L
     @Volatile private var lastWarm = 0L
@@ -71,7 +72,9 @@ class MediaMatcher(private val ctx: Context) {
         lastWarm = now
         val all = recentMedia(force = true)
         all.take(160).forEach { thumb(it) }
-        all.filter { it.isVideo }.take(6).forEach { videoFrames(it) }
+        val videos = all.filter { it.isVideo }
+        videos.take(10).forEach { videoFrames(it, dense = false) }
+        videos.take(2).forEach { videoFrames(it, dense = true) }
     }
 
     suspend fun latest(): Media? = withContext(Dispatchers.IO) { if (hasAccess()) recentMedia(force = true).firstOrNull() else null }
@@ -101,32 +104,57 @@ class MediaMatcher(private val ctx: Context) {
             add(Rect(0, (small.height * 0.08f).toInt(), small.width, (small.height * 0.88f).toInt()))
         }
         fun score(p: Print) = bands.minOf { distance(p, small, it) }
+        // Everything below reads thumbnails and decodes video frames: it stops at the budget, best effort so far.
+        val start = SystemClock.elapsedRealtime()
+        fun inTime(ms: Long = BUDGET_MS) = SystemClock.elapsedRealtime() - start < ms
+        val until = start + BUDGET_MS
+        val good = 8
 
-        // 1) thumbnails: cheap, cached
-        val pool = (strong + all.filter { if (video) it.isVideo else true }.take(if (video) 80 else 200)).distinctBy { it.uri }
-        val scored = pool.mapNotNull { m -> thumb(m)?.let { m to score(it) } }.toMutableList()
+        // 1) thumbnails: cheap, mostly cached
+        val pool = (strong + all.filter { if (video) it.isVideo else true }.take(if (video) 60 else 160)).distinctBy { it.uri }
+        val scored = mutableListOf<Pair<Media, Int>>()
+        for (m in pool) {
+            if (!inTime(BUDGET_MS / 3)) break
+            thumb(m)?.let { scored += m to score(it) }
+        }
+        fun note(m: Media, d: Int) {
+            val i = scored.indexOfFirst { it.first.uri == m.uri }
+            if (i >= 0) scored[i] = m to minOf(scored[i].second, d) else scored += m to d
+        }
 
-        // 2) videos: also compare against frames, for the likeliest few (strong signals, closest thumbnails, newest)
-        if (video) {
-            val focus = (strong + scored.sortedBy { it.second }.take(5).map { it.first } +
-                all.filter { it.isVideo }.take(5)).distinctBy { it.uri }.filter { it.isVideo }
-            for (m in focus) {
-                val f = videoFrames(m)
-                if (f.isEmpty()) continue
-                val d = f.minOf { score(it) }
-                val i = scored.indexOfFirst { it.first.uri == m.uri }
-                if (i >= 0) scored[i] = m to minOf(scored[i].second, d) else scored += m to d
+        // The player shows where it is: the exact frame there, for the videos of the right length.
+        var atFrame: Pair<Media, Int>? = null
+        hit?.positionMs?.takeIf { video && byLength.isNotEmpty() }?.let { pos ->
+            for (m in byLength.filter { pos <= it.durationMs }.take(3)) {
+                if (!inTime()) break
+                val d = frameAt(m, pos)?.let { score(it) } ?: continue
+                if (atFrame == null || d < atFrame!!.second) atFrame = m to d
+                if (d <= good) break
             }
         }
 
-        // The player shows where it is: the exact frame there, for the videos of the right length (or the newest).
-        val start = SystemClock.elapsedRealtime()
-        var atFrame: Pair<Media, Int>? = null
-        hit?.positionMs?.takeIf { video }?.let { pos ->
-            val cands = (byLength.ifEmpty { all.filter { it.isVideo }.take(4) }).filter { it.durationMs <= 0 || pos <= it.durationMs }.take(5)
-            for (m in cands) {
-                val d = frameAt(m, pos)?.let { score(it) } ?: continue
-                if (atFrame == null || d < atFrame!!.second) atFrame = m to d
+        // 2) videos: a few frames each for the likeliest (strong signals, closest thumbnails, newest), then about one a
+        // second for the closest two — stopping as soon as one is clearly it.
+        val thumbBest = scored.minOfOrNull { it.second } ?: 64
+        if (video && (atFrame?.second ?: 64) > good && thumbBest > good) {
+            val focus = (strong + scored.sortedBy { it.second }.take(5).map { it.first } +
+                all.filter { it.isVideo }.take(5)).distinctBy { it.uri }.filter { it.isVideo }
+            val coarse = mutableListOf<Pair<Media, Int>>()
+            for (m in focus) {
+                if (!inTime()) break
+                val f = videoFrames(m, dense = false, until)
+                if (f.isEmpty()) continue
+                val d = f.minOf { score(it) }
+                coarse += m to d
+                note(m, d)
+                if (d <= good) break
+            }
+            if (coarse.none { it.second <= good }) {
+                for ((m, _) in coarse.sortedBy { it.second }.take(2)) {
+                    if (!inTime()) break
+                    val f = videoFrames(m, dense = true, until)
+                    if (f.isNotEmpty()) note(m, f.minOf { score(it) })
+                }
             }
         }
 
@@ -157,11 +185,17 @@ class MediaMatcher(private val ctx: Context) {
         var videoBest: Pair<Media, Int>? = null
         if (found == null && !video) {
             for (m in all.filter { it.isVideo }.take(6)) {
-                if (SystemClock.elapsedRealtime() - start > 2500) break
-                val f = videoFrames(m)
+                if (!inTime()) break
+                val f = videoFrames(m, dense = false, until)
                 if (f.isEmpty()) continue
                 val d = f.minOf { score(it) }
                 if (videoBest == null || d < videoBest.second) videoBest = m to d
+                if (d <= good) break
+            }
+            // Close but not certain: about one frame a second for that video.
+            videoBest?.takeIf { it.second > good && inTime() }?.let { (m, _) ->
+                val f = videoFrames(m, dense = true, until)
+                if (f.isNotEmpty()) videoBest = m to minOf(videoBest!!.second, f.minOf { score(it) })
             }
             videoBest?.takeIf { it.second <= if (hit == null) 8 else 12 }?.let { found = it.first }
         }
@@ -173,7 +207,7 @@ class MediaMatcher(private val ctx: Context) {
             best?.let { append(" · closest ${it.first.name} ${it.second}") }
             atFrame?.let { append(" · frame at position ${it.first.name} ${it.second}") }
             videoBest?.let { append(" · closest video frame ${it.first.name} ${it.second}") }
-            append(" → ${found?.name ?: "no match"}")
+            append(" → ${found?.name ?: "no match"} in ${SystemClock.elapsedRealtime() - start} ms")
         }
         found?.let { Outcome.Found(it) } ?: Outcome.NotFound
     }
@@ -248,20 +282,25 @@ class MediaMatcher(private val ctx: Context) {
     }
 
     /**
-     * Frames from the start (where people usually are) and every second or so across the video (32 points at most),
-     * so a frame from anywhere in a playing clip is close to one of them.
+     * Frames from the start (where people usually are) and across the video: 8 points, or with [dense] about one a
+     * second (32 at most), so a frame from anywhere in a playing clip is close to one of them.
      */
-    private fun videoFrames(m: Media): List<Print> {
-        frames[m.uri]?.let { return it }
+    private fun videoFrames(m: Media, dense: Boolean, until: Long = Long.MAX_VALUE): List<Print> {
+        val cache = if (dense) denseFrames else frames
+        cache[m.uri]?.let { return it }
         if (m.durationMs <= 0) return emptyList()
-        val step = max(1000L, m.durationMs / 32)
-        val times = (listOf(0L, 600L, 1500L, 3000L) + (step until m.durationMs step step).toList())
-            .filter { it < m.durationMs }.distinct()
+        val times = if (dense) {
+            val step = max(1000L, m.durationMs / 32)
+            (step until m.durationMs step step).toList()
+        } else {
+            listOf(0L, 600L, 1500L, 3000L) + listOf(0.2, 0.4, 0.6, 0.8).map { (m.durationMs * it).toLong() }
+        }.filter { it < m.durationMs }.distinct()
         val out = mutableListOf<Print>()
         val r = MediaMetadataRetriever()
         try {
             r.setDataSource(ctx, m.uri)
             for (t in times) {
+                if (SystemClock.elapsedRealtime() > until) return out  // out of time: use what we have, don't cache it
                 val f = runCatching {
                     r.getScaledFrameAtTime(t * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 192, 192)
                 }.getOrNull() ?: continue
@@ -273,7 +312,7 @@ class MediaMatcher(private val ctx: Context) {
         } finally {
             runCatching { r.release() }
         }
-        frames[m.uri] = out
+        cache[m.uri] = out
         return out
     }
 
@@ -334,6 +373,8 @@ class MediaMatcher(private val ctx: Context) {
     private fun luma(c: Int) = Color.red(c) * 299 + Color.green(c) * 587 + Color.blue(c) * 114
 
     private companion object {
+        /** How long a match may read thumbnails and decode frames before it settles for what it has. */
+        const val BUDGET_MS = 2600L
         /** Luma spread (in 0…255 000) below which a region counts as one shade: about 6 % of full range. */
         const val FLAT_RANGE = 15_000
     }
