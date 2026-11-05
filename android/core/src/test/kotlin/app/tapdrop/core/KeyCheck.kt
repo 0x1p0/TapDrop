@@ -333,6 +333,9 @@ private class Phone(name: String, ep: Endpoint, caps: Int?, id: String = UUID.ra
     override fun close() = s.close()
 }
 
+/** How long a check waits for the Mac's grab. It comes in well under a second; a busy build machine can be slower. */
+private const val GRAB_WAIT = 4000L
+
 private fun JSONObject?.id() = this?.optInt("id", -1) ?: -1
 private fun JSONObject?.desc() = this?.let { "${it.optString("t")}${it.optString("why").takeIf { w -> w.isNotEmpty() }?.let { w -> " $w" } ?: ""}" } ?: "nothing"
 
@@ -348,7 +351,7 @@ private fun passRounds(mac: TestMac) {
                 Thread.sleep(400)
                 var t = now()
                 mac.signal("USR1")
-                val g = p.expect("grab", 1500)
+                val g = p.expect("grab", GRAB_WAIT)
                 check("USR1 (notch covered) → grab with this light key", g != null && g.optInt("key") == LightKeyRules.VERSION && !g.optBoolean("dark"),
                     "$g in ${now() - t} ms")
                 val id = g.id()
@@ -381,7 +384,7 @@ private fun passRounds(mac: TestMac) {
                 Thread.sleep(1700)
                 p.s.knock()
                 t = now()
-                val gk = p.expect("grab", 1000)
+                val gk = p.expect("grab", GRAB_WAIT)
                 check("knock → grab with key (a round started by the phone)", gk != null && gk.optInt("key") == LightKeyRules.VERSION, "$gk in ${now() - t} ms")
                 p.s.keyOn(gk.id(), Src.SCREEN)
                 val (kseen, kok) = p.key(gk.id())
@@ -393,7 +396,7 @@ private fun passRounds(mac: TestMac) {
                 // A torch never counts, covered or not
                 Thread.sleep(1700)
                 mac.signal("USR1")
-                val gt = p.expect("grab", 1500)
+                val gt = p.expect("grab", GRAB_WAIT)
                 p.s.send("t" to "key-on", "id" to gt.id(), "src" to "torch")
                 t = now()
                 val tf = p.expectAny(setOf("key-seen", "key-ok", "key-fail"), 1000) { it.id() == gt.id() }
@@ -407,7 +410,7 @@ private fun passRounds(mac: TestMac) {
                 // No light at all
                 Thread.sleep(1700)
                 mac.signal("USR1")
-                val gn = p.expect("grab", 1500)
+                val gn = p.expect("grab", GRAB_WAIT)
                 t = now()
                 val nl = p.expect("key-fail", 3000) { it.id() == gn.id() }
                 val after = now() - t
@@ -419,7 +422,7 @@ private fun passRounds(mac: TestMac) {
                 // Seen, but the phone never says its light went off
                 Thread.sleep(1700)
                 mac.signal("USR1")
-                val gs = p.expect("grab", 1500)
+                val gs = p.expect("grab", GRAB_WAIT)
                 p.s.keyOn(gs.id(), Src.SCREEN)
                 val s2 = p.expect("key-seen", 1500) { it.id() == gs.id() }
                 t = now()
@@ -434,7 +437,7 @@ private fun passRounds(mac: TestMac) {
                 // A declined grab ends the round quietly
                 Thread.sleep(1700)
                 mac.signal("USR1")
-                val gd = p.expect("grab", 1500)
+                val gd = p.expect("grab", GRAB_WAIT)
                 p.s.grabAck(gd.id(), false, "none", "still")
                 check("declined grab ('still') → no verdict sent", gd != null && p.none("key-fail", 2200))
                 mac.signal("USR2")
@@ -443,7 +446,7 @@ private fun passRounds(mac: TestMac) {
                 // Rounds start at least 1.5 s apart, one at a time
                 Thread.sleep(1700)
                 mac.signal("USR1")
-                val g1 = p.expect("grab", 1500)
+                val g1 = p.expect("grab", GRAB_WAIT)
                 p.s.knock()
                 check("a knock during a round doesn't start another", g1 != null && p.none("grab", 700))
                 p.s.grabAck(g1.id(), false, "none", "still")
@@ -472,8 +475,8 @@ private fun passRounds(mac: TestMac) {
                     p2.expect("room", 2500)
                     Thread.sleep(1700)
                     mac.signal("USR1")
-                    val a = p.expect("grab", 1500)
-                    val b = p2.expect("grab", 1500)
+                    val a = p.expect("grab", GRAB_WAIT)
+                    val b = p2.expect("grab", GRAB_WAIT)
                     check("DIP asks every light-key phone", a != null && b != null && a.id() == b.id(), "$a / $b")
                     p.s.keyOn(a.id(), Src.SCREEN)
                     p2.s.keyOn(b.id(), Src.SCREEN)
@@ -493,8 +496,8 @@ private fun passRounds(mac: TestMac) {
                     f.expect("room", 2500)
                     Thread.sleep(1700)
                     mac.signal("USR1")
-                    val a = p.expect("grab", 1500)
-                    val b = f.expect("grab", 1500)
+                    val a = p.expect("grab", GRAB_WAIT)
+                    val b = f.expect("grab", GRAB_WAIT)
                     f.s.keyOn(b.id(), Src.SCREEN)
                     val fs = f.expect("key-seen", 1500)
                     f.close()
@@ -503,7 +506,7 @@ private fun passRounds(mac: TestMac) {
                     mac.signal("USR2")  // and it's gone from the notch: the round can release
                     Thread.sleep(1400)
                     p.s.knock()
-                    val next = p.expect("grab", 1000)
+                    val next = p.expect("grab", GRAB_WAIT)
                     check("a phone that drops off mid-round doesn't hold up the next round", fs != null && next != null, "$fs / $next")
                     next?.let { p.s.grabAck(it.id(), false, "none", "still") }
                     mac.signal("USR2")
@@ -532,7 +535,7 @@ private fun stayRounds(mac: TestMac) {
         p.expect("room", 2500)
         Thread.sleep(400)
         mac.signal("USR1")
-        val g = p.expect("grab", 1500)
+        val g = p.expect("grab", GRAB_WAIT)
         p.s.keyOn(g.id(), Src.SCREEN)
         val seen = p.expect("key-seen", 1500) { it.id() == g.id() }
         val t = now()
@@ -557,7 +560,7 @@ private fun failRounds(mac: TestMac) {
         p.expect("room", 2500)
         Thread.sleep(400)
         mac.signal("USR1")
-        val g = p.expect("grab", 1500)
+        val g = p.expect("grab", GRAB_WAIT)
         p.s.keyOn(g.id(), Src.SCREEN)
         val t = now()
         val f = p.expectAny(setOf("key-seen", "key-ok", "key-fail"), 1500) { it.id() == g.id() }
@@ -582,7 +585,7 @@ private fun uncoverRounds(mac: TestMac) {
         val room = p.expect("room", 2500)
         Thread.sleep(400)
         mac.signal("USR1")
-        val g = p.expect("grab", 1500)
+        val g = p.expect("grab", GRAB_WAIT)
         p.s.keyOn(g.id(), Src.SCREEN)
         val f = p.expectAny(setOf("key-seen", "key-ok", "key-fail"), 1500) { it.id() == g.id() }
         // The room's light coming back looks like light at first (key-seen); when the phone goes black the notch stays
@@ -621,7 +624,7 @@ private fun rampRounds(mac: TestMac, lamp: Boolean) {
         p.expect("room", 2500)
         Thread.sleep(1700)
         p.s.knock()
-        val g = p.expect("grab", 1500)
+        val g = p.expect("grab", GRAB_WAIT)
         p.s.keyOn(g.id(), Src.SCREEN)
         val t = now()
         val (seen, v) = p.key(g.id(), 3500)
@@ -654,11 +657,11 @@ private fun declinedThenKnock(mac: TestMac) {
         p.expect("room", 2500)
         Thread.sleep(400)
         mac.signal("USR1")
-        val g = p.expect("grab", 1500)
+        val g = p.expect("grab", GRAB_WAIT)
         p.s.grabAck(g.id(), false, "none", "still")
         Thread.sleep(1800)
         p.s.knock()
-        val gk = p.expect("grab", 1200)
+        val gk = p.expect("grab", GRAB_WAIT)
         check("lights off, the phone declined; a knock 1.8 s later ends that round and starts its own → grab",
             gk != null && gk.id() != g.id(), "$gk")
         if (gk != null) {
@@ -684,7 +687,7 @@ private const val HOLDS = 3
 private fun hold(p: Phone, mac: TestMac, wait: Long = 1700, ack: (Int) -> Unit): Pair<JSONObject?, JSONObject?> {
     Thread.sleep(wait)
     mac.signal("USR1")
-    val g = p.expect("grab", 1500) ?: return null to null
+    val g = p.expect("grab", GRAB_WAIT) ?: return null to null
     p.s.keyOn(g.id(), Src.SCREEN)
     val r = p.key(g.id())
     ack(g.id())
@@ -730,7 +733,7 @@ private fun calibrationKept(mac: TestMac, id: String) {
         p.expect("room", 2500)
         Thread.sleep(600)
         mac.signal("USR1")
-        val g = p.expect("grab", 1500)
+        val g = p.expect("grab", GRAB_WAIT)
         p.s.keyOn(g.id(), Src.SCREEN)
         val f = p.expectAny(setOf("key-seen", "key-ok", "key-fail"), 1500) { it.id() == g.id() }
         check("after a restart the calibrated phone still needs 666 (a 420-lux light isn't seen)",
