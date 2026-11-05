@@ -316,17 +316,26 @@ final class KeyRounds: @unchecked Sendable {
                 if TestMode.on { NSLog("TapDrop[test]: knock from %@ ignored: a round is running or just ran", p.name) }
                 return
             }
-            start(.knock, phones: [p], t0: t)
-            if sensor.simulated {
-                // Simulated: the phone's screen content on the notch (an open notch: brighter than 0.3·B). Read once
-                // the round has frozen B, and inside P's window.
-                simPhoneAtNotch = true
-                sensor.simulate(300)
+            // The phone's proximity sensor fires a centimetre or two before it lands: let it settle on the notch
+            // before its screen lights up (a round started by the notch going dark in the meantime covers it too).
+            q.asyncAfter(deadline: .now() + LightKey.knockSettle) { [self] in
+                guard canStart(at: Self.now) else { return }
+                startKnock(p, at: t)
             }
-            let level = sensor.latest(atOrBefore: Self.now)?.lux ?? sensor.baseline ?? 0
-            let name = p.name
-            DispatchQueue.main.async { TapLog.shared.trigger("knock", from: level, to: level, asked: [name]) }
         }
+    }
+
+    private func startKnock(_ p: WatchHub.Phone, at t: TimeInterval) {
+        start(.knock, phones: [p], t0: t)
+        if sensor.simulated {
+            // Simulated: the phone's screen content on the notch (an open notch: brighter than 0.3·B). Read once
+            // the round has frozen B, and inside P's window.
+            simPhoneAtNotch = true
+            sensor.simulate(300)
+        }
+        let level = sensor.latest(atOrBefore: Self.now)?.lux ?? sensor.baseline ?? 0
+        let name = p.name
+        DispatchQueue.main.async { TapLog.shared.trigger("knock", from: level, to: level, asked: [name]) }
     }
 
     /// `{"t":"key-on","id":n,"src":…}`: the phone's screen is white at full brightness.

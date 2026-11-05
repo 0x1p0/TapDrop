@@ -65,11 +65,14 @@ enum LightKey {
     static let coverFraction = 0.30
     /// The phone's light, measured as a difference. While its screen is white the notch reads its light plus whatever
     /// room light gets in around it; once it's black, just that leak. White − black is the phone's own light, whatever
-    /// the room — dark, daylight or sun. Light falls off fast with distance, so it must reach `lightFraction` of what
+    /// the room — dark, daylight or sun. Light falls off fast with distance, so it must reach `lightFraction` (45 %) of what
     /// this phone gives pressed on the notch (E, learned from its own taps): a phone a few centimetres away can't.
     /// Measured on a MacBook Air M4 with an Android phone, E is 200–460 lux; `defaultContact` stands in until a phone has
     /// passed a few taps on this Mac.
-    static let lightFraction = 0.55
+    static let lightFraction = 0.45
+    /// A knock (the phone's proximity sensor) comes a centimetre or two before the phone lands: its round starts
+    /// this much later, so the screen lights up once it's on the notch.
+    static let knockSettle = 0.25
     static let defaultContact = 300.0
     static let contactMin = 180.0
     static let contactMax = 1500.0
@@ -130,8 +133,8 @@ enum LightKey {
     static let keyOffWithin = 1.0
     static let fallWithin = 0.45
     static let fallFraction = 1.0 / 3
-    static let blockFraction = 0.6
-    static let blockFloor = 8.0
+    static let blockFraction = 0.75
+    static let blockFloor = 12.0
 
     // MARK: release (the phone left the notch)
 
@@ -804,13 +807,13 @@ extension NotchDetector {
         let gapOK = tooSoon == nil
         print("  \(gapOK ? "PASS" : "FAIL")  no trigger within 1.5 s of the last round")
         if !gapOK { failures.append("round gap") }
-        // the needed light: 0.55 × the contact level (median), which counts within 180…1 500 lux
+        // the needed light: 0.45 × the contact level (median), which counts within 180…1 500 lux
         let cal: [(String, [Double], Double)] = [
-            ("1480, 1390, 1530 → contact 1480 → taps need 814", [1480, 1390, 1530], 814),
-            ("2600, 2900, 2400 → 2600, capped at 1 500 → 825", [2600, 2900, 2400], 825),
-            ("300, 260, 330 → 300 → 165", [300, 260, 330], 165),
-            ("120, 140, 130 → 130, raised to 180 → 99", [120, 140, 130], 99),
-            ("one stray sample doesn't move it: 300, 40, 320 → 165", [300, 40, 320], 165),
+            ("1480, 1390, 1530 → contact 1480 → taps need 666", [1480, 1390, 1530], 666),
+            ("2600, 2900, 2400 → 2600, capped at 1 500 → 675", [2600, 2900, 2400], 675),
+            ("300, 260, 330 → 300 → 135", [300, 260, 330], 135),
+            ("120, 140, 130 → 130, raised to 180 → 81", [120, 140, 130], 81),
+            ("one stray sample doesn't move it: 300, 40, 320 → 135", [300, 40, 320], 135),
         ]
         for (name, samples, want) in cal {
             let got = LightKey.screenMin(contact: LightKey.median(samples))
