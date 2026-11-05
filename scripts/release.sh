@@ -1,6 +1,7 @@
 #!/bin/zsh
 # Builds the public downloads into release/ (GitHub Actions runs the same steps; see .github/workflows/release.yml):
-#   TapDrop-<version>-mac.zip       the Mac app, with the Android app inside for the setup page
+#   TapDrop-<version>-mac.dmg       the Mac app's installer (drag TapDrop into Applications)
+#   TapDrop-<version>-mac.zip       the same Mac app, zipped: what the app's own updater downloads
 #   TapDrop-<version>-android.apk   the Android app
 #   SHA256SUMS.txt                  checksums the in-app updaters verify
 #   NOTES.md                        this version's notes from CHANGELOG.md
@@ -10,6 +11,7 @@
 #
 # usage: scripts/release.sh
 #   TAPDROP_MAC_P12 / TAPDROP_MAC_P12_PASSWORD: the release identity (default: ~/.tapdrop-signing/)
+#   DMGBUILD: the dmgbuild command (default: dmgbuild; `pip install dmgbuild`)
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -20,6 +22,11 @@ if [[ ! -f android/keystore.properties ]]; then
   exit 1
 fi
 scripts/release-notes.sh "$V" > /dev/null  # fails if CHANGELOG.md has no notes for this version
+DMGBUILD="${DMGBUILD:-dmgbuild}"
+if ! command -v "$DMGBUILD" > /dev/null; then
+  echo "dmgbuild is missing (it lays out the Mac installer window): pip install dmgbuild"
+  exit 1
+fi
 
 # Android needs JDK 17.
 if [[ -z "${JAVA_HOME:-}" ]]; then
@@ -36,11 +43,19 @@ if [[ ! -f "$P12" || -z "$P12_PW" ]]; then
 fi
 KC="$(mktemp -d)/release.keychain-db"
 KC_PW=$(uuidgen)
+# codesign only finds identities in keychains on the search list: add this one for the build, then put the list back.
+KEYCHAINS=("${(@f)$(security list-keychains -d user | tr -d '" ')}")
 security create-keychain -p "$KC_PW" "$KC"
-trap 'security delete-keychain "$KC" 2>/dev/null || true' EXIT
+trap 'security list-keychains -d user -s "${KEYCHAINS[@]}"; security delete-keychain "$KC" 2>/dev/null || true' EXIT
+security set-keychain-settings -lut 3600 "$KC"
 security unlock-keychain -p "$KC_PW" "$KC"
+security list-keychains -d user -s "$KC" "${KEYCHAINS[@]}"
 security import "$P12" -k "$KC" -P "$P12_PW" -T /usr/bin/codesign > /dev/null
 security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KC_PW" "$KC" > /dev/null
+security find-identity -p codesigning "$KC" | grep -q "TapDrop Release Signing" || {
+  echo "The release identity didn't import into the build keychain."
+  exit 1
+}
 TAPDROP_SIGN_ID="TapDrop Release Signing" TAPDROP_SIGN_KEYCHAIN="$KC" mac/scripts/build-app.sh --no-install
 
 # Signed like every release before them, or installed copies can't update to these.
@@ -62,6 +77,10 @@ OUT=release
 rm -rf "$OUT"
 mkdir -p "$OUT"
 ditto -c -k --sequesterRsrc --keepParent mac/build/TapDrop.app "$OUT/TapDrop-$V-mac.zip"
+# The installer: TapDrop and Applications side by side on TapDrop's background (Retina and not, in one TIFF).
+BG="$(mktemp -d)/background.tiff"
+tiffutil -cathidpicheck mac/dmg/background.png mac/dmg/background@2x.png -out "$BG" > /dev/null
+"$DMGBUILD" -s mac/dmg/settings.py -D app=mac/build/TapDrop.app -D background="$BG" TapDrop "$OUT/TapDrop-$V-mac.dmg" > /dev/null
 cp android/app/build/outputs/apk/release/app-release.apk "$OUT/TapDrop-$V-android.apk"
 (cd "$OUT" && shasum -a 256 TapDrop-* > SHA256SUMS.txt)
 scripts/release-notes.sh "$V" > "$OUT/NOTES.md"

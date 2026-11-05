@@ -28,9 +28,10 @@ every warning macOS and Android show along the way, and why they appear. It take
 ### 1. Download it
 
 1. Open the [latest release](https://github.com/0x1p0/TapDrop/releases/latest) on your Mac.
-2. Under **Assets**, click **TapDrop-*version*-mac.zip**.
-3. Open your **Downloads** folder and double-click the zip. You get **TapDrop.app**.
-4. Drag **TapDrop.app** into your **Applications** folder.
+2. Under **Assets**, click **TapDrop-*version*-mac.dmg**.
+3. Open it from your **Downloads** folder. A TapDrop window opens.
+4. Drag **TapDrop** onto **Applications** in that window.
+5. Eject the TapDrop disk: click **⏏** next to it in Finder's sidebar.
 
 > Prefer to build it from the source yourself? See [Building it yourself](#building-it-yourself). A copy you build
 > on your own Mac opens without the warning in the next step.
@@ -246,9 +247,9 @@ on the system's prompt. TapDrop stays paired, and tap to send stays on.
 <details>
 <summary><b>Updating by hand</b></summary>
 
-- **Mac:** download the new **TapDrop-*version*-mac.zip** from
+- **Mac:** download the new **TapDrop-*version*-mac.dmg** from
   [Releases](https://github.com/0x1p0/TapDrop/releases/latest). Quit TapDrop (**⚙︎ Settings** → **Quit TapDrop**),
-  then drag the new **TapDrop.app** into Applications and choose **Replace**. If macOS asks again, repeat
+  open the DMG, drag **TapDrop** onto **Applications** and choose **Replace**. If macOS asks again, repeat
   [Open it the first time](#2-open-it-the-first-time).
 - **Phone:** install the new **TapDrop-*version*-android.apk** from Releases, or scan the code in **Set Up a New
   Phone** on the Mac. It installs over the old one.

@@ -74,9 +74,10 @@ const toc = [
         <h3 id="download-it"><a class="anchor" href="#download-it" aria-hidden="true" tabindex="-1">#</a><span class="stepno">1.1</span>Download it</h3>
         <ol class="steps-list">
           <li>Open the <a class="link" href={links.releases}>latest release</a> on your Mac.</li>
-          <li>Under <Ui>Assets</Ui>, click <Ui>TapDrop-<em>version</em>-mac.zip</Ui>.</li>
-          <li>Open your <Ui>Downloads</Ui> folder and double-click the zip. You get <Ui>TapDrop.app</Ui>.</li>
-          <li>Drag <Ui>TapDrop.app</Ui> into your <Ui>Applications</Ui> folder.</li>
+          <li>Under <Ui>Assets</Ui>, click <Ui>TapDrop-<em>version</em>-mac.dmg</Ui>.</li>
+          <li>Open it from your <Ui>Downloads</Ui> folder. A TapDrop window opens.</li>
+          <li>Drag <Ui>TapDrop</Ui> onto <Ui>Applications</Ui> in that window.</li>
+          <li>Eject the TapDrop disk: click <Ui>⏏</Ui> next to it in Finder’s sidebar.</li>
         </ol>
         <p class="aside-note">Prefer to build it yourself? See <a class="link" href="#building-it-yourself">Building it yourself</a>. A copy you build on your own Mac opens without the warning in the next step.</p>
 
@@ -264,13 +265,24 @@ const toc = [
 
       <section id="updating" aria-labelledby="h-upd">
         <h2 id="h-upd"><a class="anchor" href="#updating" aria-hidden="true" tabindex="-1">#</a>Updating</h2>
+        <p>TapDrop checks for a new version once a day and tells you what’s new. You can turn this off in Settings.</p>
         <p class="sub"><strong>Mac</strong></p>
         <ol class="steps-list">
-          <li>Download the new <Ui>TapDrop-<em>version</em>-mac.zip</Ui> from <a class="link" href={links.releases}>Releases</a>.</li>
-          <li>Quit TapDrop: menu bar icon, then <MenuPath items={['Settings', 'Quit TapDrop']} /> (or Command-Q while a TapDrop window is open).</li>
-          <li>Unzip it and drag the new <Ui>TapDrop.app</Ui> into Applications. Choose <Ui>Replace</Ui>.</li>
-          <li>Open it. If macOS asks again, repeat <a class="link" href="#open-it-the-first-time">Open it the first time</a>.</li>
-          <li>If your phone can’t connect afterwards, see <a class="link" href="#the-phone-cant-find-the-mac">The phone can’t find the Mac</a>. macOS sometimes treats an updated app as new.</li>
+          <li>When there’s an update, the menu bar panel shows <Ui>Update available</Ui>. Open it, or <MenuPath items={['Settings', 'About']} />, to read what’s new.</li>
+          <li>Click <Ui>Update Now</Ui>. TapDrop downloads the new version, checks it, replaces itself and reopens.</li>
+          <li>To check right away: <MenuPath items={['Settings', 'About', 'Check for Updates…']} />.</li>
+        </ol>
+        <p class="sub"><strong>Phone</strong></p>
+        <ol class="steps-list">
+          <li>You get a notification, and TapDrop’s home screen shows the new version. Tap <Ui>Update</Ui>.</li>
+          <li>The first time, Android asks you to let TapDrop install apps: switch on <Ui>Allow from this source</Ui>, go back, then tap <Ui>Update</Ui> on the system’s prompt.</li>
+          <li>TapDrop stays paired, and tap to send stays on.</li>
+        </ol>
+        <p class="sub"><strong>By hand</strong></p>
+        <ol class="steps-list">
+          <li>Mac: download the new <Ui>TapDrop-<em>version</em>-mac.dmg</Ui> from <a class="link" href={links.releases}>Releases</a>, quit TapDrop (<MenuPath items={['Settings', 'Quit TapDrop']} />), open the DMG, drag <Ui>TapDrop</Ui> onto <Ui>Applications</Ui> and choose <Ui>Replace</Ui>.</li>
+          <li>Phone: install the new <Ui>TapDrop-<em>version</em>-android.apk</Ui> from Releases, or scan the code in <Ui>Set Up a New Phone</Ui> on the Mac. It installs over the old one.</li>
+          <li>If your phone can’t connect after a Mac update, see <a class="link" href="#the-phone-cant-find-the-mac">The phone can’t find the Mac</a>. macOS sometimes treats an updated app as new.</li>
         </ol>
         <p class="sub"><strong>Phone:</strong> menu bar icon, then <MenuPath items={['Settings', 'Phones', 'Set Up a New Phone']} />, scan the code and install, or install the new APK from Releases. It installs over the old one and stays paired. You only need to turn accessibility back on if Android asks.</p>
       </section>

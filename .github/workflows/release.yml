@@ -89,6 +89,12 @@ jobs:
           echo "TAPDROP_MAC_P12=$RUNNER_TEMP/mac-signing.p12" >> "$GITHUB_ENV"
           echo "TAPDROP_MAC_P12_PASSWORD=$P12_PASSWORD" >> "$GITHUB_ENV"
 
+      - name: dmgbuild (lays out the Mac installer window)
+        run: |
+          python3 -m venv "$RUNNER_TEMP/dmgbuild"
+          "$RUNNER_TEMP/dmgbuild/bin/pip" install --quiet dmgbuild==1.6.7
+          echo "DMGBUILD=$RUNNER_TEMP/dmgbuild/bin/dmgbuild" >> "$GITHUB_ENV"
+
       - name: Build the downloads (and check both are signed like every earlier release)
         run: scripts/release.sh
 
