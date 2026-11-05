@@ -24,9 +24,10 @@ one-time codes. Everything stays on your own Wi-Fi, end-to-end encrypted.
 
 <table>
 <tr>
-<td align="center"><img src="docs/images/mac-panel.png" width="300" alt="Menu bar panel"><br><sub><b>Menu bar panel</b></sub></td>
-<td align="center"><img src="docs/images/android-home.png" width="230" alt="Android home"><br><sub><b>Android home</b></sub></td>
-<td align="center"><img src="docs/images/android-test-your-tap.png" width="230" alt="Test your tap on Android"><br><sub><b>Test your tap</b></sub></td>
+<td align="center"><img src="docs/images/mac-panel.png" width="280" alt="Menu bar panel"><br><sub><b>Menu bar panel</b></sub></td>
+<td align="center"><img src="docs/images/android-home.png" width="200" alt="Android home"><br><sub><b>Android home</b></sub></td>
+<td align="center"><img src="docs/images/android-settings.png" width="200" alt="Android settings"><br><sub><b>Settings</b></sub></td>
+<td align="center"><img src="docs/images/android-test-your-tap.png" width="200" alt="Test your tap on Android"><br><sub><b>Test your tap</b></sub></td>
 </tr>
 </table>
 

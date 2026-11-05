@@ -90,7 +90,11 @@ final class Store: ObservableObject {
     private static var stateURL: URL { dir.appendingPathComponent("state.json") }
 
     nonisolated static var computerName: String {
-        (SCDynamicStoreCopyComputerName(nil, nil) as String?) ?? Host.current().localizedName ?? "Mac"
+        #if DEBUG
+        // Test and screenshot runs can name the Mac (TAPDROP_TEST_NAME), so captures never show a real computer's name.
+        if let n = ProcessInfo.processInfo.environment["TAPDROP_TEST_NAME"], !n.isEmpty { return n }
+        #endif
+        return (SCDynamicStoreCopyComputerName(nil, nil) as String?) ?? Host.current().localizedName ?? "Mac"
     }
 
     private init() {
