@@ -59,6 +59,24 @@ final class WatchHub: @unchecked Sendable {
         return id
     }
 
+    /// The phone was forgotten on this Mac: its live links end. With [tell], each first says `{"t":"forgotten"}` (over
+    /// the encrypted link, so the phone can trust it and remove this Mac too).
+    func forgot(deviceId: String, tell: Bool) {
+        let links: [(UUID, Watcher)] = lock.withLock {
+            let mine = watchers.filter { $0.value.deviceId == deviceId }.map { ($0.key, $0.value) }
+            for (id, _) in mine { watchers.removeValue(forKey: id) }
+            return mine
+        }
+        for (id, w) in links {
+            NSLog("TapDrop: %@ was forgotten; ending its live link", w.name)
+            if tell { w.channel.sendJSONNow(["t": "forgotten"]) }
+            KeyRounds.shared.gone(id)
+            // Give "forgotten" a moment on the wire before hanging up.
+            DispatchQueue.global().asyncAfter(deadline: .now() + 0.4) { w.channel.conn.close() }
+        }
+        if !links.isEmpty { changed() }
+    }
+
     /// Whether this session is still the phone's live link (a newer one replaces it).
     func isLive(_ id: UUID) -> Bool { lock.withLock { watchers[id] != nil } }
 

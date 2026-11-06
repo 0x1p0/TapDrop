@@ -50,28 +50,29 @@ struct AuroraBackdrop: View {
     }
 
     private var colors: [Color] {
+        // Lumen: no hues. The light spills from the top centre, like the notch's glow: cool white on night, white on
+        // bone; the rest is the background.
         let dark = scheme == .dark
-        let base: SIMD3<Double> = dark ? [0.055, 0.055, 0.086] : [0.957, 0.957, 0.973]
+        let base: SIMD3<Double> = dark ? [0.031, 0.031, 0.039] : [0.937, 0.929, 0.906]
         let k = max(0, min(1, intensity))
         func mix(_ c: SIMD3<Double>, _ a: Double) -> Color {
             let m = base + (c - base) * (a * k)
             return Color(red: m.x, green: m.y, blue: m.z)
         }
-        let blue: SIMD3<Double> = [0.251, 0.620, 1.0]
-        let violet: SIMD3<Double> = [0.522, 0.380, 1.0]
-        let orchid: SIMD3<Double> = [0.949, 0.420, 0.851]
-        let s = dark ? 1.0 : 0.62
+        let light: SIMD3<Double> = [0.839, 0.871, 1.0]
+        let white: SIMD3<Double> = [1, 1, 1]
+        let s = dark ? 1.0 : 0.85
         return [
-            mix(violet, 0.40 * s), mix(blue, 0.30 * s), mix(base, 0),
-            mix(blue, 0.42 * s), mix(violet, 0.22 * s), mix(violet, 0.36 * s),
-            mix(base, 0), mix(orchid, 0.20 * s), mix(blue, 0.16 * s),
+            mix(light, 0.07 * s), mix(white, 0.20 * s), mix(light, 0.07 * s),
+            mix(base, 0), mix(light, 0.06 * s), mix(base, 0),
+            mix(base, 0), mix(base, 0), mix(base, 0),
         ]
     }
 }
 
 // MARK: - ProgressRing
 
-/// Transfer progress: an aurora arc on a quiet track. `progress == nil` spins (indeterminate).
+/// Transfer progress: an arc of the accent on a quiet track. `progress == nil` spins (indeterminate).
 /// Put a symbol or a percentage inside with `.overlay`.
 ///
 ///     ProgressRing(progress: 0.42).frame(width: 36, height: 36)
@@ -115,6 +116,8 @@ struct ProgressRing: View {
 ///     CheckBurst(tint: TD.violet, haptic: true)
 struct CheckBurst: View {
     var tint: Color = TD.success
+    /// The check's colour: the accent's ink, so it reads on bone (dark) and on ink (light).
+    var mark: Color = TD.onAccent
     /// Plays a haptic tick when the check lands.
     var haptic = false
 
@@ -144,7 +147,7 @@ struct CheckBurst: View {
                     .opacity(filled ? 1 : 0)
                 TDCheckShape()
                     .trim(from: 0, to: drawn ? 1 : 0)
-                    .stroke(.white, style: StrokeStyle(lineWidth: max(1.6, s * 0.1), lineCap: .round, lineJoin: .round))
+                    .stroke(mark, style: StrokeStyle(lineWidth: max(1.6, s * 0.1), lineCap: .round, lineJoin: .round))
                     .padding(s * 0.25)
             }
             .frame(width: s, height: s)

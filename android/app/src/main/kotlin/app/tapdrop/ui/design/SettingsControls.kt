@@ -278,7 +278,7 @@ fun RadioMark(selected: Boolean, modifier: Modifier = Modifier) {
             exit = scaleOut(tween(120), targetScale = 0.3f) + fadeOut(tween(90)),
         ) {
             Box(Modifier.size(24.dp).background(c.accent, CircleShape), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                Icon(Icons.Rounded.Check, null, tint = c.onAccent, modifier = Modifier.size(16.dp))
             }
         }
     }

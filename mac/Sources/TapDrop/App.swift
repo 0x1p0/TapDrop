@@ -23,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         TDFonts.register()
+        Store.applyAppearance(Store.shared.settings.appearance)
         if TestHooks.on, ProcessInfo.processInfo.environment["TAPDROP_TEST_SELFTEST"] == "1" {
             // The light-key trigger logic against synthetic light traces, then quit.
             let failures = NotchDetector.selfTest()

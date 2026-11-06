@@ -156,6 +156,6 @@ private fun SelectionMark(selected: Boolean) {
             .then(if (!selected) Modifier.border(1.5.dp, c.textTertiary.copy(alpha = 0.6f), CircleShape) else Modifier),
         contentAlignment = Alignment.Center,
     ) {
-        if (selected) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
+        if (selected) Icon(Icons.Rounded.Check, null, tint = c.onAccent, modifier = Modifier.size(16.dp))
     }
 }

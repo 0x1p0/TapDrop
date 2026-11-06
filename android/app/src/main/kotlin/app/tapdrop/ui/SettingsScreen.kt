@@ -164,7 +164,8 @@ fun SettingsScreen(
             if (shownMac != null) {
                 GlassSheet(onDismissed = {
                     macSheet = null
-                    forget?.let { app.prefs.removeMac(it) }
+                    // Forgotten here, and the Mac is told to forget this phone too.
+                    forget?.let { id -> app.prefs.mac(id)?.let { app.transfers.forget(it) } }
                     forget = null
                 }) { close ->
                     MacSheet(

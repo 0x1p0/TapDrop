@@ -558,7 +558,7 @@ private fun DrawScope.drawNotch(glow: Float, shade: Float, dim: Float) {
     val sensor = Offset(cx + notchW * 0.2f, cam.y)
     val eye = (0.25f + 0.75f * glow) * (1f - dim * 0.8f)
     drawCircle(Brand.Light.copy(alpha = 0.55f * eye), notchH * 0.16f, sensor)
-    drawCircle(Color(0xFFD9CCFF).copy(alpha = eye), notchH * 0.065f, sensor)
+    drawCircle(Color(0xFFEEF1FF).copy(alpha = eye), notchH * 0.065f, sensor)
 }
 
 private fun DrawScope.drawTrace(

@@ -327,12 +327,12 @@ fun StepBadge(number: Int, state: StepState, modifier: Modifier = Modifier) {
             label = "badgeContent",
         ) { isDone ->
             if (isDone) {
-                Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                Icon(Icons.Rounded.Check, null, tint = c.onAccent, modifier = Modifier.size(18.dp))
             } else {
                 Text(
                     "$number",
                     style = TdType.label.copy(fontWeight = FontWeight.SemiBold),
-                    color = if (state == StepState.Current) Color.White else c.textSecondary,
+                    color = if (state == StepState.Current) c.onAccent else c.textSecondary,
                 )
             }
         }

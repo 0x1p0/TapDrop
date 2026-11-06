@@ -28,14 +28,28 @@ mac   → {"t":"pair-ok"}  |  {"t":"pair-no"}
 
 ```
 phone → {"t":"hello","v":1,"device":id,"nonce":b64(16)}
-mac   → {"t":"hello","v":1,"mac":macId,"name":...,"nonce":b64(16)}   (or {"t":"error","code":"unpaired"})
+mac   → {"t":"hello","v":1,"mac":macId,"name":...,"nonce":b64(16)}   (or {"t":"error","code":"unpaired","mac":macId})
           sessionKey = HKDF-SHA256(pairKey, nonceP || nonceM, "tapdrop/session/v1", 32)
 phone ⇒ encrypted request
 ```
 
 Requests: `ping` → `pong{name,pending}`; `send` (phone pushes a batch) → `ok`;
 `getclip` (Mac answers with a batch holding its clipboard); `inbox` (Mac answers
-with a batch of everything queued for the phone; phone replies `ok`, Mac dequeues).
+with a batch of everything queued for the phone; phone replies `ok`, Mac dequeues);
+`unpair` (the phone forgot this Mac) → `ok`.
+
+## Forgetting
+
+Forgetting on either side reaches the other:
+
+- **Forgotten on the Mac.** The Mac sends `{"t":"forgotten"}` down the phone's live link, if it has one, and hangs up.
+  It keeps the phone's key for 120 days, only to say so again: when that phone next connects, the Mac does the usual
+  handshake with the old key and answers whatever it asked with `{"t":"forgotten"}`. Nothing else is served to it.
+  `forgotten` is encrypted with the pairing's key, so the phone can trust it: it removes that Mac too, and says why.
+  The phone never removes a Mac on the unencrypted `{"t":"error","code":"unpaired"}` (anyone on the network could send
+  that). It shows it instead, and ignores one whose `mac` isn't the Mac it meant to reach (another Mac at that address).
+- **Forgotten on the phone.** The phone sends `unpair` and the Mac forgets it (with no `forgotten` to keep). If the Mac
+  can't be reached, the phone keeps asking: at launch, and whenever that Mac turns up on the network.
 
 ## Batch
 

@@ -13,6 +13,7 @@ import android.webkit.MimeTypeMap
 import app.tapdrop.core.BatchSink
 import app.tapdrop.core.DecryptException
 import app.tapdrop.core.Endpoint
+import app.tapdrop.core.ForgottenException
 import app.tapdrop.core.IncomingFile
 import app.tapdrop.core.OutItem
 import app.tapdrop.core.PairRejectedException
@@ -32,6 +33,7 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -114,7 +116,26 @@ class Transfers(
         if (!busy) _state.value = TState.Idle
     }
 
-    private suspend fun <T> onMac(mac: SavedMac, op: suspend (Endpoint) -> T): T = withContext(Dispatchers.IO) {
+    private val _unrecognised = MutableStateFlow<Set<String>>(emptySet())
+
+    /**
+     * Macs that turned this phone away as unknown (`unpaired`, unencrypted: shown, never acted on by itself). A Mac
+     * that says, encrypted, that it forgot this phone is simply removed instead.
+     */
+    val unrecognised: StateFlow<Set<String>> = _unrecognised.asStateFlow()
+
+    /** Runs [op] against [mac]. If the Mac says it forgot this phone, it goes from this phone too. */
+    private suspend fun <T> onMac(mac: SavedMac, op: suspend (Endpoint) -> T): T = try {
+        reach(mac, op).also { if (mac.id in _unrecognised.value) _unrecognised.value -= mac.id }
+    } catch (e: ForgottenException) {
+        prefs.macForgotUs(mac)
+        throw e
+    } catch (e: UnpairedException) {
+        _unrecognised.value += mac.id
+        throw e
+    }
+
+    private suspend fun <T> reach(mac: SavedMac, op: suspend (Endpoint) -> T): T = withContext(Dispatchers.IO) {
         val first = finder.endpointFor(mac.id) ?: mac.endpoint
         try {
             op(first)
@@ -127,6 +148,33 @@ class Transfers(
     }
 
     suspend fun ping(mac: SavedMac): Pong? = runCatching { onMac(mac) { client.ping(it, mac.macKey) } }.getOrNull()
+
+    private val unpairing = Mutex()
+
+    /** Forgets [mac] here, and tells it to forget this phone too (now, or once it's reachable again). */
+    fun forget(mac: SavedMac) {
+        prefs.removeMac(mac.id)
+        prefs.addUnpair(mac)
+        scope.launch { tellForgotten() }
+    }
+
+    /** Tells the Macs this phone forgot (while they were away) to forget it too. */
+    suspend fun tellForgotten() = unpairing.withLock {
+        for (mac in prefs.pendingUnpairs()) {
+            try {
+                reach(mac) { client.unpair(it, mac.macKey) }
+                prefs.dropUnpair(mac.id)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: UnreachableException) {
+                // Away: try again when it's found.
+            } catch (e: java.net.SocketTimeoutException) {
+            } catch (e: Exception) {
+                // It answered and doesn't know this phone (or can't forget it): nothing more to tell it.
+                prefs.dropUnpair(mac.id)
+            }
+        }
+    }
 
     /**
      * Pairs with a Mac; cancelling the coroutine hangs up (which withdraws the prompt on the Mac).

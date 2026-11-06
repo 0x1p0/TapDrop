@@ -247,8 +247,11 @@ fun HomeScreen(
         is TState.Failed -> LinkState.Failed
         TState.Idle -> linkFor(online, live)
     }
+    val unrecognised by app.transfers.unrecognised.collectAsStateWithLifecycle()
+    val unknown = online == false && mac.id in unrecognised
     val (pillText, pillTone) = when {
         online == null -> "Looking for your Mac" to StatusTone.Searching
+        unknown -> "Not paired anymore" to StatusTone.Offline
         online == false -> (if (wifi) "Not reachable" else "Not on Wi‑Fi") to StatusTone.Offline
         live -> "Ready to tap" to StatusTone.Live
         else -> "Connected" to StatusTone.Good
@@ -298,6 +301,9 @@ fun HomeScreen(
                     wifi = wifi,
                     live = live,
                     tapReady = tap.ready,
+                    unknown = unknown,
+                    // Removed here (the Mac already doesn't know this phone); pairing starts from the top.
+                    onPairAgain = { app.prefs.removeMac(mac.id) },
                     onRetry = {
                         online = null
                         retry++
@@ -396,6 +402,8 @@ private fun Hero(
     wifi: Boolean,
     live: Boolean,
     tapReady: Boolean,
+    unknown: Boolean,
+    onPairAgain: () -> Unit,
     onRetry: () -> Unit,
     onHowTo: () -> Unit,
     modifier: Modifier = Modifier,
@@ -432,6 +440,7 @@ private fun Hero(
         }
         val (plain, lit) = when {
             online == null -> "Looking for your " to "Mac."
+            unknown -> "Pair " to "again."
             online == false -> "Your Mac is " to "away."
             live -> "Ready to " to "tap."
             else -> "Connected, " to "ready."
@@ -448,7 +457,7 @@ private fun Hero(
         }
         AnimatedContent(
             targetState = shown,
-            contentKey = { s -> s::class.simpleName + (if (s is TState.Idle) "$online$wifi$live$tapReady" else "") },
+            contentKey = { s -> s::class.simpleName + (if (s is TState.Idle) "$online$wifi$live$tapReady$unknown" else "") },
             transitionSpec = {
                 (fadeIn(tween(260, 60)) + slideInVertically(tween(320)) { it / 5 }) togetherWith
                     (fadeOut(tween(140)) + slideOutVertically(tween(200)) { -it / 5 }) using SizeTransform(clip = false)
@@ -461,6 +470,7 @@ private fun Hero(
                     TState.Idle -> {
                         val line = when {
                             online == null -> "Connecting over your Wi‑Fi…"
+                            unknown -> "${mac.name} doesn't know this phone anymore. It was probably forgotten on the Mac."
                             online == false && !wifi -> "Connect to the same Wi‑Fi as your Mac."
                             online == false -> "Open TapDrop on your Mac and make sure you're both on the same Wi‑Fi."
                             live -> TapCopy.PRIMARY
@@ -469,6 +479,7 @@ private fun Hero(
                         }
                         HeroLine(line)
                         when {
+                            unknown -> SmallButton("Pair again", onPairAgain, Modifier.padding(top = 6.dp))
                             online == false && !wifi -> SmallButton("Wi‑Fi settings", {
                                 runCatching { ctx.startActivity(Intent(Settings.Panel.ACTION_WIFI).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                             }, Modifier.padding(top = 6.dp))

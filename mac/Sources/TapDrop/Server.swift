@@ -146,7 +146,12 @@ final class Server: @unchecked Sendable {
         else { throw TDError.proto("bad hello") }
 
         guard let dev = await MainActor.run(body: { Store.shared.device(deviceId) }) else {
-            try await conn.writeJSON(["t": "error", "code": "unpaired"])
+            if let gone = await MainActor.run(body: { Store.shared.forgottenDevice(deviceId) }) {
+                try await tellForgotten(conn, key: gone.key, phoneNonce: phoneNonce)
+                return
+            }
+            // "mac" lets the phone tell this apart from another Mac now answering at the address it knew.
+            try await conn.writeJSON(["t": "error", "code": "unpaired", "mac": macId])
             return
         }
         let macNonce = TDCrypto.random(16)
@@ -174,6 +179,15 @@ final class Server: @unchecked Sendable {
             try await sendInbox(ch, to: dev.name)
         case "watch":
             try await runWatch(ch, device: dev)
+        case "unpair":
+            // The phone forgot this Mac: forget it here too (it knows already, so no "forgotten" for it).
+            await MainActor.run {
+                Store.shared.removeDevice(dev.id, tellPhone: false)
+                Activity.shared.notice(.queued, title: "\(dev.name) forgot this Mac",
+                                       detail: "Pair again from TapDrop on the phone to send.", sound: false, hideAfter: 5,
+                                       style: .info)
+            }
+            try await ch.sendJSON(["t": "ok"])
         default:
             throw TDError.proto("unknown request \(req.type)")
         }
@@ -186,11 +200,37 @@ final class Server: @unchecked Sendable {
     static let watchSilence: TimeInterval = TestHooks.on
         ? ProcessInfo.processInfo.environment["TAPDROP_TEST_WATCH_SILENCE"].flatMap(Double.init) ?? 45 : 45
 
+    /// A phone this Mac forgot is back: a normal handshake with its old key, then `{"t":"forgotten"}` in place of an
+    /// answer. Encrypted, so the phone can trust it and remove this Mac too (an unencrypted "unpaired" could come from
+    /// anyone on the network, so a phone only shows that one).
+    private func tellForgotten(_ conn: Conn, key: Data, phoneNonce: Data) async throws {
+        let macNonce = TDCrypto.random(16)
+        try await conn.writeJSON([
+            "t": "hello", "v": 1, "mac": macId, "name": macName, "nonce": macNonce.base64EncodedString(),
+        ])
+        let ch = SecureChannel(
+            conn: conn,
+            key: TDCrypto.sessionKey(pairKey: key, phoneNonce: phoneNonce, macNonce: macNonce),
+            sendDir: SecureChannel.dirMacToPhone,
+            recvDir: SecureChannel.dirPhoneToMac)
+        let req = try await ch.recvJSON()  // proves the phone holds the old key
+        try await ch.sendJSON(["t": req.type == "unpair" ? "ok" : "forgotten"])
+    }
+
     private func runWatch(_ ch: SecureChannel, device: PairedDevice) async throws {
         let pending = await MainActor.run { Store.shared.outbox.count }
         // "watching" is always the first message: the hub may push "room" (or a grab) as soon as the phone is added.
         ch.sendJSONNow(["t": "watching", "pending": pending, "notch": NotchSensor.shared.available])
         let id = WatchHub.shared.add(deviceId: device.id, name: device.name, channel: ch)
+        #if DEBUG
+        // Test mode: forget the phone a second after its live link opens (ForgetCheck: "forgotten" down the link).
+        if TestHooks.on, ProcessInfo.processInfo.environment["TAPDROP_TEST_FORGET_LIVE"] == "1" {
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(1))
+                Store.shared.removeDevice(device.id)
+            }
+        }
+        #endif
         let heard = LastHeard()
         // Liveness: a phone whose Wi-Fi went away can leave its link looking open for minutes. Closing the connection
         // ends the read below, and with it the link.

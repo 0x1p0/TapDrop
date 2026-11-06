@@ -135,6 +135,39 @@ class Prefs(ctx: Context) {
     fun saveMac(m: SavedMac) {
         _macs.value = _macs.value.filterNot { it.id == m.id } + m
         persistMacs()
+        // Paired (again): nothing left to tell that Mac, and no reason to say it forgot this phone.
+        dropUnpair(m.id)
+        if (_forgottenBy.value != null) setForgottenBy(null)
+    }
+
+    /** The Mac that last forgot this phone (it said so), for the welcome screen; cleared on pairing. */
+    private val _forgottenBy = MutableStateFlow(sp.getString("forgottenBy", null))
+    val forgottenBy: StateFlow<String?> = _forgottenBy.asStateFlow()
+
+    fun setForgottenBy(macName: String?) {
+        _forgottenBy.value = macName
+        sp.edit { putString("forgottenBy", macName) }
+    }
+
+    /** [mac] forgot this phone: it goes from here too. */
+    @Synchronized
+    fun macForgotUs(mac: SavedMac) {
+        if (mac(mac.id)?.key?.contentEquals(mac.key) != true) return  // re-paired since: that's a new pairing
+        removeMac(mac.id)
+        setForgottenBy(mac.name)
+    }
+
+    /** Macs this phone forgot that haven't heard yet (they're told the next time they're reachable). */
+    @Synchronized
+    fun pendingUnpairs(): List<SavedMac> = parseMacs(sp.getString("unpairs", "[]"))
+
+    @Synchronized
+    fun addUnpair(m: SavedMac) = sp.edit { putString("unpairs", macsJson(pendingUnpairs().filterNot { it.id == m.id } + m)) }
+
+    @Synchronized
+    fun dropUnpair(id: String) {
+        val now = pendingUnpairs()
+        if (now.any { it.id == id }) sp.edit { putString("unpairs", macsJson(now.filterNot { it.id == id })) }
     }
 
     @Synchronized
@@ -154,20 +187,24 @@ class Prefs(ctx: Context) {
 
     fun mac(id: String?): SavedMac? = _macs.value.firstOrNull { it.id == id }
 
-    private fun persistMacs() {
+    private fun persistMacs() = sp.edit { putString("macs", macsJson(_macs.value)) }
+
+    private fun macsJson(macs: List<SavedMac>): String {
         val arr = JSONArray()
-        _macs.value.forEach {
+        macs.forEach {
             arr.put(
                 JSONObject()
                     .put("id", it.id).put("name", it.name).put("host", it.host).put("port", it.port)
                     .put("key", Base64.encodeToString(it.key, Base64.NO_WRAP))
             )
         }
-        sp.edit { putString("macs", arr.toString()) }
+        return arr.toString()
     }
 
-    private fun loadMacs(): List<SavedMac> = runCatching {
-        val arr = JSONArray(sp.getString("macs", "[]"))
+    private fun loadMacs(): List<SavedMac> = parseMacs(sp.getString("macs", "[]"))
+
+    private fun parseMacs(json: String?): List<SavedMac> = runCatching {
+        val arr = JSONArray(json ?: "[]")
         (0 until arr.length()).map {
             val o = arr.getJSONObject(it)
             SavedMac(

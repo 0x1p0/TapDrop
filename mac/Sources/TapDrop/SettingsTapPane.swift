@@ -615,7 +615,7 @@ private struct MarkBadge: View {
     var body: some View {
         Image(systemName: symbol)
             .font(.system(size: 9, weight: .heavy))
-            .foregroundStyle(filled ? .white : TD.textSecondary)
+            .foregroundStyle(filled ? (kind == .keyFail ? .white : TD.onAccent) : TD.textSecondary)
             .frame(width: 20, height: 20)
             .background {
                 if filled {
@@ -624,8 +624,8 @@ private struct MarkBadge: View {
                     Circle().fill(TD.surfaceRaised)
                 }
             }
-            .overlay(Circle().strokeBorder(filled ? .white.opacity(0.25) : TD.hairline, lineWidth: 1))
-            .shadow(color: (tint.last ?? .black).opacity(filled ? 0.35 : 0.12), radius: 4, y: 1)
+            .overlay(Circle().strokeBorder(TD.hairline, lineWidth: 1))
+            .shadow(color: .black.opacity(filled ? 0.25 : 0.12), radius: 4, y: 1)
             .help(LightChart.label(kind))
     }
 
@@ -644,9 +644,8 @@ private struct MarkBadge: View {
     private var tint: [Color] {
         switch kind {
         case .cover, .touch: TDTint.gray
-        case .keyOK: TDTint.green
+        case .keyOK, .sent: [TD.accent, TD.accent]
         case .keyFail: TDTint.orange
-        case .sent: TDTint.aurora
         }
     }
 }

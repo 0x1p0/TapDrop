@@ -77,7 +77,7 @@ struct PhonesPane: View {
             }
             Button("Cancel", role: .cancel) { forgetting = nil }
         } message: { d in
-            Text("\(d.name) won't be able to send to this Mac until you pair it again.")
+            Text("It's removed from \(d.name) too, and won't be able to send to this Mac until you pair it again.")
         }
         .onAppear {
             caps.start()

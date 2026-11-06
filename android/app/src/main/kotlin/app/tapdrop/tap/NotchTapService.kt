@@ -395,6 +395,9 @@ class NotchTapService : AccessibilityService() {
                 open(mac)  // announces the light key ("caps") as it opens
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: app.tapdrop.core.ForgottenException) {
+                app.prefs.macForgotUs(mac)  // the Mac forgot this phone (it said so): it goes from here too
+                null
             } catch (e: Exception) {
                 null
             }
@@ -442,6 +445,9 @@ class NotchTapService : AccessibilityService() {
                 }
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: app.tapdrop.core.ForgottenException) {
+                // Forgotten on the Mac while linked: it says so down the link, then hangs up.
+                app.prefs.macForgotUs(mac)
             } catch (_: Exception) {
             } finally {
                 keepAlive.cancel()

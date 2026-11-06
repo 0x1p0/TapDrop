@@ -309,7 +309,7 @@ enum DSSnapshot {
         override func draw(_ dirtyRect: NSRect) {
             guard let ctx = NSGraphicsContext.current?.cgContext else { return }
             guard let image else {
-                NSGradient(colors: [NSColor(tdHex: 0x2B3A8C), NSColor(tdHex: 0x6B3FA0)])?.draw(in: bounds, angle: -60)
+                NSGradient(colors: [NSColor(tdHex: 0x1C1C21), NSColor(tdHex: 0x0B0B0E)])?.draw(in: bounds, angle: -60)
                 return
             }
             let iw = CGFloat(image.width), ih = CGFloat(image.height)

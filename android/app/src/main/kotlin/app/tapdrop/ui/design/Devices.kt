@@ -308,7 +308,7 @@ private fun DrawScope.drawMacBook(g: HeroGeometry, pal: MacPalette, notchGlow: F
             drawCircle(
                 Brush.radialGradient(
                     0f to Color.White.copy(alpha = 0.55f * notchGlow),
-                    0.4f to Color(0xFFD9CCFF).copy(alpha = 0.25f * notchGlow),
+                    0.4f to Color(0xFFEEF1FF).copy(alpha = 0.25f * notchGlow),
                     1f to Color.Transparent,
                     center = gc, radius = cr,
                 ),
@@ -739,7 +739,7 @@ private fun DrawScope.drawTapCloseup(k: TapKeyFrame, pal: MacPalette, back: Colo
         drawCircle(Brush.radialGradient(listOf(Color(0xFF34343A), Color(0xFF07080B)), center = lc, radius = lensR), lensR, lc)
         drawCircle(Color.White.copy(alpha = 0.4f), lensR * 0.2f, Offset(lc.x - lensR * 0.3f, lc.y - lensR * 0.3f))
     }
-    drawCircle(Color(0xFFFFF4D6).copy(alpha = 0.75f), lensR * 0.32f, Offset(pRect.left + pw * 0.6f, barTop + barH / 2))
+    drawCircle(Color(0xFFEEF1FF).copy(alpha = 0.75f), lensR * 0.32f, Offset(pRect.left + pw * 0.6f, barTop + barH / 2))
 }
 
 /** A blurred rounded-rect outline (rim light). */

@@ -16,7 +16,9 @@ import javax.crypto.spec.SecretKeySpec
 open class TapDropException(message: String) : IOException(message)
 class ProtocolException(message: String) : TapDropException(message)
 class DecryptException : TapDropException("Could not decrypt — the Mac may have forgotten this phone")
-class UnpairedException : TapDropException("This phone isn't paired with that Mac anymore")
+open class UnpairedException(message: String = "This phone isn't paired with that Mac anymore") : TapDropException(message)
+/** The Mac said, encrypted with this pairing's key (so it really is that Mac), that it forgot this phone. */
+class ForgottenException : UnpairedException("The Mac forgot this phone")
 class UnreachableException(val endpoint: Endpoint, cause: IOException) :
     TapDropException("Can't reach your Mac at ${endpoint.host}") {
     init { initCause(cause) }
@@ -107,7 +109,10 @@ class SecureChannel(
             throw DecryptException()
         }
         return when (plain[0]) {
-            TYPE_JSON -> Msg.Json(JSONObject(String(plain, 1, plain.size - 1, Charsets.UTF_8)))
+            TYPE_JSON -> Msg.Json(JSONObject(String(plain, 1, plain.size - 1, Charsets.UTF_8))).also {
+                // The Mac forgot this phone (PROTOCOL.md → "Forgetting"): it can come in place of any answer.
+                if (it.obj.optString("t") == "forgotten") throw ForgottenException()
+            }
             TYPE_DATA -> Msg.Data(plain, 1, plain.size - 1)
             else -> throw ProtocolException("unknown message type ${plain[0]}")
         }

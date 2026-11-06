@@ -135,8 +135,13 @@ class TapDropClient(private val identity: Identity) {
             val hello = io.readJson()
             when (hello.type) {
                 "hello" -> Unit
-                "error" -> if (hello.optString("code") == "unpaired") throw UnpairedException()
-                    else throw ProtocolException(hello.optString("code"))
+                "error" -> when {
+                    hello.optString("code") != "unpaired" -> throw ProtocolException(hello.optString("code"))
+                    // Another Mac now answering at the address this one had, not this Mac turning the phone away.
+                    hello.optString("mac").let { it.isNotEmpty() && it != mac.id } ->
+                        throw ProtocolException("A different Mac answered at ${ep.host}")
+                    else -> throw UnpairedException()
+                }
                 else -> throw ProtocolException("unexpected ${hello.type}")
             }
             if (hello.optString("mac") != mac.id) throw ProtocolException("A different Mac answered at ${ep.host}")
@@ -150,6 +155,13 @@ class TapDropClient(private val identity: Identity) {
         val r = ch.recvJson()
         if (r.type != "pong") throw ProtocolException("unexpected ${r.type}")
         Pong(r.optString("name"), r.optInt("pending"))
+    }
+
+    /** This phone forgot [mac]: asks it to forget this phone too. */
+    fun unpair(ep: Endpoint, mac: MacKey) = session(ep, mac, readTimeoutMs = 4000) { ch ->
+        ch.sendJson(json("t" to "unpair"))
+        val r = ch.recvJson()
+        if (r.type != "ok") throw ProtocolException("unexpected ${r.type}")
     }
 
     /** Sends items to the Mac. Returns how many the Mac saved. */

@@ -146,7 +146,7 @@ private fun DrawScope.drawMacGlyph(dark: Boolean, glow: Float, dim: Float) {
             drawCircle(
                 Brush.radialGradient(
                     0f to Color.White.copy(alpha = 0.7f * glow),
-                    0.5f to Color(0xFFD9CCFF).copy(alpha = 0.25f * glow),
+                    0.5f to Color(0xFFEEF1FF).copy(alpha = 0.25f * glow),
                     1f to Color.Transparent,
                     center = nc, radius = cr,
                 ),

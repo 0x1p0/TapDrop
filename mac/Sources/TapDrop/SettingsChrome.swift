@@ -166,7 +166,7 @@ struct CheckBadge: View {
             Image(systemName: symbol)
                 .font(.system(size: 15, weight: .semibold))
                 .symbolRenderingMode(.palette)
-                .foregroundStyle(.white, color)
+                .foregroundStyle(state == .ok ? TD.onAccent : .white, color)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(label ?? spoken)

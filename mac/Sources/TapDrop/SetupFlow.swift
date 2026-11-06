@@ -411,7 +411,7 @@ private struct LiveStatus: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 15, weight: .semibold))
                 .symbolRenderingMode(.palette)
-                .foregroundStyle(.white, TD.success)
+                .foregroundStyle(TD.onAccent, TD.success)
                 .transition(.scale.combined(with: .opacity))
         case .warning:
             Image(systemName: "exclamationmark.circle.fill")

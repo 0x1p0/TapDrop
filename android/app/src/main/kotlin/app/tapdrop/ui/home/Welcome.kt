@@ -1,5 +1,7 @@
 package app.tapdrop.ui.home
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +23,8 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -48,6 +52,7 @@ import app.tapdrop.ui.design.entrance
 @Composable
 fun WelcomeScreen(onPair: () -> Unit) {
     val c = Td.colors
+    val forgottenBy by app.tapdrop.TapDropApp.instance.prefs.forgottenBy.collectAsStateWithLifecycle()
     Box(Modifier.fillMaxSize()) {
         AuroraBackdrop(Modifier.fillMaxWidth().height(640.dp), intensity = 1.15f)
         Column(
@@ -90,7 +95,12 @@ fun WelcomeScreen(onPair: () -> Unit) {
                 Feature(Icons.Rounded.Lock, Td.colors.text, TdShapes.Clover4, "Private by design", "End‑to‑end encrypted, over your own Wi‑Fi.")
             }
             Spacer(Modifier.height(32.dp))
-            PrimaryButton("Pair with your Mac", onPair, Modifier.widthIn(max = 400.dp).fillMaxWidth().entrance(4))
+            forgottenBy?.let { ForgottenNote(it, Modifier.widthIn(max = 400.dp).fillMaxWidth().padding(bottom = 16.dp)) }
+            PrimaryButton(
+                if (forgottenBy != null) "Pair again" else "Pair with your Mac",
+                onPair,
+                Modifier.widthIn(max = 400.dp).fillMaxWidth().entrance(4),
+            )
             Text(
                 "You'll need TapDrop on your Mac (macOS 15 or later).",
                 style = TdType.caption,
@@ -99,6 +109,26 @@ fun WelcomeScreen(onPair: () -> Unit) {
                 modifier = Modifier.padding(top = 14.dp, bottom = 16.dp).entrance(5),
             )
         }
+    }
+}
+
+/** Why the phone is back at the start: its Mac forgot it (and said so), so it was removed here too. */
+@Composable
+private fun ForgottenNote(macName: String, modifier: Modifier = Modifier) {
+    val c = Td.colors
+    Column(
+        modifier
+            .background(c.surface, androidx.compose.foundation.shape.RoundedCornerShape(20.dp))
+            .border(1.dp, c.hairline, androidx.compose.foundation.shape.RoundedCornerShape(20.dp))
+            .padding(horizontal = 18.dp, vertical = 16.dp),
+    ) {
+        Text("$macName forgot this phone", style = TdType.label, color = c.text)
+        Text(
+            "It was removed on the Mac, so it's gone from here too. Pair again to keep sending.",
+            style = TdType.bodySmall,
+            color = c.textSecondary,
+            modifier = Modifier.padding(top = 4.dp),
+        )
     }
 }
 

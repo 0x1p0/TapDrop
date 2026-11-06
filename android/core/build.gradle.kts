@@ -24,6 +24,17 @@ tasks.register<JavaExec>("integration") {
     )
 }
 
+// Forgetting, both ways, against a headless test Mac (see ForgetCheck.kt):
+//   gradle :core:forgetCheck -Phost=127.0.0.1 -Pport=47951
+tasks.register<JavaExec>("forgetCheck") {
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("app.tapdrop.core.ForgetCheckKt")
+    args(
+        (project.findProperty("host") ?: "127.0.0.1").toString(),
+        (project.findProperty("port") ?: "47951").toString(),
+    )
+}
+
 tasks.register<JavaExec>("watchCheck") {
     classpath = sourceSets["test"].runtimeClasspath
     mainClass.set("app.tapdrop.core.WatchCheckKt")

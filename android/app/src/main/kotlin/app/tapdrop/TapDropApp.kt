@@ -13,7 +13,10 @@ import app.tapdrop.update.Updates
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.onEach
 
 class TapDropApp : Application() {
@@ -33,6 +36,13 @@ class TapDropApp : Application() {
         transfers = Transfers(this, prefs, finder, scope)
         // Keep the Mac(s) as Direct Share targets at the top of Android's share sheet.
         prefs.macs.onEach { Shortcuts.publish(this, it) }.launchIn(scope)
+        // Macs this phone forgot while they were away: tell them now, and whenever one turns up on the network.
+        scope.launch { transfers.tellForgotten() }
+        finder.found
+            .map { found -> prefs.pendingUnpairs().any { p -> found.values.any { it.id == p.id } } }
+            .distinctUntilChanged()
+            .onEach { if (it) transfers.tellForgotten() }
+            .launchIn(scope)
         // New versions: the daily check, the check on coming to the front, and what was found.
         Updates.init(this)
     }

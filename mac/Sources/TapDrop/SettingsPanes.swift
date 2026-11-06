@@ -32,6 +32,21 @@ struct GeneralPane: View {
             }
             .tdReveal(1, visible)
 
+            SettingsGroup("Look") {
+                SettingsRow("circle.lefthalf.filled", title: "Appearance",
+                            subtitle: "Follow your Mac, or keep TapDrop light or dark.") {
+                    Picker("Appearance", selection: $store.settings.appearance) {
+                        Text("System").tag("system")
+                        Text("Light").tag("light")
+                        Text("Dark").tag("dark")
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                }
+            }
+            .tdReveal(2, visible)
+
             SettingsGroup("Sounds & startup", footer: loginFooter) {
                 SettingsRow("speaker.wave.2.fill", tint: TDTint.pink, title: "Play sounds",
                             subtitle: "A soft chime when something arrives.") {

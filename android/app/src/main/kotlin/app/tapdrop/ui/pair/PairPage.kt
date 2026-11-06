@@ -361,7 +361,7 @@ private fun PairPill(prominent: Boolean) {
         Text(
             "Pair",
             style = TdType.label.copy(fontWeight = FontWeight.SemiBold),
-            color = if (prominent) Color.White else c.accentText,
+            color = if (prominent) c.onAccent else c.accentText,
             maxLines = 1,
         )
     }

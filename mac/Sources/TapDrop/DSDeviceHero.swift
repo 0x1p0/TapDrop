@@ -302,7 +302,7 @@ struct DeviceHero: View {
                         .position(x: w * fx * u, y: barH / 2 * u)
                 }
                 Circle()
-                    .fill(Color(tdHex: 0xFFF4D6).opacity(0.8))
+                    .fill(Color(tdHex: 0xEEF1FF).opacity(0.8))
                     .frame(width: lens * 0.7 * u, height: lens * 0.7 * u)
                     .position(x: w * 0.6 * u, y: barH / 2 * u)
             }

@@ -419,7 +419,7 @@ private struct PairCode: View {
     }
 }
 
-/// A shortcut drawn as a key cap inside a button ("esc", "⏎"); on the violet button it's drawn in white.
+/// A shortcut drawn as a key cap inside a button ("esc", "⏎"); on the accent button it takes the accent's ink.
 private struct PairKeyCap: View {
     let keys: String
     let onAccent: Bool
@@ -432,12 +432,12 @@ private struct PairKeyCap: View {
     var body: some View {
         Text(keys)
             .font(.system(size: 10.5, weight: .semibold, design: .rounded))
-            .foregroundStyle(onAccent ? AnyShapeStyle(.white.opacity(0.85)) : AnyShapeStyle(TD.textSecondary))
+            .foregroundStyle(onAccent ? AnyShapeStyle(TD.onAccent.opacity(0.75)) : AnyShapeStyle(TD.textSecondary))
             .padding(.horizontal, 5)
             .frame(minWidth: 18, minHeight: 17)
-            .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(onAccent ? Color.white.opacity(0.18) : TD.fillStrong))
+            .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(onAccent ? TD.onAccent.opacity(0.10) : TD.fillStrong))
             .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous)
-                .strokeBorder(onAccent ? Color.white.opacity(0.22) : TD.hairline, lineWidth: 0.75))
+                .strokeBorder(onAccent ? TD.onAccent.opacity(0.22) : TD.hairline, lineWidth: 0.75))
             .accessibilityHidden(true)
     }
 }

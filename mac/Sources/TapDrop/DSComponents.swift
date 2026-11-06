@@ -5,17 +5,17 @@ import SwiftUI
 
 // MARK: - Tints
 
-/// Two-stop fills for icon chips (top → bottom). Use `aurora` for TapDrop's own features and the
-/// semantic ones for status; keep one hue per meaning across the app.
+/// Fills for chips and marks. Lumen has no hues: every "colour" is the accent (bone in dark, ink in light) or a
+/// neutral grey; only `red` (something needs fixing) and `orange` (a warning) keep their colour.
 enum TDTint {
-    static let aurora = [TD.blue, TD.violet]
-    static let green = [Color(red: 0.30, green: 0.85, blue: 0.50), Color(red: 0.12, green: 0.64, blue: 0.39)]
+    static let aurora = [TD.accent, TD.accent]
+    static let green = [TD.accent, TD.accent]
     static let orange = [Color(red: 1.00, green: 0.72, blue: 0.29), Color(red: 1.00, green: 0.50, blue: 0.22)]
     static let red = [Color(red: 1.00, green: 0.45, blue: 0.47), Color(red: 0.90, green: 0.22, blue: 0.30)]
-    static let pink = [Color(red: 1.00, green: 0.45, blue: 0.62), Color(red: 0.90, green: 0.25, blue: 0.48)]
-    static let blue = [Color(red: 0.35, green: 0.65, blue: 1.00), Color(red: 0.20, green: 0.45, blue: 0.95)]
+    static let pink = [TD.accent, TD.accent]
+    static let blue = [TD.accent, TD.accent]
     static let gray = [Color(white: 0.62), Color(white: 0.44)]
-    static let slate = [Color(red: 0.45, green: 0.55, blue: 0.75), Color(red: 0.30, green: 0.36, blue: 0.55)]
+    static let slate = [Color(white: 0.55), Color(white: 0.4)]
 }
 
 // MARK: - GlassCard
