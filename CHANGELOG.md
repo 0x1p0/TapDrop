@@ -2,6 +2,11 @@
 
 What's new in each version, newest first. The notes under a version are what TapDrop shows in its update window, so write them for the people using it. Keep each bullet on one line.
 
+## 2.2.1
+
+### Fixes
+- **TapDrop rests when you're not using it.** On the Mac, the connected dot in the menu bar panel kept TapDrop busy (around 8% CPU), even with the panel closed. Now it uses next to nothing while idle.
+
 ## 2.2.0
 
 ### A new look
