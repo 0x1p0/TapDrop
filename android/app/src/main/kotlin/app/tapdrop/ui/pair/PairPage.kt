@@ -218,7 +218,7 @@ fun PairContent(
                     modifier = Modifier.widthIn(max = 320.dp).entrance(0, enabled = intro),
                 )
                 Text(
-                    "Pair with your Mac",
+                    app.tapdrop.ui.design.litTitle("Pair with your Mac"),
                     style = TdType.display,
                     color = Td.colors.text,
                     textAlign = TextAlign.Center,

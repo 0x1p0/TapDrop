@@ -68,7 +68,7 @@ enum TD {
     /// Pressed, selected, or a fill that must read on a busy backdrop.
     static let fillStrong = Color.td(light: NSColor(white: 0, alpha: 0.11), dark: NSColor(white: 1, alpha: 0.15))
     /// The wash `TDGlass.panel` lays under content so large glass surfaces stay legible on any wallpaper.
-    static let panelWash = Color.td(light: NSColor(tdHex: 0xEFEDE7, alpha: 0.6), dark: NSColor(tdHex: 0x08080A, alpha: 0.5))
+    static let panelWash = Color.td(light: NSColor(tdHex: 0xEFEDE7, alpha: 0.86), dark: NSColor(tdHex: 0x08080A, alpha: 0.8))
 
     // MARK: Semantic (system colors, so they adapt to the appearance)
 
@@ -272,8 +272,19 @@ extension Font {
 enum TDFonts {
     private(set) static var available = false
 
+    /// The bundled fonts (Contents/Resources/Fonts); in a debug build run from .build, the source tree's.
+    static var directory: URL? {
+        if let dir = Bundle.main.resourceURL?.appendingPathComponent("Fonts"),
+           FileManager.default.fileExists(atPath: dir.path) { return dir }
+        #if DEBUG
+        let src = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../../Resources/Fonts")
+        if FileManager.default.fileExists(atPath: src.path) { return src.standardizedFileURL }
+        #endif
+        return nil
+    }
+
     static func register() {
-        guard !available, let dir = Bundle.main.resourceURL?.appendingPathComponent("Fonts") else { return }
+        guard !available, let dir = directory else { return }
         let files = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
         var ok = 0
         for url in files where url.pathExtension == "ttf" {

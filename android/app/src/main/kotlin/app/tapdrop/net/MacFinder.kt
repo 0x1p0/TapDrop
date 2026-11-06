@@ -26,7 +26,7 @@ data class FoundMac(val name: String, val id: String?, val host: String, val por
 }
 
 /** Finds Macs running TapDrop on the local network via Bonjour (DNS-SD). */
-class MacFinder(ctx: Context, private val prefs: Prefs) {
+class MacFinder(private val ctx: Context, private val prefs: Prefs) {
     private val nsd = ctx.getSystemService(NsdManager::class.java)
     private val main = Handler(Looper.getMainLooper())
     private val executor = Executor { main.post(it) }
@@ -45,7 +45,20 @@ class MacFinder(ctx: Context, private val prefs: Prefs) {
     @MainThread
     fun start() {
         users++
+        // A capture build with a stand-in lists only the stand-in: no real Mac (or its name) ever shows up in a capture.
+        if (captureStandIn()) return
         if (listener == null) discover()
+    }
+
+    /** Capture builds only (see app/build.gradle.kts): a stand-in Mac from files/capture-mac.txt. */
+    private fun captureStandIn(): Boolean {
+        if (app.tapdrop.BuildConfig.BUILD_TYPE != "capture") return false
+        val line = runCatching { java.io.File(ctx.getExternalFilesDir(null), "capture-mac.txt").readText().trim() }.getOrNull() ?: return false
+        val p = line.split("|")
+        if (p.size != 4) return false
+        val m = FoundMac(p[0], p[1], p[2], p[3].toIntOrNull() ?: return false)
+        _found.value = mapOf(("capture:" + m.id) to m)
+        return true
     }
 
     @MainThread

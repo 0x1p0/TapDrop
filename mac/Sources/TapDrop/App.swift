@@ -35,6 +35,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Notch taps: the light sensor's triggers start light-key rounds; only a key the notch sees sends.
         KeyRounds.shared.attach()
         Server.shared.start()
+        #if DEBUG
+        // Captures: serve the phone's download page without opening the Setup window.
+        if TestHooks.on, ProcessInfo.processInfo.environment["TAPDROP_TEST_INSTALL"] == "1" { InstallServer.shared.start() }
+        #endif
         if TestHooks.on {
             // Integration tests (debug builds only) run on a simulated light sensor (a 120-lux room).
             // `kill -USR1 <pid>` covers the notch: a DIP round with B = 120, P = 4. Each key-on is answered per

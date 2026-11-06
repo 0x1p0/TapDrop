@@ -8,7 +8,9 @@ enum PairPrompt {
 
     static func askDemo() async -> Bool {
         await withCheckedContinuation { cont in
-            present(device: "Android phone", code: "482915") { ok in cont.resume(returning: ok) }
+            present(device: "Android phone", code: ProcessInfo.processInfo.environment["TAPDROP_DEMO_CODE"] ?? "482915") { ok in
+                cont.resume(returning: ok)
+            }
         }
     }
 
@@ -39,7 +41,9 @@ enum PairPrompt {
     /// Demo/QA states: approved, withdrawn, expired, long (a long phone name).
     static func demo(_ mode: String) {
         let long = mode == "long"
-        let c = present(device: long ? "Galaxy S24 Ultra (Work phone)" : "Android phone", code: "482915") { _ in }
+        // TAPDROP_DEMO_CODE: the code a capture's phone shows, so both sides match.
+        let code = ProcessInfo.processInfo.environment["TAPDROP_DEMO_CODE"] ?? "482915"
+        let c = present(device: long ? "Galaxy S24 Ultra (Work phone)" : "Android phone", code: code) { _ in }
         switch mode {
         case "approved": DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { c.approveForDemo() }
         case "withdrawn": DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { c.withdraw(.cancelled, hold: true) }

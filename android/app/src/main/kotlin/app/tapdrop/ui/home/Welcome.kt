@@ -72,7 +72,7 @@ fun WelcomeScreen(onPair: () -> Unit) {
             )
             Spacer(Modifier.height(12.dp))
             Text(
-                "Your phone, one tap from your Mac",
+                app.tapdrop.ui.design.litTitle("Your phone, one tap from your Mac"),
                 style = TdType.display,
                 color = c.text,
                 textAlign = TextAlign.Center,

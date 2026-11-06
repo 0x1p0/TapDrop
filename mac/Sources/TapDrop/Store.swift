@@ -251,6 +251,9 @@ enum TestMode {
 enum Net {
     /// Best-guess LAN IPv4 address (Wi-Fi / Ethernet).
     static func lanIPv4() -> String? {
+        // Demo runs can show a stand-in address (TAPDROP_DEMO_IP), so captures never carry the real network's.
+        let env = ProcessInfo.processInfo.environment
+        if env["TAPDROP_DEMO"] != nil, let ip = env["TAPDROP_DEMO_IP"] { return ip }
         var ifaddr: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&ifaddr) == 0, let first = ifaddr else { return nil }
         defer { freeifaddrs(ifaddr) }

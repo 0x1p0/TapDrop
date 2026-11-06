@@ -176,6 +176,14 @@ final class InstallServer: @unchecked Sendable {
             }
             return
         }
+        // The page's type: the same fonts as the apps (Instrument Serif and Geist), from the Mac app itself.
+        if let name = InstallPage.fonts[path], let dir = TDFonts.directory,
+           let data = try? Data(contentsOf: dir.appendingPathComponent(name)) {
+            let head = "HTTP/1.1 200 OK\r\nContent-Type: font/ttf\r\nContent-Length: \(data.count)\r\n"
+                + "Cache-Control: max-age=86400\r\nConnection: close\r\n\r\n"
+            try? await c.write(Data(head.utf8) + data)
+            return
+        }
         guard path == "/" || path == "/index.html" else {
             try? await c.write(Data("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".utf8))
             return

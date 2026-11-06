@@ -246,6 +246,8 @@ private struct SettingsSidebar: View {
         .padding(.horizontal, TD.Space.s)
         .padding(.bottom, TD.Space.s)
         .frame(maxHeight: .infinity, alignment: .top)
+        // Lumen's wash under the glass, so the desktop's colours only faintly come through.
+        .background(RoundedRectangle(cornerRadius: SettingsChrome.sidebarRadius, style: .continuous).fill(TD.panelWash))
         .tdGlass(.regular, in: RoundedRectangle(cornerRadius: SettingsChrome.sidebarRadius, style: .continuous))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Settings sections")

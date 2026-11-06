@@ -179,6 +179,16 @@ fun LightSpill(modifier: Modifier = Modifier, strength: Float = 1f) {
     }
 }
 
+/** A hero title: the last word in the serif's italic, with a full stop ("Pair with your *Mac.*"). */
+fun litTitle(text: String): androidx.compose.ui.text.AnnotatedString {
+    val t = text.trimEnd('.')
+    val i = t.lastIndexOf(' ')
+    return androidx.compose.ui.text.buildAnnotatedString {
+        append(t.substring(0, i + 1))
+        withStyle(androidx.compose.ui.text.SpanStyle(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)) { append(t.substring(i + 1) + ".") }
+    }
+}
+
 /** A live dot: bone or ink, with the light's halo around it in dark mode. */
 @Composable
 fun LiveDot(modifier: Modifier = Modifier, size: Dp = 7.dp, lit: Boolean = true) {

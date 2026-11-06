@@ -121,6 +121,12 @@ final class Server: @unchecked Sendable {
 
         let approved: Bool
         if autoPair {
+            #if DEBUG
+            // Captures: leave the code on the phone's screen for a while first (TAPDROP_TEST_AUTOPAIR_AFTER seconds).
+            if let wait = ProcessInfo.processInfo.environment["TAPDROP_TEST_AUTOPAIR_AFTER"].flatMap(Double.init) {
+                try? await Task.sleep(for: .seconds(wait))
+            }
+            #endif
             approved = true
         } else {
             approved = await PairPrompt.ask(device: name, code: secret.code, conn: conn)

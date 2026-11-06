@@ -47,6 +47,13 @@ android {
         debug {
             signingConfigs.findByName("local")?.let { signingConfig = it }
         }
+        // Screenshots and video captures, on an emulator only (never a real phone): a release build whose Mac list
+        // also holds a stand-in read from files/capture-mac.txt ("name|id|host|port"), since Bonjour doesn't reach
+        // into an emulator. Pair it with a headless test Mac (TAPDROP_TEST_NAME="MacBook Air").
+        create("capture") {
+            initWith(getByName("release"))
+            matchingFallbacks += listOf("release")
+        }
     }
 
     compileOptions {
@@ -56,6 +63,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

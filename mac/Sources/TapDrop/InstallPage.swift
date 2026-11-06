@@ -1,8 +1,16 @@
 import Foundation
 
 /// The page the phone opens from the setup QR code: download TapDrop, then the three steps.
-/// Dark, with the aurora accents and type of the apps (Geist where the phone has it, else the system sans).
+/// Lumen, like the apps: night, the Notchline lit at the top, Instrument Serif and Geist (served by this Mac).
 enum InstallPage {
+    /// Font files the page asks for, by path (served from the Mac app's own fonts).
+    static let fonts: [String: String] = [
+        "/f/serif.ttf": "InstrumentSerif-Regular.ttf",
+        "/f/serif-italic.ttf": "InstrumentSerif-Italic.ttf",
+        "/f/geist.ttf": "Geist.ttf",
+        "/f/mono.ttf": "GeistMono.ttf",
+    ]
+
     static func html(macName: String, apkSize: Int64?, version: String? = nil) -> String {
         let mac = escape(macName)
         let size = apkSize.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
@@ -34,94 +42,95 @@ enum InstallPage {
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
         <meta name="color-scheme" content="dark">
-        <meta name="theme-color" content="#0A0A0F">
+        <meta name="theme-color" content="#08080A">
         <title>Get TapDrop</title>
         <link rel="icon" href="data:image/svg+xml,\(iconDataURI)">
         <style>
+        @font-face { font-family: "Instrument Serif"; src: url(/f/serif.ttf) format("truetype"); font-display: swap; }
+        @font-face { font-family: "Instrument Serif"; font-style: italic; src: url(/f/serif-italic.ttf) format("truetype"); font-display: swap; }
+        @font-face { font-family: "Geist"; src: url(/f/geist.ttf) format("truetype"); font-weight: 100 900; font-display: swap; }
+        @font-face { font-family: "Geist Mono"; src: url(/f/mono.ttf) format("truetype"); font-weight: 100 900; font-display: swap; }
         :root {
-          --bg: #0A0A0F; --surface: #15151C; --raised: #1C1C25; --hair: rgba(255,255,255,.08);
-          --text: #F5F5FA; --text2: #A0A2B4; --text3: #6B6D80;
-          --blue: #409EFF; --violet: #8561FF; --orchid: #F26BD9; --green: #2ED17A;
+          --bg: #08080A; --surface: #111114; --raised: #17171A; --hair: rgba(255,255,255,.08);
+          --text: #F4F3EF; --text2: #A2A2A8; --text3: #6E6E75; --light: #D6DEFF;
+          --sans: Geist, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+          --serif: "Instrument Serif", ui-serif, Georgia, serif;
+          --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
         }
         * { box-sizing: border-box; }
         html { background: var(--bg); -webkit-text-size-adjust: 100%; }
         body {
           margin: 0; min-height: 100vh; min-height: 100svh; color: var(--text); background: var(--bg);
-          font: 400 16px/24px Geist, "Geist Sans", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-          -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; overflow-x: hidden;
+          font: 400 16px/24px var(--sans); -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; overflow-x: hidden;
         }
-        .aurora { position: fixed; inset: -30vh -30vw auto -30vw; height: 95vh; pointer-events: none; z-index: 0;
-          background:
-            radial-gradient(38% 42% at 28% 42%, rgba(64,158,255,.38), transparent 70%),
-            radial-gradient(40% 46% at 70% 38%, rgba(133,97,255,.44), transparent 72%),
-            radial-gradient(30% 34% at 56% 70%, rgba(242,107,217,.16), transparent 70%);
-          filter: blur(28px); animation: drift 18s ease-in-out 2 alternate; }
-        @keyframes drift { to { transform: translate3d(4vw, 3vh, 0) scale(1.06); } }
+        .spill { position: fixed; left: 50%; top: -38vh; width: 150vw; height: 80vh; margin-left: -75vw; pointer-events: none; z-index: 0;
+          background: radial-gradient(closest-side, rgba(214,222,255,.16), rgba(214,222,255,.05) 55%, transparent 100%);
+          animation: breathe 7s ease-in-out 2 alternate; }
+        @keyframes breathe { to { opacity: .72; } }
         main { position: relative; z-index: 1; max-width: 460px; margin: 0 auto;
-          padding: calc(44px + env(safe-area-inset-top)) 22px calc(28px + env(safe-area-inset-bottom)); }
-        .icon { width: 88px; height: 88px; border-radius: 24px; display: grid; place-items: center;
-          background: linear-gradient(135deg, #33A8FF 0%, #6673FF 55%, #9952FA 100%);
-          box-shadow: 0 22px 60px -14px rgba(133,97,255,.75), inset 0 1px 0 rgba(255,255,255,.35), inset 0 0 0 1px rgba(255,255,255,.14); }
-        .icon svg { width: 46px; height: 46px; }
-        .for { display: inline-flex; align-items: center; gap: 8px; margin-top: 26px; padding: 6px 12px 6px 10px; border-radius: 999px;
-          background: rgba(255,255,255,.06); border: 1px solid var(--hair); color: var(--text2); font-size: 13px; line-height: 18px; font-weight: 500; }
+          padding: calc(40px + env(safe-area-inset-top)) 22px calc(28px + env(safe-area-inset-bottom)); }
+        .icon { width: 84px; height: 84px; border-radius: 22px; display: block;
+          box-shadow: 0 24px 60px -18px rgba(0,0,0,.9), 0 0 44px -10px rgba(214,222,255,.35), inset 0 0 0 1px rgba(255,255,255,.1); }
+        .for { display: inline-flex; align-items: center; gap: 8px; margin-top: 28px; padding: 6px 12px 6px 10px; border-radius: 999px;
+          background: rgba(255,255,255,.05); border: 1px solid var(--hair); color: var(--text2); font-size: 13px; line-height: 18px; font-weight: 500; }
         .for svg { width: 16px; height: 16px; stroke: var(--text2); }
         .for b { color: var(--text); font-weight: 600; }
-        h1 { margin: 14px 0 8px; font-size: 34px; line-height: 40px; font-weight: 700; letter-spacing: -0.02em; }
+        h1 { margin: 16px 0 10px; font: 400 48px/46px var(--serif); letter-spacing: -0.01em; }
+        h1 em { font-style: italic; }
         .lede { margin: 0; color: var(--text2); font-size: 17px; line-height: 25px; }
-        .btn { margin-top: 28px; display: flex; align-items: center; justify-content: center; gap: 10px; height: 58px; border-radius: 999px;
-          color: #fff; text-decoration: none; font-weight: 600; font-size: 17px; letter-spacing: -0.005em;
-          background: linear-gradient(90deg, var(--blue), var(--violet));
-          box-shadow: 0 16px 36px -12px rgba(133,97,255,.85), inset 0 1px 0 rgba(255,255,255,.28);
-          transition: transform .18s cubic-bezier(.3,.7,.4,1), box-shadow .18s; }
-        .btn:active { transform: scale(.97); box-shadow: 0 8px 20px -10px rgba(133,97,255,.85), inset 0 1px 0 rgba(255,255,255,.28); }
-        .btn:focus-visible { outline: 3px solid rgba(133,97,255,.6); outline-offset: 3px; }
-        .btn svg { width: 22px; height: 22px; fill: none; stroke: #fff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-        .meta { margin: 10px 0 0; text-align: center; color: var(--text3); font-size: 13px; line-height: 18px; font-weight: 500; }
+        .btn { margin-top: 30px; display: flex; align-items: center; justify-content: center; gap: 10px; height: 58px; border-radius: 999px;
+          color: #08080A; text-decoration: none; font-weight: 600; font-size: 17px; letter-spacing: -0.005em;
+          background: linear-gradient(#FFFFFF, #E2E0D9);
+          box-shadow: inset 0 -1px 0 rgba(0,0,0,.12), 0 0 34px -6px rgba(214,222,255,.45), 0 1px 2px rgba(0,0,0,.5);
+          transition: transform .18s cubic-bezier(.3,.7,.4,1), box-shadow .18s, filter .18s; }
+        .btn:active { transform: scale(.97); filter: brightness(.94); box-shadow: inset 0 -1px 0 rgba(0,0,0,.12), 0 0 18px -6px rgba(214,222,255,.3), 0 1px 2px rgba(0,0,0,.5); }
+        .btn:focus-visible { outline: 2px solid var(--light); outline-offset: 4px; }
+        .btn svg { width: 22px; height: 22px; fill: none; stroke: #08080A; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+        .meta { margin: 12px 0 0; text-align: center; color: var(--text3); font: 500 12px/18px var(--mono); letter-spacing: .02em; }
         .next { display: none; margin: 14px 0 0; padding: 12px 14px; border-radius: 16px; text-align: center;
-          background: rgba(46,209,122,.10); border: 1px solid rgba(46,209,122,.22); color: #BFF5D6; font-size: 14px; line-height: 20px; }
+          background: rgba(244,243,239,.06); border: 1px solid var(--hair); color: var(--text); font-size: 14px; line-height: 20px; }
         .started .next { display: block; animation: rise .4s cubic-bezier(.3,.7,.4,1); }
         @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
         .notice { margin-top: 28px; padding: 16px 18px; border-radius: 20px; background: rgba(255,176,32,.08);
           border: 1px solid rgba(255,176,32,.24); color: var(--text2); font-size: 15px; line-height: 22px; }
         .notice b { display: block; color: #FFD58A; font-weight: 600; margin-bottom: 4px; }
-        h2 { margin: 36px 4px 10px; font-size: 14px; line-height: 20px; font-weight: 600; color: var(--text2); }
-        .card { background: var(--surface); border: 1px solid var(--hair); border-radius: 26px; padding: 4px 18px; }
-        .step { display: grid; grid-template-columns: 34px 1fr; gap: 14px; padding: 16px 0; }
+        h2 { margin: 40px 4px 12px; font: 500 11px/16px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--text3); }
+        .card { background: var(--surface); border: 1px solid var(--hair); border-radius: 24px; padding: 4px 18px; }
+        .step { display: grid; grid-template-columns: 32px 1fr; gap: 14px; padding: 16px 0; }
         .step + .step { border-top: 1px solid var(--hair); }
-        .n { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; font-size: 15px;
-          font-variant-numeric: tabular-nums; color: #CFC3FF; background: rgba(133,97,255,.16); box-shadow: inset 0 0 0 1px rgba(133,97,255,.25); }
-        .step b { display: block; font-size: 16px; line-height: 22px; font-weight: 600; margin: 5px 0 3px; }
+        .n { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font: 500 13px/1 var(--mono);
+          color: var(--text); background: rgba(244,243,239,.06); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); margin-top: 2px; }
+        .step b { display: block; font-size: 16px; line-height: 22px; font-weight: 600; margin: 4px 0 3px; }
         .step span { display: block; color: var(--text2); font-size: 14px; line-height: 20px; }
         .step span b { display: inline; font-size: inherit; margin: 0; color: var(--text); font-weight: 600; }
         .tap { margin-top: 12px; display: grid; grid-template-columns: 76px 1fr; gap: 16px; align-items: center;
-          background: var(--surface); border: 1px solid var(--hair); border-radius: 26px; padding: 16px 18px; overflow: hidden; }
+          background: var(--surface); border: 1px solid var(--hair); border-radius: 24px; padding: 16px 18px; overflow: hidden; }
         .art { position: relative; width: 76px; height: 84px; border-radius: 16px; overflow: hidden;
-          background: radial-gradient(80% 70% at 50% 0%, rgba(133,97,255,.45), transparent 70%), #101018; box-shadow: inset 0 0 0 1px var(--hair); }
-        .art .lid { position: absolute; left: 6px; right: 6px; top: 10px; height: 1px; background: rgba(255,255,255,.28); }
+          background: radial-gradient(80% 60% at 50% 0%, rgba(214,222,255,.22), transparent 70%), #0B0B0E; box-shadow: inset 0 0 0 1px var(--hair); }
+        .art .lid { position: absolute; left: 6px; right: 6px; top: 10px; height: 1px; background: rgba(255,255,255,.22); }
         .art .notch { position: absolute; left: 50%; top: 10px; width: 24px; height: 7px; margin-left: -12px; background: #000; border-radius: 0 0 4px 4px; }
-        .art .glow { position: absolute; left: 50%; top: 4px; width: 60px; height: 26px; margin-left: -30px; border-radius: 50%;
-          background: radial-gradient(closest-side, rgba(255,255,255,.9), rgba(133,97,255,.65), transparent); filter: blur(3px); }
+        .art .glow { position: absolute; left: 50%; top: 2px; width: 60px; height: 28px; margin-left: -30px; border-radius: 50%;
+          background: radial-gradient(closest-side, rgba(255,255,255,.95), rgba(214,222,255,.45), transparent); filter: blur(3px); }
         .art .phone { position: absolute; left: 50%; top: 18px; width: 32px; height: 70px; margin-left: -16px; border-radius: 8px;
-          background: linear-gradient(#8CC6FF, var(--blue) 30%, var(--violet) 75%, #5B34D6); box-shadow: 0 0 0 2px #0C0C10, 0 0 0 2.6px rgba(255,255,255,.3), 0 0 18px rgba(133,97,255,.7); }
+          background: linear-gradient(#FFFFFF, #E8EBF7 45%, #C9CEDD); box-shadow: 0 0 0 2px #0C0C10, 0 0 0 2.6px rgba(255,255,255,.28), 0 0 20px rgba(214,222,255,.5); }
         .tap b { display: block; font-size: 16px; line-height: 22px; font-weight: 600; }
         .tap span { display: block; margin-top: 4px; color: var(--text2); font-size: 14px; line-height: 20px; }
         .tip { margin: 22px 4px 0; display: flex; gap: 10px; color: var(--text2); font-size: 14px; line-height: 20px; }
-        .tip svg { flex: none; width: 18px; height: 18px; margin-top: 1px; stroke: var(--violet); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-        footer { margin: 34px auto 0; max-width: 320px; color: var(--text3); font-size: 12px; line-height: 17px; font-weight: 500; text-align: center; }
+        .tip svg { flex: none; width: 18px; height: 18px; margin-top: 1px; stroke: var(--text2); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        footer { margin: 36px auto 0; max-width: 320px; color: var(--text3); font-size: 12px; line-height: 17px; font-weight: 500; text-align: center; }
         footer svg { display: inline-block; width: 12px; height: 12px; margin: 0 5px -1px 0; stroke: var(--text3); fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-        @media (prefers-reduced-motion: reduce) { .aurora, .started .next { animation: none; } .btn { transition: none; } }
+        @media (prefers-reduced-motion: reduce) { .spill, .started .next { animation: none; } .btn { transition: none; } }
         </style>
         </head>
         <body>
-        <div class="aurora" aria-hidden="true"></div>
+        <div class="spill" aria-hidden="true"></div>
         <main>
-          <div class="icon" role="img" aria-label="TapDrop">\(glyphSVG)</div>
+          \(iconSVG)
           <div class="for">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="11" rx="1.6"/><path d="M2 19h20"/></svg>
             <span>For <b>\(mac)</b></span>
           </div>
-          <h1>Get TapDrop</h1>
+          <h1>Get <em>TapDrop.</em></h1>
           <p class="lede">Send photos, links and files between this phone and your Mac with a touch.</p>
           \(download)
 
@@ -156,21 +165,26 @@ enum InstallPage {
         """
     }
 
-    /// The app glyph: a dot with two pairs of radio waves.
-    private static let glyphSVG = """
-    <svg viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" aria-hidden="true">\
-    <circle cx="24" cy="24" r="3.6" fill="#fff" stroke="none"/>\
-    <path d="M16.2 16.2a11 11 0 0 0 0 15.6M31.8 16.2a11 11 0 0 1 0 15.6"/>\
-    <path d="M10.6 10.6a19 19 0 0 0 0 26.8M37.4 10.6a19 19 0 0 1 0 26.8"/></svg>
-    """
+    /// The Notchline: the notch's outline traced in one line (a 100-unit square, as the app icon).
+    private static let notchline = "M16 38H34C37 38 38.5 39.5 38.5 42.5V43.5C38.5 47 41 49.5 44.5 49.5H55.5C59 49.5 61.5 47 61.5 43.5V42.5C61.5 39.5 63 38 66 38H84"
+
+    /// The app icon: the lit Notchline on a night tile.
+    private static var iconSVG: String {
+        """
+        <svg class="icon" viewBox="0 0 100 100" role="img" aria-label="TapDrop"><defs>\
+        <radialGradient id="sp" cx="50" cy="40" r="46" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".34"/>\
+        <stop offset=".45" stop-color="#D6DEFF" stop-opacity=".1"/><stop offset="1" stop-color="#D6DEFF" stop-opacity="0"/></radialGradient>\
+        <filter id="gl" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="2.6"/></filter></defs>\
+        <rect width="100" height="100" rx="23" fill="#111114"/><rect width="100" height="100" rx="23" fill="url(#sp)"/>\
+        <path d="\(notchline)" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" filter="url(#gl)"/>\
+        <path d="\(notchline)" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        """
+    }
 
     private static var iconDataURI: String {
         let svg = """
-        <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>\
-        <stop offset='0' stop-color='#33A8FF'/><stop offset='.55' stop-color='#6673FF'/><stop offset='1' stop-color='#9952FA'/></linearGradient></defs>\
-        <rect width='48' height='48' rx='13' fill='url(#g)'/><circle cx='24' cy='24' r='3.6' fill='#fff'/>\
-        <path d='M16.2 16.2a11 11 0 0 0 0 15.6M31.8 16.2a11 11 0 0 1 0 15.6M10.6 10.6a19 19 0 0 0 0 26.8M37.4 10.6a19 19 0 0 1 0 26.8' \
-        fill='none' stroke='#fff' stroke-width='3.6' stroke-linecap='round'/></svg>
+        <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='23' fill='#111114'/>\
+        <path d='\(notchline)' fill='none' stroke='#fff' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/></svg>
         """
         return svg.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-._~ ='/:"))) ?? ""
     }
