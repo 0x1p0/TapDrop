@@ -1,7 +1,6 @@
 package app.tapdrop.core
 
 import org.json.JSONObject
-import kotlin.math.abs
 
 /**
  * The phone's half of the light key (PROTOCOL.md → "Light key").
@@ -35,6 +34,17 @@ object LightKeyRules {
     const val KNOCK_MOTION_MS = 1000L
     /** …the phone upright, not lying flat (|gravity z| below 8 m/s²)… */
     const val UPRIGHT_MAX_Z = 8f
+    /**
+     * …its screen not facing upwards (gravity z below 3 m/s², about 18° above level): the notch faces the user from a
+     * display that leans back, so a screen on it faces level or a little down. One facing the ceiling (a phone held
+     * to read, in bed or at a desk) can't be on the notch…
+     */
+    const val KNOCK_MAX_Z = 3f
+    /**
+     * …and nothing touched on the screen for 0.8 s: on the notch the screen faces away from its user. A thumb
+     * reaching for the top of the screen covers the proximity sensor too, and must never start a round.
+     */
+    const val TOUCH_QUIET_MS = 800L
     /**
      * …the proximity sensor reading far for at least half a second first (a phone brought to the notch, not one
      * jostling in a pocket or under a thumb)…
@@ -92,6 +102,8 @@ object LightKeyRules {
         val busy: Boolean,
         /** Gravity along the screen's normal (m/s²): +9.8 face up on a table, −9.8 face down. */
         val gz: Float,
+        /** Last time the user touched something on the screen (a click, a long press, typing). */
+        val lastTouch: Long = NEVER,
     )
 
     /** Why a grab is declined before any light, checked in this order; null to go ahead. */
@@ -99,6 +111,7 @@ object LightKeyRules {
         !s.screenOn -> "screen-off"
         s.locked -> "locked"
         s.inCall -> "in-call"
+        s.now - s.lastTouch < TOUCH_QUIET_MS -> "touching"
         s.motionSensor && s.now - s.lastMotion > STILL_MS && !s.near && s.now - s.lastNear > NEAR_RECENT_MS -> "still"
         s.picking || s.keying || s.now - s.lastSent < COOLDOWN_MS -> "cooldown"
         s.busy -> "busy"
@@ -128,7 +141,8 @@ object LightKeyRules {
     fun knock(s: State, live: Boolean, lastKnock: Long, farFor: Long): Boolean =
         s.now - s.lastMotion <= KNOCK_MOTION_MS &&
             farFor >= KNOCK_FAR_MS &&
-            abs(s.gz) < UPRIGHT_MAX_Z &&
+            s.gz > -UPRIGHT_MAX_Z && s.gz < KNOCK_MAX_Z &&
+            s.now - s.lastTouch >= TOUCH_QUIET_MS &&
             s.screenOn && !s.locked && !s.inCall && live &&
             !s.picking && !s.keying &&
             s.now - lastKnock >= KNOCK_GAP_MS &&

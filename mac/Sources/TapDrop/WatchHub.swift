@@ -277,6 +277,8 @@ final class KeyRounds: @unchecked Sendable {
     private let testDelay = TestHooks.on
         ? (ProcessInfo.processInfo.environment["TAPDROP_TEST_KEY_DELAY_MS"].flatMap(Double.init) ?? 0) / 1000 : 0
     private var simPhoneAtNotch = false
+    /// Bumped by each knock, so only the newest one waits for its phone to show up on the notch.
+    private var knockWait = 0
 
     private static var now: TimeInterval { ProcessInfo.processInfo.systemUptime }
 
@@ -326,27 +328,73 @@ final class KeyRounds: @unchecked Sendable {
                 if TestMode.on { NSLog("TapDrop[test]: knock from %@ ignored: a round is running or just ran", p.name) }
                 return
             }
-            // The phone's proximity sensor fires a centimetre or two before it lands: let it settle on the notch
-            // before its screen lights up (a round started by the notch going dark in the meantime covers it too).
-            q.asyncAfter(deadline: .now() + LightKey.knockSettle) { [self] in
-                guard canStart(at: Self.now) else { return }
-                startKnock(p, at: t)
+            let name = p.name
+            // No phone can be on the notch of a Mac whose screen is off or closed.
+            guard sensor.simulated || Self.builtInScreenOn() else {
+                DispatchQueue.main.async { TapLog.shared.note("\(name) knocked, but your Mac's screen is off: no flash") }
+                return
             }
+            // The phone's proximity sensor only says something is close to *the phone* (a thumb, a pillow, a pocket):
+            // the notch has to see the phone too before its screen may light up. The room's level before it came:
+            let ref = roomLevel(before: t)
+            if sensor.simulated, testKey != "far" {
+                // Simulated: the phone lands on the notch, its screen content showing (an open notch: brighter than
+                // 0.3·B). The ramp modes are a dark room, where the screen is at its dimmest: barely registers.
+                simPhoneAtNotch = true
+                sensor.simulate(testKey.hasPrefix("ramp") ? 3 : 300)
+            }
+            knockWait += 1
+            waitForPhone(p, knock: t, ref: ref, wait: knockWait)
         }
+    }
+
+    /// The notch's level before a knock at [t]: the median of what it read 3 to 0.6 s earlier (the phone was on its
+    /// way, not there yet), or the room's level if it has no such readings.
+    private func roomLevel(before t: TimeInterval) -> Double {
+        let before = sensor.samples(from: t - 3, to: t - 0.6).map(\.lux)
+        return before.isEmpty ? (sensor.baseline ?? 0) : LightKey.median(before)
+    }
+
+    /// Starts a knock's round once the notch shows the phone on it: a reading at least max(1 lux, 20 %) away from
+    /// the room's level [ref] (the phone blocks the room's light, or adds its screen's, or both). Not before
+    /// `knockSettle` (the proximity sensor fires a centimetre or two before the phone lands), and never at all when
+    /// nothing changed within `knockWithin`: that phone is somewhere else, and its screen must not flash.
+    private func waitForPhone(_ p: WatchHub.Phone, knock t: TimeInterval, ref: Double, wait: Int) {
+        guard wait == knockWait, canStart(at: Self.now) else { return }  // a newer knock, or a round started meanwhile
+        let step = max(LightKey.knockMinStep, LightKey.knockFraction * ref)
+        let seen = sensor.samples(from: t - LightKey.knockLookBack, to: Self.now).contains { abs($0.lux - ref) >= step }
+        if seen, Self.now >= t + LightKey.knockSettle {
+            startKnock(p, at: Self.now)
+            return
+        }
+        guard Self.now < t + LightKey.knockWithin else {
+            let level = sensor.latest(atOrBefore: Self.now)?.lux ?? ref
+            let name = p.name
+            if TestMode.on { NSLog("TapDrop[test]: knock from %@ ignored: the notch stayed at %.1f lux (room %.1f)", name, level, ref) }
+            DispatchQueue.main.async {
+                TapLog.shared.note("\(name) knocked, but nothing was on the notch (\(Int(level.rounded())) lux, unchanged): no flash")
+            }
+            return
+        }
+        q.asyncAfter(deadline: .now() + 0.05) { [self] in waitForPhone(p, knock: t, ref: ref, wait: wait) }
     }
 
     private func startKnock(_ p: WatchHub.Phone, at t: TimeInterval) {
         start(.knock, phones: [p], t0: t)
-        if sensor.simulated {
-            // Simulated: the phone's screen content on the notch (an open notch: brighter than 0.3·B). Read once
-            // the round has frozen B, and inside P's window. The ramp modes are a dark room, where the screen is at
-            // its dimmest: its content barely registers.
-            simPhoneAtNotch = true
-            sensor.simulate(testKey.hasPrefix("ramp") ? 3 : 300)
-        }
         let level = sensor.latest(atOrBefore: Self.now)?.lux ?? sensor.baseline ?? 0
         let name = p.name
         DispatchQueue.main.async { TapLog.shared.trigger("knock", from: level, to: level, asked: [name]) }
+    }
+
+    /// The Mac's own screen is on and awake: lid open, not asleep. (Clamshell with an external display: off.)
+    static func builtInScreenOn() -> Bool {
+        var ids = [CGDirectDisplayID](repeating: 0, count: 16)
+        var n: UInt32 = 0
+        guard CGGetOnlineDisplayList(16, &ids, &n) == .success else { return true }
+        for id in ids.prefix(Int(n)) where CGDisplayIsBuiltin(id) != 0 {
+            return CGDisplayIsAsleep(id) == 0
+        }
+        return false
     }
 
     /// `{"t":"key-on","id":n,"src":…}`: the phone's screen is white at full brightness.
@@ -478,6 +526,8 @@ final class KeyRounds: @unchecked Sendable {
 
     private func triggered(_ f: NotchDetector.Fired) {
         guard canStart(at: f.at) else { return }
+        // The notch changing while the Mac's screen is off or closed is the room (the lights), never a phone on it.
+        guard sensor.simulated || Self.builtInScreenOn() else { return }
         let phones = WatchHub.shared.phones()
         let keyed = phones.filter { $0.key >= LightKey.version }
         let old = phones.filter { $0.key < LightKey.version }

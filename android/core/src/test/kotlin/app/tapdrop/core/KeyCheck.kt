@@ -80,6 +80,9 @@ fun main(args: Array<String>) {
     println("Rounds — the lights go off (every phone declines that round), then a phone knocks (TAPDROP_TEST_KEY=pass)")
     TestMac(bin, port + 9, dir, "pass").use { declinedThenKnock(it) }
 
+    println("Rounds — a phone knocks somewhere else (a thumb on its proximity sensor): the notch never changes (TAPDROP_TEST_KEY=far)")
+    TestMac(bin, port + 10, dir, "far").use { farKnock(it) }
+
     println("Live link — the newest link per phone wins; a silent link is dropped (silence limit 3 s)")
     TestMac(bin, port + 5, dir, "pass", env = mapOf("TAPDROP_TEST_WATCH_SILENCE" to "3")).use { liveness(it) }
 
@@ -121,6 +124,8 @@ private fun rules() {
     check("still: no motion for 3 s, nothing near — a hand over the notch", LightKeyRules.decline(desk) == "still")
     check("not still while near the notch", LightKeyRules.decline(desk.copy(near = true, lastNear = t - 2000)) == null)
     check("not still within 1 s of being near", LightKeyRules.decline(desk.copy(lastNear = t - 800)) == null)
+    check("touching: something tapped on the screen 0.5 s ago → decline (on the notch it faces away from its user)",
+        LightKeyRules.decline(base.copy(lastTouch = t - 500)) == "touching" && LightKeyRules.decline(base.copy(lastTouch = t - 900)) == null)
     check("no accelerometer: never 'still'", LightKeyRules.decline(desk.copy(motionSensor = false)) == null)
     check("cooldown: 2.5 s after a tap that sent", LightKeyRules.decline(base.copy(lastSent = t - 2000)) == "cooldown" &&
         LightKeyRules.decline(base.copy(lastSent = t - 2600)) == null)
@@ -139,6 +144,10 @@ private fun rules() {
         LightKeyRules.knock(s, live, lastKnock, farFor)
     check("knock: moving, upright, unlocked, live, brought from afar", knock())
     check("no knock lying flat (|gz| 9.8)", !knock(k.copy(gz = 9.8f)))
+    check("no knock with the screen facing up (gz 5: held to read, in bed or at a desk)", !knock(k.copy(gz = 5f)))
+    check("knock tilted towards a display that leans back (gz −4)", knock(k.copy(gz = -4f)))
+    check("no knock within 0.8 s of a touch on the screen (a thumb on the proximity sensor)",
+        !knock(k.copy(lastTouch = t - 500)) && knock(k.copy(lastTouch = t - 900)))
     check("no knock face down (gz −9.8)", !knock(k.copy(gz = -9.8f)))
     check("no knock without motion in the last second", !knock(k.copy(lastMotion = t - 1200)))
     check("no knock locked / screen off / in a call", listOf(k.copy(locked = true), k.copy(screenOn = false), k.copy(inCall = true))
@@ -673,6 +682,26 @@ private fun declinedThenKnock(mac: TestMac) {
         mac.signal("USR2")
         Thread.sleep(500)
     }
+}
+
+/**
+ * A knock from a phone that isn't on the notch (in bed, a thumb or a pillow over its proximity sensor): the notch
+ * reads the room as before, so no grab ever goes out, and the phone's screen never lights up.
+ */
+private fun farKnock(mac: TestMac) {
+    val ep = Endpoint("127.0.0.1", mac.port)
+    Phone("Far Pixel", ep, caps = LightKeyRules.VERSION).use { p ->
+        p.expect("room", 2500)
+        Thread.sleep(1700)
+        p.s.knock()
+        check("a knock the notch doesn't see → no grab, no light", p.none("grab", 2000))
+        Thread.sleep(1700)
+        p.s.knock()
+        check("…every time", p.none("grab", 2000))
+    }
+    Thread.sleep(300)
+    check("Mac log: 'Far Pixel knocked, but nothing was on the notch (120 lux, unchanged): no flash'",
+        mac.logText().contains("Far Pixel knocked, but nothing was on the notch (120 lux, unchanged): no flash"))
 }
 
 // MARK: 4. calibration

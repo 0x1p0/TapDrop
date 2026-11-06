@@ -22,6 +22,8 @@ import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.Executors
 import kotlin.concurrent.thread
 import kotlin.math.abs
 import kotlin.math.max
@@ -42,7 +44,32 @@ class MediaMatcher(
     private val busy: () -> Boolean = { false },
     /** (done, total) for the photo index, like [onIndex] for videos. */
     private val onPhotos: (done: Int, total: Int) -> Unit = { _, _ -> },
+    /** Fingerprinting is waiting (the phone is warm, or a tap is happening), or going again. */
+    private val onPaused: (Boolean) -> Unit = {},
 ) {
+    /** Waits while [busy], saying so, so the progress doesn't look stuck. */
+    private fun restWhileBusy() {
+        if (!busy()) return
+        onPaused(true)
+        while (busy()) Thread.sleep(5_000)
+        onPaused(false)
+    }
+
+    private val worker = Executors.newCachedThreadPool { r -> Thread(r, "TapDrop index worker").apply { isDaemon = true; priority = Thread.MIN_PRIORITY } }
+
+    /**
+     * Runs [block] for at most [ms]. A damaged file can make Android's decoder hang for good; then it's given up on
+     * (null, recorded as unreadable) and the rest carry on.
+     */
+    private fun <T> limited(ms: Long, block: () -> T?): T? {
+        val f = worker.submit<T?> { block() }
+        return try {
+            f.get(ms, TimeUnit.MILLISECONDS)
+        } catch (_: Exception) {
+            f.cancel(true)
+            null
+        }
+    }
     data class Media(
         val uri: Uri,
         val name: String,
@@ -89,9 +116,10 @@ class MediaMatcher(
         lastWarm = now
         val all = recentMedia(force = true)
         all.take(160).forEach { thumb(it) }
+        // Every video is fingerprinted in the background (new ones too): nothing is decoded here, where it would
+        // compete with a tap's own search for the phone's video decoder.
         index(recentVideos(force = true))
         indexPhotos()
-        all.filter { it.isVideo }.take(10).forEach { videoFrames(it, dense = false) }
     }
 
     suspend fun latest(): Media? = withContext(Dispatchers.IO) { if (hasAccess()) recentMedia(force = true).firstOrNull() else null }
@@ -170,6 +198,14 @@ class MediaMatcher(
 
         // 0) the video index: about a frame a second of every indexed video, compared at once (no decoding).
         val indexed = if (allowVideos) indexBest(recentVideos()) { score(it) } else null
+        // A video on screen that the index clearly knows: that's it, at once. (Nothing below is needed, and decoding
+        // videos while the phone is busy can take longer than a tap may wait.)
+        if (video && indexed != null && indexed.second <= 40 && indexed.third - indexed.second >= 16) {
+            lastNote = "video on screen · closest indexed frame ${indexed.first.name} ${indexed.second} " +
+                "(next video ${indexed.third}) · index ${indexEntries.size}/${recentVideos().size} videos → " +
+                "${indexed.first.name} in ${SystemClock.elapsedRealtime() - start} ms"
+            return@withContext Outcome.Found(indexed.first)
+        }
 
         // 1) thumbnails: cheap, mostly cached
         val pool = (strong + all.filter { if (video) it.isVideo else allowVideos || !it.isVideo }.take(if (video) 60 else 160))
@@ -262,15 +298,18 @@ class MediaMatcher(
             return dist(pa.bits, pb.bits) <= 16
         }
         val runnerUp = best?.let { (bm, _) -> ranked.drop(1).firstOrNull { (m, _) -> !twins(m, bm) } }
-        val standsOut = best != null && (runnerUp?.second ?: BITS) - best.second >= MARGIN
+        val gap = best?.let { (runnerUp?.second ?: BITS) - it.second } ?: 0
+        val standsOut = best != null && gap >= MARGIN
         // A plain picture (mostly dark or blank, text on a page) looks like many others to the fingerprint.
         val region = hit?.rect ?: Rect(0, 0, screen.width, screen.height)
         val plain = detail(small, Rect(region.left / 4, region.top / 4, region.right / 4, region.bottom / 4)) < MIN_STEPS
+        val trusted = standsOut && !plain
         // Not clear-cut (a near tie, or a plain picture): a closer look at the nearest few, at 40 × 40. The one that
         // truly matches it, clearly better than the next, is it; otherwise nothing is.
         var closerNote = ""
         val closer: Media? = if (best != null && best.second <= 40 && (!standsOut || plain)) {
             val looks = ranked.filter { it.second <= 40 }.take(6).mapNotNull { (m, _) ->
+                if (!inTime(BUDGET_MS + 800)) return@mapNotNull null
                 val (g, aspect) = fineMedia(m) ?: return@mapNotNull null
                 val s = fineScreen(screen, region, aspect) ?: return@mapNotNull null
                 m to correlation(s, g)
@@ -297,16 +336,16 @@ class MediaMatcher(
             // Nothing on screen looks like a photo/video: that's an app's own screen, and a fresh screenshot is what's
             // wanted. A picture of a similar screen (an old screenshot, or one someone sent in a chat) must never stand
             // in for it. Only a gallery showing a photo full screen, unmistakably, sends the photo.
-            hit == null -> best?.takeIf { gallery && it.second <= 20 && !isScreenshot(it.first) && standsOut && !plain }?.first
+            hit == null -> best?.takeIf { gallery && it.second <= 20 && !isScreenshot(it.first) && trusted }?.first
                 ?: closer?.takeIf { gallery && !isScreenshot(it) }
-            best != null && best.second <= 36 && standsOut && !plain -> best.first
+            best != null && best.second <= 36 && trusted -> best.first
             closer != null -> closer
             // A picture the user pointed at: a little looser, as long as it clearly beats every other photo.
             picked && best != null && best.second <= 52 && (ranked.getOrNull(1)?.second ?: BITS) - best.second >= 16 -> best.first
             bestStrong != null && bestStrong.second <= 64 -> bestStrong.first
             strong.size == 1 -> strong[0]
             // Just arrived (e.g. received in a chat a moment ago) and it looks alike → that one.
-            best != null && best.second <= 52 && standsOut && !plain && newest != null && best.first.uri == newest.uri &&
+            best != null && best.second <= 52 && trusted && newest != null && best.first.uri == newest.uri &&
                 now - max(newest.addedMs, newest.takenMs) < 30 * 60_000L -> best.first
             else -> null
         }
@@ -339,7 +378,7 @@ class MediaMatcher(
             append(if (video) "video on screen" else if (hit != null) "photo on screen" else "nothing photo-like on screen")
             hit?.durationMs?.let { append(", ${it / 1000}s long") } ?: if (video) append(", no length shown") else Unit
             hit?.positionMs?.let { append(" at ${it / 1000}s") }
-            append(" · ${all.count { it.isVideo }} videos, ${all.count { !it.isVideo }} photos in library")
+            append(" · ${max(recentVideos().size, all.count { it.isVideo })} videos, ${max(photoIndex.size, all.count { !it.isVideo })} photos in library")
             best?.let { append(" · closest ${it.first.name} ${it.second}") }
             runnerUp?.let { append(" (next ${it.second})") }
             if (onlyPicture) append(" · picture only")
@@ -445,7 +484,7 @@ class MediaMatcher(
     private fun videoFrames(m: Media, dense: Boolean, until: Long = Long.MAX_VALUE): List<Print> {
         val cache = if (dense) denseFrames else frames
         cache[m.uri]?.let { return it }
-        if (m.durationMs <= 0) return emptyList()
+        if (m.durationMs <= 0 || SystemClock.elapsedRealtime() > until) return emptyList()
         val times = if (dense) {
             val step = max(1000L, m.durationMs / 32)
             (step until m.durationMs step step).toList()
@@ -526,9 +565,11 @@ class MediaMatcher(
                     if (!hasAccess()) break
                     // Go easy on the phone: decoding hundreds of videos warms it, and a warm phone caps its screen's
                     // brightness, which taps need. Wait while it's warm or a tap is happening, and rest between videos.
-                    while (busy()) Thread.sleep(5_000)
-                    // A video that can't be read is recorded empty, so it isn't retried (and counts as done).
-                    indexEntries[m.uri.toString()] = runCatching { fingerprint(m) }.getOrNull() ?: Indexed(key(m), 1f, emptyList())
+                    restWhileBusy()
+                    // A video that can't be read (or hangs the decoder) is recorded empty, so it isn't retried (and
+                    // counts as done).
+                    indexEntries[m.uri.toString()] = limited(30_000) { runCatching { fingerprint(m) }.getOrNull() }
+                        ?: Indexed(key(m), 1f, emptyList())
                     onIndex(++done, eligible.size)
                     if (++n % 5 == 0) saveIndex()
                     Thread.sleep(250)
@@ -573,16 +614,16 @@ class MediaMatcher(
                 var n = 0
                 for (m in todo) {
                     if (!hasAccess()) break
-                    while (busy()) Thread.sleep(5_000)
+                    restWhileBusy()
                     // One odd file must never stop the rest (or the app): it's recorded as unmatchable.
-                    val print = runCatching {
+                    val print = limited(10_000) { runCatching {
                         val t = thumbnail(m, 192) ?: return@runCatching null
                         try {
                             dHash(t, 0, 0, t.width, t.height)?.let { Print(it, t.width.toFloat() / t.height) }
                         } finally {
                             t.recycle()
                         }
-                    }.getOrNull()
+                    }.getOrNull() }
                     photoIndex[m.uri.toString()] = PhotoEntry(m, key(m), print)
                     if (++n % 50 == 0) {
                         onPhotos(done + n, photos.size)

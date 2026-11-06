@@ -133,6 +133,7 @@ fun SettingsScreen(
     val lastTap by NotchTapService.lastTap.collectAsStateWithLifecycle()
     val videoIndex by NotchTapService.videoIndex.collectAsStateWithLifecycle()
     val photoIndex by NotchTapService.photoIndex.collectAsStateWithLifecycle()
+    val indexPaused by NotchTapService.indexPaused.collectAsStateWithLifecycle()
     // Photos and videos together: what a tap can find as the original.
     val library = listOfNotNull(videoIndex, photoIndex).takeIf { it.isNotEmpty() }
         ?.let { l -> l.sumOf { it.first } to l.sumOf { it.second } }
@@ -237,8 +238,12 @@ fun SettingsScreen(
                     item { shape ->
                         SettingsRow(
                             title = "Photos & videos for tap",
-                            subtitle = if (done >= total) "All $total ready · a tap sends the original"
-                            else "Getting ready · $done of $total · keeps going while unlocked",
+                            subtitle = when {
+                                done >= total -> "All $total ready · a tap sends the original"
+                                indexPaused == "warm" -> "Paused while your phone cools down · $done of $total"
+                                indexPaused == "tap" -> "Paused during a tap · $done of $total"
+                                else -> "Getting ready · $done of $total · keeps going while unlocked"
+                            },
                             shape = shape,
                             leading = { IconChip(Icons.Rounded.VideoLibrary, Brand.Orchid, size = 36.dp, iconSize = 20.dp) },
                             trailing = {

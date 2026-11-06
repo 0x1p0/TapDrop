@@ -80,6 +80,14 @@ enum LightKey {
     /// A knock (the phone's proximity sensor) comes a centimetre or two before the phone lands: its round starts
     /// this much later, so the screen lights up once it's on the notch.
     static let knockSettle = 0.25
+    /// …and only once the notch shows the phone on it: a reading at least max(1 lux, 20 %) away from the room's level
+    /// (the phone blocks the room's light, or adds its screen's), within 1 s of the knock: a phone pressed to the notch
+    /// always moves it, often before its proximity sensor's knock arrives (so readings from 0.3 s before count), at
+    /// times only as it lands. A phone knocking elsewhere (a thumb or a pillow on its proximity sensor) never does.
+    static let knockMinStep = 1.0
+    static let knockFraction = 0.20
+    static let knockWithin = 1.0
+    static let knockLookBack = 0.3
     static let defaultContact = 300.0
     static let contactMin = 180.0
     static let contactMax = 1500.0

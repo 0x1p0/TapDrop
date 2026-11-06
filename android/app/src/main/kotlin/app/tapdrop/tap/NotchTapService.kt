@@ -103,7 +103,7 @@ private const val MOTION_BATCH_US = 100_000
  *
  * While the screen is on, keeps a live encrypted link to the Mac. A tap only sends with a *light key*: when the
  * Mac's notch sensor sees something (or this phone knocks: its proximity sensor touched something while it was
- * being moved), the Mac sends "grab"; the phone captures what's on screen, turns its screen white at full
+ * being moved, and the notch then sees it land), the Mac sends "grab"; the phone captures what's on screen, turns its screen white at full
  * brightness, and the Mac's notch must read a level only a screen on the notch gives ("key-seen"); the phone then
  * turns the screen black and the notch must go dark with it before the Mac answers "key-ok". Only then does the
  * phone send, according to the foreground app's mode (Smart by default): the page URL in browsers, the original
@@ -135,6 +135,8 @@ class NotchTapService : AccessibilityService() {
     @Volatile private var near = false
     @Volatile private var lastNearAt = LightKeyRules.NEVER
     @Volatile private var lastKnock = LightKeyRules.NEVER
+    /** Last time the user touched something on screen (clicks, long presses, typing, as apps report them). */
+    @Volatile private var lastTouch = LightKeyRules.NEVER
 
     /** A light-key round is running on this phone (one at a time). */
     @Volatile private var keying = false
@@ -228,6 +230,7 @@ class NotchTapService : AccessibilityService() {
             },
             busy = { keying || picking || warm() },
             onPhotos = { done, total -> _photoIndex.value = done to total },
+            onPaused = { paused -> _indexPaused.value = if (paused) (if (warm()) "warm" else "tap") else null },
         )
         files = FileFinder(this)
         light = LightKey(this)
@@ -251,6 +254,9 @@ class NotchTapService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         val pkg = event.packageName?.toString() ?: return
         when (event.eventType) {
+            // The user touching the screen: a phone being used in the hand, not one on the notch.
+            AccessibilityEvent.TYPE_VIEW_CLICKED, AccessibilityEvent.TYPE_VIEW_LONG_CLICKED,
+            AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED -> if (pkg != packageName) lastTouch = SystemClock.uptimeMillis()
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                 if (pkg == "com.android.systemui" || pkg.contains("inputmethod")) return
                 lastPackage = pkg
@@ -472,8 +478,8 @@ class NotchTapService : AccessibilityService() {
         if (!LightKeyRules.knock(state(now), live = _live.value, lastKnock = lastKnock, farFor = farFor)) return
         lastKnock = now
         Log.i("TapDrop", "knock (gz=%.1f, far for %s)".format(gz, if (farFor > 60_000) "over a minute" else "$farFor ms"))
-        // Start the screen's brightness ramp now, so it's at full when the white screen goes up.
-        if (::light.isInitialized) light.brighten(BRIGHTEN_AHEAD_MS)
+        // Nothing lights up or brightens here: a knock is only the phone's guess. The Mac answers with a grab once its
+        // notch sees the phone on it, and never if it doesn't (a thumb or a pillow on the proximity sensor).
         scope.launch(Dispatchers.IO) { runCatching { s.knock() } }
     }
 
@@ -491,6 +497,7 @@ class NotchTapService : AccessibilityService() {
         lastSent = lastSent,
         busy = app.transfers.busy,
         gz = gz,
+        lastTouch = lastTouch,
     )
 
     private fun inCall(): Boolean {
@@ -577,7 +584,7 @@ class NotchTapService : AccessibilityService() {
             return
         }
         val src = LightKeyRules.Src.SCREEN
-        light.brighten(BRIGHTEN_AHEAD_MS)  // while the screen is captured (a no-op if the knock already did)
+        light.brighten(BRIGHTEN_AHEAD_MS)  // while the screen is captured: it's at full when the white goes up
         keying = true
         val inbox = Inbox(s, id)
         rounds[id] = inbox
@@ -1034,8 +1041,12 @@ class NotchTapService : AccessibilityService() {
 
     /** Sends the picked element/region: its text if it has any, otherwise the cropped image. */
     /** The phone is warm enough that Android may cap the screen's brightness. */
+    /**
+     * Warm enough that Android starts holding the phone back (screen brightness included, which taps need): background
+     * fingerprinting waits. "Light" isn't it (a charging phone sits there for hours, and nothing is limited yet).
+     */
     private fun warm(): Boolean =
-        getSystemService(PowerManager::class.java).currentThermalStatus >= PowerManager.THERMAL_STATUS_LIGHT
+        getSystemService(PowerManager::class.java).currentThermalStatus >= PowerManager.THERMAL_STATUS_MODERATE
 
     /** Whatever is dimming the screen right now ("phone warm (moderate) · Battery Saver on"), or null. */
     private fun screenDimmers(): String? {
@@ -1250,7 +1261,7 @@ class NotchTapService : AccessibilityService() {
 
         /** How long a round waits for its echo once it hears key-seen (the light thread gives up on a frame long before). */
         private const val DARK_WAIT_MS = 600L
-        /** How long a knock's early brightening lasts if no round follows. */
+        /** How long a grab's brightening lasts if its light never goes up. */
         private const val BRIGHTEN_AHEAD_MS = 2_500L
 
         private val _running = MutableStateFlow(false)
@@ -1288,6 +1299,10 @@ class NotchTapService : AccessibilityService() {
         private val _videoIndex = MutableStateFlow<Pair<Int, Int>?>(null)
         /** (done, total): how many of the library's videos are fingerprinted, so a tap can send the original video. */
         val videoIndex: StateFlow<Pair<Int, Int>?> = _videoIndex.asStateFlow()
+
+        private val _indexPaused = MutableStateFlow<String?>(null)
+        /** Why fingerprinting is waiting right now ("warm": the phone is warm; "tap": a tap is happening), or null. */
+        val indexPaused: StateFlow<String?> = _indexPaused.asStateFlow()
 
         private val _photoIndex = MutableStateFlow<Pair<Int, Int>?>(null)
         /** (done, total): how many of the library's photos are fingerprinted, so a tap can send the original photo. */
