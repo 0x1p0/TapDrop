@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Capture builds only (emulator screenshots and films): the same plain-HTTP exception as debug builds, for the
+     emulator's view of this Mac (10.0.2.2), where a local test server stands in for GitHub's releases. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:networkSecurityConfig="@xml/update_test_network" />
+</manifest>

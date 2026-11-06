@@ -53,6 +53,8 @@ android {
         create("capture") {
             initWith(getByName("release"))
             matchingFallbacks += listOf("release")
+            // So the update feed can point at a local test server (ReleaseFeed.debugFeed), for the update capture.
+            isDebuggable = true
         }
     }
 
