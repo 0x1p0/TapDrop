@@ -188,7 +188,7 @@ fun DeviceHero(
             val g = HeroGeometry(size.width)
             drawTableShadow(g, pal)
             val breath = if (state == LinkState.Live && !reduced) 0.82f + 0.18f * sin(loop * 2 * PI.toFloat()).let { (it + 1f) / 2f } else 1f
-            drawMacBook(g, pal, notchGlow = glow * breath, island = island, dim = dim, success = c.success)
+            drawMacBook(g, pal, notchGlow = glow * breath, island = island, dim = dim, success = Brand.Bone)
             drawPhone(g, pal, dim = dim, lit = glow, glyph = glyph)
             drawThread(g, state, thread, threadColor, fill, progress, loop, c.textTertiary)
         }
@@ -353,7 +353,7 @@ private fun DrawScope.drawMacBook(g: HeroGeometry, pal: MacPalette, notchGlow: F
                 lineTo(dc.x - dotR * 0.1f, dc.y + dotR * 0.36f)
                 lineTo(dc.x + dotR * 0.48f, dc.y - dotR * 0.32f)
             }
-            drawPath(ck, Color.White.copy(alpha = a), style = Stroke(dotR * 0.32f, cap = StrokeCap.Round))
+            drawPath(ck, Brand.Night.copy(alpha = a), style = Stroke(dotR * 0.32f, cap = StrokeCap.Round)) // the island's own badge: an ink tick on bone
             val barX = dc.x + dotR * 1.8f
             val barW = (notchRect.right - nr - barX).coerceAtLeast(0f)
             drawRoundRect(Color.White.copy(alpha = 0.85f * a), Offset(barX, dc.y - ih * 0.17f), Size(barW * 0.85f, ih * 0.13f), CornerRadius(ih))
@@ -561,7 +561,7 @@ fun HowToTapIllustration(
             .semantics { this.contentDescription = contentDescription },
     ) {
         val k = TapKeyFrame.at(t.value)
-        drawTapCloseup(k, pal, backColor, barColor, c.success)
+        drawTapCloseup(k, pal, backColor, barColor, Brand.Bone)
     }
 }
 
@@ -676,7 +676,7 @@ private fun DrawScope.drawTapCloseup(k: TapKeyFrame, pal: MacPalette, back: Colo
                 lineTo(dc.x - dotR * 0.1f, dc.y + dotR * 0.36f)
                 lineTo(dc.x + dotR * 0.48f, dc.y - dotR * 0.32f)
             }
-            drawPath(ck, Color.White.copy(alpha = a), style = Stroke(dotR * 0.3f, cap = StrokeCap.Round))
+            drawPath(ck, Brand.Night.copy(alpha = a), style = Stroke(dotR * 0.3f, cap = StrokeCap.Round))
             val barX = dc.x + dotR * 2f
             val barW = (nRect.right - nr * 0.8f - barX).coerceAtLeast(0f)
             drawRoundRect(Color.White.copy(alpha = 0.9f * a), Offset(barX, dc.y - ih * 0.15f), Size(barW * 0.82f, ih * 0.1f), CornerRadius(ih))

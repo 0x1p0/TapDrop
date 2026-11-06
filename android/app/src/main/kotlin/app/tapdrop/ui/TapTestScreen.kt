@@ -443,7 +443,8 @@ private fun NotchScope(
             .animateFloat(0f, 1f, infiniteRepeatable(tween(1700, easing = FastOutSlowInEasing)), label = "sweep").value
     } else null
     val marks = tries.map { it.trace.at to explain(it.trace).outcome }
-    val success = c.success
+    // The scope is a night display in both themes, so a counted tap is marked in bone, never the theme's ink.
+    val success = Brand.Bone
     val danger = c.danger
     val neutral = Color(0xFFA2A2A8)
     Canvas(
