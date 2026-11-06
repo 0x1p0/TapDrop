@@ -393,6 +393,7 @@ class MediaMatcher(
                 (first?.let { (c, f) -> " · up close ${c.e.media.name} %.2f (next %.2f, %d looked at)".format(f, second?.second ?: -1f, upClose.size) } ?: "")
             if (diagnose) {
                 photoGridNote += "\n  layout ranking: " + ranked.take(10).joinToString("; ") { "${it.e.media.name} %.3f".format(it.score) } +
+                    "\n  whole view: " + best.values.sortedByDescending { it.score }.take(8).joinToString("; ") { "${it.e.media.name} %.3f".format(it.score) } +
                     "\n  up close: " + upClose.joinToString("; ") { (c, f) -> "${c.e.media.name} %.3f".format(f) } +
                     "\n  bands: " + gridBands.joinToString("; ") { it.toShortString() } + "\n  ms:$marks"
                 diagnoseWant?.let { want ->
