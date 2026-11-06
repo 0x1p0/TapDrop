@@ -472,8 +472,12 @@ private fun passRounds(mac: TestMac) {
                 val n = p.count("lux", 2000)
                 check("diag on → lux stream, at most 8 a second", n in 10..16, "$n in 2 s")
                 p.s.diag(false)
-                Thread.sleep(250)
-                check("diag off → the stream stops", p.none("lux", 800))
+                // Readings already on their way still arrive (a busy machine can hold one back for a while), so wait
+                // for a quiet moment first: then a stream that really stopped stays silent, and one that didn't
+                // (8 a second) can't.
+                val settle = now() + 2000
+                while (now() < settle && !p.none("lux", 400)) Unit
+                check("diag off → the stream stops", p.none("lux", 1000))
 
                 // A grab-ack ok without a passed key doesn't open anything on the Mac
                 p.s.grabAck(4242, true, "screenshot")
