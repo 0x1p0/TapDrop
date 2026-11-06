@@ -38,6 +38,7 @@ export function startHero() {
     const buzz = q('[data-buzz]');
     const flood = q('[data-flood]');
     const dark = q('[data-dark]');
+    const lift = q('[data-lift]');
     const title = q('[data-title]');
     const key = q('[data-title-key]');
     const aside = q('[data-aside]');
@@ -120,6 +121,8 @@ export function startHero() {
       // 5.6 → 6.6 buzz.
       .to(phoneIdle, { keyframes: { x: [0, -6, 6, -5, 5, -3, 3, -1, 0] }, duration: 1, ease: 'none' }, 5.6)
       .to(buzz, { keyframes: { autoAlpha: [0, 1, 1, 0] }, duration: 1, ease: 'none' }, 5.6)
+      // In the bone theme the room comes back after the black frame (the lift layer only shows there).
+      .to(lift, { opacity: 1, duration: 1.0, ease: 'power1.inOut' }, 6.5)
       // 6.4 → 7.8 lift it off: a short drop that fades, not a throw.
       .to(phone, { y: () => innerHeight * 0.4, rotation: 5, autoAlpha: 0, duration: 1.4, ease: 'sine.inOut' }, 6.4)
       // 6.9 → 8.6 the notch grows into the island, then its content comes up.
@@ -138,10 +141,15 @@ export function startHero() {
 
     let lastStep = -2;
     let white_ = false;
+    let black_ = false;
     function apply(p: number) {
       lux.hero = p > 0.001 && p < 0.7 ? reading(p) : null;
       const isWhite = p > 0.2 && p < 0.4;
       if (isWhite !== white_) { white_ = isWhite; html.classList.toggle('is-white', isWhite); }
+      // The black frame: words read bone on it (in the bone theme, until the room comes back).
+      const light = html.dataset.theme === 'light';
+      const isBlack = p > 0.4 && p < 1 && (!light || p < 0.6);
+      if (isBlack !== black_) { black_ = isBlack; html.classList.toggle('is-black', isBlack); }
       const s = stepAt(p);
       if (s !== lastStep) { lastStep = s; stepEls.forEach((el, i) => el.classList.toggle('is-on', i === s)); }
     }
@@ -161,7 +169,7 @@ export function startHero() {
       gsap.ticker.remove(breathe);
       st.kill();
       lux.hero = null;
-      html.classList.remove('is-white');
+      html.classList.remove('is-white', 'is-black');
     };
   });
 }

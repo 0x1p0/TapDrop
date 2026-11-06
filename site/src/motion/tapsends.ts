@@ -12,7 +12,7 @@ const ss = (t: number, a: number, b: number) => sm(seg(t, a, b));
 const inOut3 = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
 
-// One tap, as fractions of its stretch of scroll (180svh each). Neighbouring beats overlap, so one thing hands
+// One tap, as fractions of its stretch of scroll (175svh each). Neighbouring beats overlap, so one thing hands
 // over to the next; the phone never leaves the stage, it turns back to show the next screen.
 const B = {
   flip: [0, 0.16], // (after the first tap) the phone turns back to you, showing this tap's screen
@@ -91,6 +91,7 @@ export function startTapSends() {
 
     let drivingLux = false;
     let lastWhite = false;
+    let lastBlack = false;
     let lastI = -1;
     let ps = -1; // smoothed progress: the stage glides after the scroll instead of stepping with it
     const update = () => {
@@ -156,6 +157,9 @@ export function startTapSends() {
       glow.style.opacity = (backFacing * press * (1 - w) * 0.85).toFixed(3);
       const isWhite = w > 0.5;
       if (isWhite !== lastWhite) { lastWhite = isWhite; html.classList.toggle('is-white', isWhite); }
+      // The black frame: in the bone theme, the stage's words turn bone for its beat.
+      const isBlack = b > 0.45;
+      if (isBlack !== lastBlack) { lastBlack = isBlack; html.classList.toggle('is-black', isBlack); }
 
       // The island: blooms out of the notch with this tap's real capture, then folds back.
       const open = ss(t, B.open[0], B.open[1]) * (1 - ss(t, B.close[0], B.close[1]));
@@ -212,7 +216,11 @@ export function startTapSends() {
 
       // The menu bar's reading follows the tap.
       if (pinned) { lux.hero = reading(t); drivingLux = true; }
-      else if (drivingLux) { lux.hero = null; drivingLux = false; if (lastWhite) { lastWhite = false; html.classList.remove('is-white'); } }
+      else if (drivingLux) {
+        lux.hero = null; drivingLux = false;
+        if (lastWhite) { lastWhite = false; html.classList.remove('is-white'); }
+        if (lastBlack) { lastBlack = false; html.classList.remove('is-black'); }
+      }
     };
 
     measure();
@@ -248,7 +256,7 @@ export function startTapSends() {
       removeEventListener('resize', onResize);
       items.forEach((b) => b.removeEventListener('click', go));
       if (drivingLux) lux.hero = null;
-      html.classList.remove('is-white');
+      html.classList.remove('is-white', 'is-black');
       video?.pause();
     };
   });

@@ -6,8 +6,13 @@ import Btn from '../components/Btn.astro';
 import PhoneBack from '../components/PhoneBack.astro';
 import Trace from '../components/Trace.astro';
 import TapSends from '../components/TapSends.astro';
+import Originals from '../components/Originals.astro';
+import Numbers from '../components/Numbers.astro';
+import Film from '../components/Film.astro';
+import { film as resolveFilm } from '../data/media';
 import { hero, lightKey, more, film, privacy, requirements, getIt, links } from '../data/site';
-import sunset from '../assets/photo/Sunset.jpg';
+import lagoon from '../assets/photo/Lagoon.jpg';
+const filmMain = resolveFilm('tapdrop-film.mp4', 'film-poster.webp');
 
 ---
 <Base page="home">
@@ -16,7 +21,7 @@ import sunset from '../assets/photo/Sunset.jpg';
     <div class="hero__stage" data-hero-stage>
       <div class="hero__flood" data-flood aria-hidden="true"></div>
       <div class="hero__screen">
-      <p class="hero__meta css-in" style="--d:0.45s"><b>TapDrop 2.0</b> for Android and Mac</p>
+      <p class="hero__meta eyebrow css-in" style="--d:0.45s"><span class="live-dot" aria-hidden="true"></span><b>{hero.meta}</b></p>
 
       <div class="phone" data-phone aria-hidden="true">
         <div class="phone__idle" data-phone-idle>
@@ -30,12 +35,12 @@ import sunset from '../assets/photo/Sunset.jpg';
       <h1 class="hero__title display" id="hero-title" data-title>
         <span class="sr-only">TapDrop. </span>
         <span class="hero__line rise"><span style="--d:0.05s">Touch.</span></span>
-        <span class="hero__line rise"><span style="--d:0.14s">It’s there.</span></span>
+        <span class="hero__line rise"><span style="--d:0.14s">It’s <em>there.</em></span></span>
       </h1>
 
       <p class="hero__title hero__title--key display" aria-hidden="true" data-title-key>
         <span class="hero__line rise"><span>Touch.</span></span>
-        <span class="hero__line rise"><span>It’s there.</span></span>
+        <span class="hero__line rise"><span>It’s <em>there.</em></span></span>
       </p>
 
       <div class="hero__aside" data-aside>
@@ -51,6 +56,7 @@ import sunset from '../assets/photo/Sunset.jpg';
       </div>
 
       <div class="hero__dark" data-dark aria-hidden="true"></div>
+      <div class="hero__lift" data-lift aria-hidden="true"></div>
 
       <div class="hero__seq">
         <ol class="steps" data-steps aria-label="One tap, step by step">
@@ -69,9 +75,9 @@ import sunset from '../assets/photo/Sunset.jpg';
             </div>
           </div>
           <div class="landed__photo" data-landed-photo>
-            <Picture src={sunset} alt="The photo that arrived: a violet sunset over still water, the sun on the horizon" widths={[640, 960, 1400]} sizes="(max-width: 767px) 88vw, 54vw" formats={['avif', 'webp']} />
+            <Picture src={lagoon} alt="The photo that arrived: a still lake under mountains at first light" widths={[640, 960, 1400]} sizes="(max-width: 767px) 88vw, 54vw" formats={['avif', 'webp']} />
           </div>
-          <figcaption data-landed-cap><b>Sunset.jpg</b>, the original file in full quality. Not a screenshot of it.</figcaption>
+          <figcaption data-landed-cap><b>{hero.landed.name}</b>, {hero.landed.caption.charAt(0).toLowerCase() + hero.landed.caption.slice(1)}</figcaption>
         </figure>
       </div>
       <p class="hero__hint" data-hint aria-hidden="true"><i></i>Scroll to tap</p>
@@ -81,10 +87,16 @@ import sunset from '../assets/photo/Sunset.jpg';
   <!-- ───────── What a tap sends ───────── -->
   <TapSends />
 
+  <!-- ───────── Never a screenshot: finding the original ───────── -->
+  <Originals />
+
+  <!-- ───────── What it costs ───────── -->
+  <Numbers />
+
   <!-- ───────── The light key ───────── -->
   <section class="section key" id="light-key" aria-labelledby="key-title">
     <div class="grid section__head">
-      <h2 class="h-xl" id="key-title" data-split="lines">{lightKey.title}</h2>
+      <h2 class="h-xl" id="key-title" data-split="lines">Only the notch can <em>send.</em></h2>
       <p class="lede" data-reveal="up">{lightKey.intro}</p>
     </div>
     <div class="grid key__body" data-key>
@@ -119,7 +131,7 @@ import sunset from '../assets/photo/Sunset.jpg';
   <!-- ───────── Everything else ───────── -->
   <section class="section more" aria-labelledby="more-title">
     <div class="grid section__head">
-      <h2 class="h-xl" id="more-title" data-split="lines">{more.title}</h2>
+      <h2 class="h-xl" id="more-title" data-split="lines">And when you’re not <em>tapping.</em></h2>
     </div>
     <div class="grid wall">
       {more.tiles.map((t) => (
@@ -145,28 +157,16 @@ import sunset from '../assets/photo/Sunset.jpg';
   <!-- ───────── The film ───────── -->
   <section class="section film" id="film" aria-labelledby="film-title">
     <div class="grid film__head">
-      <h2 class="h-xl" id="film-title" data-split="lines">{film.title}</h2>
+      <h2 class="h-xl" id="film-title" data-split="lines">Watch it <em>work.</em></h2>
       <p data-reveal="up">{film.text}</p>
     </div>
-    <div class="film__frame" data-film data-reveal="notch">
-      <img src={film.poster} alt="A frame from the film: a phone pressed to a MacBook's notch, light spilling around it, beside a live light graph" width="1920" height="1080" loading="lazy" decoding="async" />
-      <button class="btn film__play" type="button" data-film-play data-light aria-label={`Play the film, ${film.length}, with sound`}>
-        <span class="btn__fill" aria-hidden="true"></span>
-        <span class="playdot" aria-hidden="true"><svg viewBox="0 0 14 14"><path d="M3 1.5v11l9.5-5.5z" fill="currentColor" /></svg></span>
-        Play the film <span class="mono">{film.length}</span>
-      </button>
-      <template data-film-tpl>
-        <video controls playsinline preload="auto" poster={film.poster} width="1920" height="1080">
-          <source src={film.src} type="video/mp4" />
-        </video>
-      </template>
-    </div>
+    <Film film={filmMain} label="the film" alt="The film's opening frame: the notch traced in a line of light over the words Touch. It's there." />
   </section>
 
   <!-- ───────── Privacy ───────── -->
   <section class="section" aria-labelledby="privacy-title">
     <div class="grid privacy">
-      <h2 class="display" id="privacy-title" data-split="lines">{privacy.title}</h2>
+      <h2 class="display" id="privacy-title" data-split="lines">It never leaves your <em>Wi‑Fi.</em></h2>
       <p class="lede privacy__text" data-reveal="up">{privacy.text}</p>
       <ul class="facts">
         {privacy.facts.map((f, i) => (
@@ -179,7 +179,7 @@ import sunset from '../assets/photo/Sunset.jpg';
 
   <!-- ───────── Get it ───────── -->
   <section class="section get grid" id="get" aria-labelledby="get-title">
-    <h2 class="h-xl" id="get-title" data-split="lines">{getIt.title}</h2>
+    <h2 class="h-xl" id="get-title" data-split="lines">Get <em>TapDrop.</em></h2>
     <p class="lede get__path" data-reveal="up">{getIt.path}</p>
     <ul class="reqs" aria-label="Requirements">
       {requirements.map((r) => (

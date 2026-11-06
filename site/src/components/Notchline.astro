@@ -1,0 +1,32 @@
+---
+// The Notchline: the notch's outline traced in one line of light, as on the app icon, the apps and the films.
+// The same path as the apps (a 100-unit square: from x 16 to 84, y 38 to 49.5; android .../design/Lumen.kt).
+// `tile`: on the night tile, like the app icon (the same in light and dark). Otherwise the line alone, in currentColor.
+interface Props { size?: number; tile?: boolean; class?: string; glow?: boolean }
+const { size = 20, tile = false, class: cls = '', glow = true } = Astro.props;
+const d = 'M16 38H34C37 38 38.5 39.5 38.5 42.5V43.5C38.5 47 41 49.5 44.5 49.5H55.5C59 49.5 61.5 47 61.5 43.5V42.5C61.5 39.5 63 38 66 38H84';
+const uid = `nl${Math.random().toString(36).slice(2, 7)}`;
+---
+{tile ? (
+  <svg class:list={['brandmark', cls]} width={size} height={size} viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+    <defs>
+      <radialGradient id={`${uid}-g`} cx="0.5" cy="0.4" r="0.46">
+        <stop offset="0" stop-color="#fff" stop-opacity="0.34" />
+        <stop offset="0.45" stop-color="#d6deff" stop-opacity="0.1" />
+        <stop offset="1" stop-color="#d6deff" stop-opacity="0" />
+      </radialGradient>
+      <filter id={`${uid}-b`} x="-20%" y="-60%" width="140%" height="220%"><feGaussianBlur stdDeviation="2.6" /></filter>
+    </defs>
+    <rect width="100" height="100" rx="23" fill="#111114" />
+    <rect width="100" height="100" rx="23" fill={`url(#${uid}-g)`} />
+    {glow && <path class="bm-glow" d={d} fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" filter={`url(#${uid}-b)`} opacity="0.7" />}
+    <path class="bm-line" d={d} fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" />
+    <rect x="0.5" y="0.5" width="99" height="99" rx="22.5" fill="none" stroke="#fff" stroke-opacity="0.12" />
+  </svg>
+) : (
+  <svg class:list={['notchline', cls]} width={size} height={size * 0.3} viewBox="12 30 76 24" aria-hidden="true" focusable="false">
+    <defs><filter id={`${uid}-b`} x="-20%" y="-80%" width="140%" height="260%"><feGaussianBlur stdDeviation="2.2" /></filter></defs>
+    {glow && <path class="nl-halo" d={d} fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" filter={`url(#${uid}-b)`} opacity="0.55" />}
+    <path d={d} fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+  </svg>
+)}

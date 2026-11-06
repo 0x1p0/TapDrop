@@ -4,14 +4,13 @@ import { to } from './url';
 // invented: no store badges, quotes, counts or prices. TapDrop is free and open source under the MIT License.
 // The production URL below is a placeholder until a domain is chosen.
 
-import linkIsland from '../assets/island/island_link.png';
-import photoIsland from '../assets/island/recv_IMG_20261104_181203.png';
-import videoIsland from '../assets/island/recv_VID-20261105-WA0012.png';
-import pdfIsland from '../assets/island/island_received-pdf.png';
-import textIsland from '../assets/island/island_text.png';
-import sunsetIsland from '../assets/island/island_received-one.png';
-import codeIsland from '../assets/island/island_code.png';
-import clipIsland from '../assets/island/island_clipboard.png';
+import linkIsland from '../assets/island/lumen_link.png';
+import photoIsland from '../assets/island/lumen_recv_IMG_20261104_181203.png';
+import videoIsland from '../assets/island/lumen_recv_VID-20261105-WA0012.png';
+import pdfIsland from '../assets/island/lumen_received-pdf.png';
+import textIsland from '../assets/island/lumen_text.png';
+import codeIsland from '../assets/island/lumen_code.png';
+import clipIsland from '../assets/island/lumen_clipboard.png';
 
 import chromeArticle from '../assets/phone/chrome_article.png';
 import photosLake from '../assets/phone/photos_lake.png';
@@ -21,13 +20,13 @@ import pdfViewer from '../assets/phone/pdf_viewer.png';
 import pickArea from '../assets/phone/pick_area.png';
 export { pickArea };
 import otpNotif from '../assets/phone/otp_notif.png';
-import homeText from '../assets/phone/home_text.png';
+import homeDark from '../assets/phone/home-dark.png';
 import shareSheet from '../assets/phone/share_tapdrop.png';
-import testTap from '../assets/phone/android-test-your-tap.png';
-import androidHome from '../assets/phone/android-home.png';
+import testTap from '../assets/phone/test-tap.png';
+const androidHome = homeDark;
 
-import macPanel from '../assets/mac/mac-panel.png';
-import macTapToSend from '../assets/mac/mac-tap-to-send.png';
+import macPanel from '../assets/mac/panel-dark.png';
+import macTapToSend from '../assets/mac/tap-to-send-dark.png';
 
 export const links = {
   repo: 'https://github.com/0x1p0/TapDrop',
@@ -41,12 +40,12 @@ export const links = {
 
 export const site = {
   name: 'TapDrop',
-  version: '2.0',
+  version: '2.1',
   url: 'https://tapdrop.pages.dev/',
   tagline: 'Touch. It’s there.',
   title: 'TapDrop: touch your phone to your Mac’s notch',
   description:
-    'Free and open source. Touch your Android phone to your Mac’s notch and what’s on its screen lands on the Mac. No accounts, no cloud, no tracking.',
+    'Touch your Android phone to your Mac’s notch and what’s on its screen lands on the Mac, as the original file. Free, open source, no cloud.',
 };
 
 export const nav = [
@@ -56,7 +55,7 @@ export const nav = [
 ];
 
 export const hero = {
-  meta: 'TapDrop 2.0 for Android and Mac',
+  meta: 'TapDrop 2.1 · Android and Mac',
   open: 'Free and open source (MIT). No accounts, no cloud, no tracking.',
   lede:
     'Touch the top of your Android phone’s screen to your Mac’s notch and hold it until it buzzes. The page, photo, video or PDF on it lands on your Mac.',
@@ -67,9 +66,10 @@ export const hero = {
     { lux: 112, label: 'Counted', text: 'It buzzes. Lift it off. It’s on your Mac.' },
   ],
   landed: {
-    island: sunsetIsland,
-    islandAlt: 'The TapDrop island under the notch: Sunset.jpg, from Android phone, saved to Downloads, with an Open button',
-    caption: 'Sunset.jpg, the original file in full quality. Not a screenshot of it.',
+    island: photoIsland,
+    name: 'IMG_20261104_181203.jpg',
+    islandAlt: 'The TapDrop island under the notch: IMG_20261104_181203.jpg, from Android phone, saved to Downloads, with an Open button',
+    caption: 'The original file in full quality. Not a screenshot of it.',
   },
 };
 
@@ -85,9 +85,9 @@ export type Send = {
 };
 
 export const sends: { title: string; intro: string; rows: Send[]; footnote: string } = {
-  title: 'The real thing, not a picture of it.',
+  title: 'Whatever’s on screen.',
   intro:
-    'TapDrop looks at your screen only when a tap counts, then sends what’s behind it. Smart mode decides from what’s showing; you can choose for each app.',
+    'TapDrop looks at your screen only when a tap counts, then sends what’s behind it. Smart mode decides from what’s showing, and you can choose for each app.',
   rows: [
     {
       what: 'A web page',
@@ -141,7 +141,41 @@ export const sends: { title: string; intro: string; rows: Send[]; footnote: stri
     },
   ],
   footnote:
-    'Anything else arrives as a screenshot, copied to your clipboard too. When TapDrop can’t find the original for certain, you get the screenshot, never a guess.',
+    'Anything else arrives as a screenshot, copied to your clipboard too.',
+};
+
+export const originals = {
+  eyebrow: 'Finding the original',
+  intro:
+    'Android never tells an app which file another app has open. So TapDrop recognises it by its light, against a fingerprint of every photo and video on your phone, made once in the background.',
+  steps: [
+    { label: 'On screen', text: 'You tap a photo of a receipt. To Android, it’s only pixels.' },
+    { label: '256 numbers', text: 'TapDrop trims any black bars and reads the screen as a 16 × 16 grid of brightness.' },
+    { label: 'Your library', text: 'Every photo already has a grid of its own. The closest ranks first at 0.959. The next best manages 0.537.' },
+    { label: 'Up close', text: 'The top few get a sharper look, a 48 × 48 grid, edges and all. It has to be close, and clearly better than the rest.' },
+    { label: 'The original', text: 'The photo itself lands on your Mac, at full size, under its own name. About a second, from tap to sent.' },
+  ],
+  video:
+    'Every video gets a grid every half second. A paused frame is ranked against all of them, then the moments around the best one are decoded frame by frame. Wherever you stopped it, the whole video arrives.',
+  note:
+    'When TapDrop can’t find the original for certain, it sends a screenshot and tells you so. Never a guess. A picture that isn’t in your gallery, such as one inside a chat you never saved, and streaming video, which isn’t kept as a file, always arrive as screenshots. The scores above are from a real run on a library of 29,674 photos.',
+};
+
+export const numbers = {
+  eyebrow: 'What it costs',
+  intro:
+    'TapDrop keeps a fingerprint of each photo and video, never a copy. Measured on a real phone: 29,674 photos and 12.7 hours of video.',
+  space: [
+    { value: '0.45', unit: 'KB', label: 'per photo. A grid of light and a short hash.' },
+    { value: '30', unit: 'KB', label: 'per minute of video, a grid every half second.' },
+    { value: '38', unit: 'MB', label: 'for the whole library, both kinds. Less than a few photos.' },
+  ],
+  time: [
+    { value: '15 min', label: 'to fingerprint all 29,674 photos, once.' },
+    { value: '1.5 h', label: 'for the 2,499 videos, about 2 s each, in the background.' },
+    { value: 'On arrival', label: 'New photos and videos are added as they land on your phone.' },
+    { value: 'On your phone', label: 'The fingerprints stay there. They never travel to the Mac.' },
+  ],
 };
 
 export const lightKey = {
@@ -186,8 +220,8 @@ export const more = {
       text: 'Send the Mac’s clipboard to your phone, or the phone’s to your Mac, in one tap.',
       island: clipIsland,
       islandAlt: 'Island: Clipboard sent to Android phone, Gate B32, boarding at 7:40',
-      phone: homeText,
-      phoneAlt: 'The phone’s pill: Text copied, meet at the north entrance',
+      phone: homeDark,
+      phoneAlt: 'TapDrop on the phone, ready to tap, with Your Mac’s clipboard under From your Mac',
     },
     {
       id: 'share',
@@ -212,8 +246,8 @@ export const more = {
 
 export const film = {
   title: 'Watch it work.',
-  text: 'The launch film: every kind of tap, codes, the clipboard and the light key, in seventy-five seconds.',
-  length: '1:15',
+  text: 'Every kind of tap, codes, the clipboard and the light key, from start to finish.',
+  length: '1:25',
   src: to('/media/tapdrop-film.mp4'),
   poster: to('/media/film-poster.webp'),
 };

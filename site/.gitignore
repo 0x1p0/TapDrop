@@ -25,3 +25,7 @@ pnpm-debug.log*
 
 # editor
 .vscode/
+
+# QA screenshots
+.shots/
+.jury/

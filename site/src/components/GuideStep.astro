@@ -1,0 +1,34 @@
+---
+// One step of the install guide: its number, the one action it asks for, where to do it, and the way to the next.
+// Steps are listed once in get-started.astro (`parts`), which builds the navigator and these "Next" links from it.
+interface Props {
+  id: string;
+  n: string;
+  title: string;
+  where: string;
+  optional?: string;
+  next?: { id: string; n: string; title: string } | null;
+}
+const { id, n, title, where, optional, next } = Astro.props;
+---
+<section class="gstep" id={id} data-step={n} aria-labelledby={`${id}-h`}>
+  <header class="gstep__head">
+    <span class="gstep__n mono" aria-hidden="true">{n}</span>
+    <h3 id={`${id}-h`}><span class="sr-only">Step {n}: </span>{title}</h3>
+    <span class="gstep__meta">
+      <span class="gstep__where">{where}</span>
+      {optional && <span class="if">{optional}</span>}
+    </span>
+  </header>
+  <div class="gstep__body">
+    <slot />
+  </div>
+  {next && (
+    <a class="gstep__next" href={`#${next.id}`}>
+      <span class="gstep__next-label">Next</span>
+      <span class="mono">{next.n}</span>
+      <span>{next.title}</span>
+      <svg viewBox="0 0 14 14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2v10M3 8l4 4 4-4" /></svg>
+    </a>
+  )}
+</section>

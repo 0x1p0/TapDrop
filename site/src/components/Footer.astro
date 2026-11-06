@@ -1,11 +1,11 @@
 ---
 import { to } from '../data/url';
-import { links } from '../data/site';
+import { links, site } from '../data/site';
 const year = 2026;
 ---
 <footer class="foot">
   <div class="grid foot__top">
-    <p class="foot__say">Touch the notch.<br /><span>Your phone does the rest.</span></p>
+    <p class="foot__say">Touch the notch.<br /><span>Your phone does the <em>rest.</em></span></p>
     <nav aria-label="Footer">
       <ul>
         <li><a class="link" href={to('/')}>Tap to send</a></li>
@@ -22,9 +22,9 @@ const year = 2026;
       <p>Any Android phone from Android 13 on, and notched Macs on Apple silicon from macOS 15.</p>
     </div>
   </div>
-  <span class="foot__mark" aria-hidden="true">TapDrop</span>
+  <span class="foot__mark" aria-hidden="true">Tap<i>Drop</i></span>
   <div class="foot__base">
-    <span>TapDrop {`2.0`}, {year}. <a class="link" href={links.repo}>Source on GitHub</a>.</span>
-    <span>Set in Geist and Geist Mono.</span>
+    <span>TapDrop {site.version}, {year}. <a class="link" href={links.repo}>Source on GitHub</a>.</span>
+    <span>Set in Instrument Serif, Geist and Geist Mono.</span>
   </div>
 </footer>

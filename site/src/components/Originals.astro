@@ -1,0 +1,158 @@
+---
+// "Never a screenshot. Always the original." How a tap finds the file behind the screen, as one scrubbed figure:
+// the screen becomes a 16 × 16 grid of light, the grid is ranked against a fingerprint of every photo, the best few
+// get a 48 × 48 look, and the original goes to the Mac. The scores are the real correlations of the grids drawn
+// (scripts/originals.mjs), tuned to a real run. src/motion/originals.ts drives it; below 768 px, under reduced
+// motion and without JavaScript, the same five steps are a still sequence of the same grids.
+import { Image } from 'astro:assets';
+import receipt from '../assets/originals/receipt.jpg';
+import screenGrid from '../assets/originals/screen-grid.png';
+import library from '../assets/originals/library.png';
+import upclose from '../assets/originals/upclose.png';
+import videoStrip from '../assets/originals/video-strip.png';
+import screenGridL from '../assets/originals/screen-grid-light.png';
+import libraryL from '../assets/originals/library-light.png';
+import upcloseL from '../assets/originals/upclose-light.png';
+import videoStripL from '../assets/originals/video-strip-light.png';
+import data from '../data/originals.json';
+import { originals as o } from '../data/site';
+
+const num = (i: number) => String(i + 1).padStart(2, '0');
+const best = data.ranked[0];
+// The sparkline of the video match: correlation of the paused frame against a grid every 0.5 s.
+const cv = data.video.curve;
+const lo = 0.2, hi = 1;
+const pts = cv.map((v, i) => [(i / (cv.length - 1)) * 600, 92 - ((Math.max(lo, v) - lo) / (hi - lo)) * 84]);
+const curvePath = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ');
+const peak = pts[data.video.peak];
+---
+<section class="og" id="originals" aria-labelledby="og-title" data-og>
+  <div class="grid og__head">
+    <p class="eyebrow og__eyebrow" data-reveal="up">{o.eyebrow}</p>
+    <h2 class="h-xl og__title" id="og-title" data-split="lines">Never a screenshot. Always the <em>original.</em><a class="og__star" href="#og-note" aria-label="Footnote">*</a></h2>
+    <p class="lede og__intro" data-reveal="up">{o.intro}</p>
+  </div>
+
+  <!-- Motion (desktop): one pinned stage, five beats, a pure function of scroll progress. -->
+  <div class="og__track" data-og-track aria-hidden="true">
+    <div class="og__stage">
+      <ol class="og__steps">
+        {o.steps.map((s, i) => (
+          <li class:list={['og__step', i === 0 && 'is-on']} data-og-step={i}>
+            <span class="og__num mono">{num(i)}</span>
+            <span class="og__label">{s.label}</span>
+            <span class="og__text" data-og-text={i}></span>
+          </li>
+        ))}
+      </ol>
+
+      <figure class="og__phone" data-og-phone>
+        <div class="og__device">
+          <div class="og__screen">
+            <Image class="og__photo" src={receipt} alt="" widths={[360, 720]} sizes="15vw" format="webp" loading="lazy" data-og-photo />
+            <canvas class="og__cells" data-og-cells width="480" height="640"></canvas>
+          </div>
+        </div>
+        <figcaption class="eyebrow og__cap"><span data-og-readout>On screen</span></figcaption>
+      </figure>
+
+      <div class="og__right">
+        <div class="og__panel og__lib" data-og-lib>
+          <p class="eyebrow og__ph"><span>Your library</span><span class="mono" data-og-count>29,674 photos</span></p>
+          <canvas class="og__wall" data-og-wall width="980" height="980"></canvas>
+        </div>
+        <div class="og__panel og__close" data-og-close>
+          <div class="og__pair">
+            <figure><canvas data-og-fine-a width="336" height="336"></canvas><figcaption class="eyebrow">On screen · 48 × 48</figcaption></figure>
+            <figure><canvas data-og-fine-b width="336" height="336"></canvas><figcaption class="eyebrow">{best.name}</figcaption></figure>
+          </div>
+          <p class="og__big"><span class="serif" data-og-fine>0.00</span><span class="og__verdict"><i aria-hidden="true"></i>Close, and clearly better than the rest</span></p>
+        </div>
+        <div class="og__panel og__result" data-og-result>
+          <div class="og__file">
+            <Image src={receipt} alt="" widths={[200, 400]} sizes="120px" format="webp" loading="lazy" />
+            <div>
+              <p class="eyebrow">Sent to your Mac</p>
+              <p class="og__fname">{best.name}</p>
+              <p class="og__fmeta mono">4032 × 3024 · 3.1 MB · the original</p>
+            </div>
+          </div>
+          <p class="og__time"><span class="serif" data-og-time>1.0</span><span class="mono">s, from tap to sent</span></p>
+        </div>
+        <ol class="og__rank" data-og-rank>
+          {data.ranked.map((r, i) => (
+            <li class:list={[i === 0 && 'is-best']} data-og-row={i}>
+              <span class="mono og__rk">{i + 1}</span>
+              <span class="og__rn">{r.name}</span>
+              <span class="og__rb"><i style={`--v:${r.score}`} data-og-bar={i}></i></span>
+              <span class="mono og__rs" data-og-score={i} data-v={r.score}>{r.score.toFixed(3)}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <!-- Still: the same five steps, each beside its grid. -->
+  <ol class="og-still">
+    <li class="og-still__row">
+      <div class="og-still__text"><span class="eyebrow">01 · {o.steps[0].label}</span><p>{o.steps[0].text}</p></div>
+      <figure class="og-still__fig og-still__phone"><Image src={receipt} alt="A photo of a receipt from North Pier Bakery, open full screen on a phone" widths={[320, 640]} sizes="(max-width: 767px) 44vw, 18vw" format="webp" loading="lazy" /></figure>
+    </li>
+    <li class="og-still__row">
+      <div class="og-still__text"><span class="eyebrow">02 · {o.steps[1].label}</span><p>{o.steps[1].text}</p></div>
+      <figure class="og-still__fig og-still__phone"><Image class="on-dark" src={screenGrid} alt="The receipt as a 16 by 16 grid of brightness: a bright column of paper on a dark table" widths={[320, 414]} sizes="(max-width: 767px) 44vw, 18vw" loading="lazy" />
+        <Image class="on-light" alt="The receipt as a 16 by 16 grid of brightness: a bright column of paper on a dark table" src={screenGridL} widths={[320, 414]} sizes="(max-width: 767px) 44vw, 18vw" loading="lazy" /></figure>
+    </li>
+    <li class="og-still__row">
+      <div class="og-still__text">
+        <span class="eyebrow">03 · {o.steps[2].label}</span><p>{o.steps[2].text}</p>
+        <ol class="og__rank og__rank--still">
+          {data.ranked.map((r, i) => (
+            <li class:list={[i === 0 && 'is-best']}><span class="mono og__rk">{i + 1}</span><span class="og__rn">{r.name}</span><span class="og__rb"><i style={`--v:${r.score}; --k:1`}></i></span><span class="mono og__rs">{r.score.toFixed(3)}</span></li>
+          ))}
+        </ol>
+      </div>
+      <figure class="og-still__fig"><Image class="on-dark" src={library} alt="Forty-nine photo fingerprints from the library, each a small grid of light. One, the receipt, is outlined." widths={[480, 960]} sizes="(max-width: 767px) 90vw, 38vw" loading="lazy" />
+        <Image class="on-light" alt="Forty-nine photo fingerprints from the library, each a small grid of light. One, the receipt, is outlined." src={libraryL} widths={[480, 960]} sizes="(max-width: 767px) 90vw, 38vw" loading="lazy" /></figure>
+    </li>
+    <li class="og-still__row">
+      <div class="og-still__text"><span class="eyebrow">04 · {o.steps[3].label}</span><p>{o.steps[3].text}</p></div>
+      <figure class="og-still__fig"><Image class="on-dark" src={upclose} alt={`The screen and ${best.name} side by side as 48 by 48 grids, almost identical: 0.99`} widths={[480, 720]} sizes="(max-width: 767px) 90vw, 38vw" loading="lazy" />
+        <Image class="on-light" alt={`The screen and ${best.name} side by side as 48 by 48 grids, almost identical: 0.99`} src={upcloseL} widths={[480, 720]} sizes="(max-width: 767px) 90vw, 38vw" loading="lazy" /></figure>
+    </li>
+    <li class="og-still__row">
+      <div class="og-still__text"><span class="eyebrow">05 · {o.steps[4].label}</span><p>{o.steps[4].text}</p></div>
+      <figure class="og-still__fig og__file og__file--still">
+        <Image src={receipt} alt="" widths={[200, 400]} sizes="120px" format="webp" loading="lazy" />
+        <div><p class="eyebrow">Sent to your Mac</p><p class="og__fname">{best.name}</p><p class="og__fmeta mono">4032 × 3024 · 3.1 MB · the original</p></div>
+      </figure>
+    </li>
+  </ol>
+
+  <!-- Videos: matched at any moment. -->
+  <div class="grid og-video" data-og-video>
+    <div class="og-video__text">
+      <h3 class="h-l" data-split="lines">Videos, at <em>any</em> moment.</h3>
+      <p data-reveal="up">{o.video}</p>
+    </div>
+    <figure class="og-video__fig" data-reveal="up">
+      <div class="og-video__strip" style={`--p:${data.video.peak / (cv.length - 1)}; --wo:1`}>
+        <Image class="on-dark" src={videoStrip} alt="A video as a row of brightness grids, one every half second for twelve seconds; the grid at 7.5 seconds is lit" widths={[848, 1696]} sizes="(max-width: 767px) 92vw, 60vw" loading="lazy" />
+        <Image class="on-light" alt="A video as a row of brightness grids, one every half second for twelve seconds; the grid at 7.5 seconds is lit" src={videoStripL} widths={[848, 1696]} sizes="(max-width: 767px) 92vw, 60vw" loading="lazy" />
+        <span class="og-video__win" data-og-win aria-hidden="true"></span>
+      </div>
+      <svg class="og-video__curve" viewBox="0 0 600 100" preserveAspectRatio="none" aria-hidden="true">
+        <line x1="0" y1="92" x2="600" y2="92" class="og-video__base" />
+        <path d={curvePath} class="og-video__line" pathLength="1" data-og-curve />
+      </svg>
+      <figcaption class="og-video__cap">
+        <span class="mono">0 s</span>
+        <span class="og-video__peak" style={`--x:${(peak[0] / 600) * 100}%`}><b class="mono">7.5 s · {cv[data.video.peak].toFixed(2)}</b> then frame by frame</span>
+        <span class="mono">12 s</span>
+      </figcaption>
+    </figure>
+  </div>
+
+  <p class="og__note" id="og-note"><span aria-hidden="true">*</span> {o.note}</p>
+</section>

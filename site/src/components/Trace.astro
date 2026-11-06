@@ -5,7 +5,7 @@ interface Props { id?: string; caption?: boolean }
 const { id = 'trace', caption = true } = Astro.props;
 const line = 'M0 150 L36 148 L72 151 L108 149 L124 150 L136 160 L146 204 L160 208 L200 207 L212 205 L220 120 L228 40 L242 33 L300 30 L310 33 L318 120 L326 212 L340 216 L372 215 L384 212 L396 160 L406 151 L440 149 L480 151 L520 149 L560 150 L600 149 L640 150';
 ---
-<figure class="trace" data-trace id={id}>
+<figure class="trace night" data-trace id={id}>
   <div class="trace__head">
     <p class="trace__title">What the notch sees</p>
     <span class="trace__live mono"><span data-trace-lux>112</span> lux</span>
@@ -13,10 +13,10 @@ const line = 'M0 150 L36 148 L72 151 L108 149 L124 150 L136 160 L146 204 L160 20
   <svg viewBox="0 0 640 260" role="img" aria-label="Light at the notch over one tap: steady room light, a dip as the phone covers the notch, a sharp rise past the needed level when the screen turns white, a fall below the room when it turns black, then back to the room as the phone sends.">
     <defs>
       <linearGradient id={`${id}-tracegrad`} x1="0" x2="1" y1="0" y2="0">
-        <stop offset="0" stop-color="#409EFF" /><stop offset="0.5" stop-color="#8561FF" /><stop offset="1" stop-color="#F26BD9" />
+        <stop offset="0" stop-color="#A2A2A8" /><stop offset="0.3" stop-color="#F4F3EF" /><stop offset="0.7" stop-color="#FFFFFF" /><stop offset="1" stop-color="#F4F3EF" />
       </linearGradient>
       <linearGradient id={`${id}-areagrad`} x1="0" x2="0" y1="0" y2="1">
-        <stop offset="0" stop-color="#8561FF" stop-opacity="0.32" /><stop offset="1" stop-color="#8561FF" stop-opacity="0" />
+        <stop offset="0" stop-color="#D6DEFF" stop-opacity="0.22" /><stop offset="1" stop-color="#D6DEFF" stop-opacity="0" />
       </linearGradient>
       <clipPath id={`${id}-clip`}><rect data-trace-clip x="0" y="0" width="640" height="260" /></clipPath>
     </defs>
@@ -29,17 +29,17 @@ const line = 'M0 150 L36 148 L72 151 L108 149 L124 150 L136 160 L146 204 L160 20
       <path class="t-line" d={line} stroke={`url(#${id}-tracegrad)`} data-trace-line />
     </g>
     <circle class="t-dot" r="5" cx="640" cy="150" data-trace-dot />
-    <g class="t-mark" data-mark="1" transform="translate(176 236)"><circle r="12" fill="#5b5d70" /><path d="M-4.5 -1.5 L0 3 L4.5 -1.5" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /></g>
-    <g class="t-mark" data-mark="2" transform="translate(264 14)"><circle r="12" fill="#2ED17A" /><path d="M-5 0 L-1.5 3.5 L5 -3.5" fill="none" stroke="#06210f" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></g>
-    <g class="t-mark" data-mark="3" transform="translate(352 238)"><circle r="12" fill="#2ED17A" /><path d="M-5 0 L-1.5 3.5 L5 -3.5" fill="none" stroke="#06210f" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></g>
-    <g class="t-mark" data-mark="4" transform="translate(420 122)"><circle r="12" fill="#409EFF" /><path d="M0 5 V-5 M-4 -1 L0 -5 L4 -1" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /></g>
+    <g class="t-mark" data-mark="1" transform="translate(176 236)"><circle r="12" fill="#2b2b2f" stroke="rgb(244 243 239 / .35)" /><path d="M-4.5 -1.5 L0 3 L4.5 -1.5" fill="none" stroke="#F4F3EF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /></g>
+    <g class="t-mark" data-mark="2" transform="translate(264 14)"><circle r="12" fill="#F4F3EF" /><path d="M-5 0 L-1.5 3.5 L5 -3.5" fill="none" stroke="#08080A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></g>
+    <g class="t-mark" data-mark="3" transform="translate(352 238)"><circle r="12" fill="#F4F3EF" /><path d="M-5 0 L-1.5 3.5 L5 -3.5" fill="none" stroke="#08080A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></g>
+    <g class="t-mark" data-mark="4" transform="translate(420 122)"><circle r="12" fill="#FFFFFF" style="filter: drop-shadow(0 0 6px rgb(214 222 255 / .9))" /><path d="M0 5 V-5 M-4 -1 L0 -5 L4 -1" fill="none" stroke="#08080A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /></g>
   </svg>
   {caption && (
     <figcaption class="trace__legend">
-      <span><i style="background:#5b5d70"></i>Covered</span>
-      <span><i style="background:#2ED17A"></i>Light seen, then dark on cue</span>
-      <span><i style="background:#409EFF"></i>Sent</span>
-      <span><i style="background:transparent;border:1px dashed rgb(46 209 122 / .8)"></i>Needed: your phone’s own light</span>
+      <span><i style="background:#2b2b2f;box-shadow:inset 0 0 0 1px rgb(244 243 239 / .35)"></i>Covered</span>
+      <span><i style="background:#F4F3EF"></i>Light seen, then dark on cue</span>
+      <span><i style="background:#fff;box-shadow:0 0 8px rgb(214 222 255 / .9)"></i>Sent</span>
+      <span><i style="background:transparent;border:1px dashed rgb(214 222 255 / .8)"></i>Needed: your phone’s own light</span>
     </figcaption>
   )}
 </figure>

@@ -1,0 +1,26 @@
+---
+// A film behind its poster: nothing loads until someone presses play, then the real video with sound.
+// Missing files never break the page: without the video, the poster says the film is on its way.
+import type { Film } from '../data/media';
+interface Props { film: Film; label: string; alt: string; id?: string; small?: boolean; soon?: string }
+const { film, label, alt, id, small = false, soon = 'The film is on its way' } = Astro.props;
+---
+<div class:list={['film__frame', small && 'film__frame--small']} data-film data-reveal="notch" id={id}>
+  <img src={film.poster} alt={alt} width="1920" height="1080" loading="lazy" decoding="async" />
+  {film.src ? (
+    <>
+      <button class="btn film__play" type="button" data-film-play data-light aria-label={`Play ${label}${film.length ? ` ${film.length}` : ''}, with sound`}>
+        <span class="btn__fill" aria-hidden="true"></span>
+        <span class="playdot" aria-hidden="true"><svg viewBox="0 0 14 14"><path d="M3 1.5v11l9.5-5.5z" fill="currentColor" /></svg></span>
+        <span>Play {label}</span>{film.length && <>{' '}<span class="mono">{film.length}</span></>}
+      </button>
+      <template data-film-tpl>
+        <video controls playsinline preload="auto" poster={film.poster} width="1920" height="1080">
+          <source src={film.src} type="video/mp4" />
+        </video>
+      </template>
+    </>
+  ) : (
+    <p class="film__soon eyebrow">{soon}</p>
+  )}
+</div>

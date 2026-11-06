@@ -6,6 +6,7 @@ import { startNotch, lux, closedClip } from './notch';
 import { startHero } from './hero';
 import { startTapSends } from './tapsends';
 import { startTrace } from './trace';
+import { startOriginals } from './originals';
 import { startUI, startGuide } from './ui';
 
 export function setupMotion() {
@@ -14,6 +15,7 @@ export function setupMotion() {
   startHero();
   startTapSends();
   startTrace();
+  startOriginals();
   startUI();
   startGuide();
 

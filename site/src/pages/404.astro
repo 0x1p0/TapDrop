@@ -8,7 +8,8 @@ import PageIsland from '../components/PageIsland.astro';
   <section class="lost">
     <PageIsland title="Nothing received" sub="That tap didn’t count. Try again." tone="none" />
     <div class="lost__inner">
-      <h1 class="display rise"><span style="--d:0.05s">Nothing landed here.</span></h1>
+      <svg class="lost__line" viewBox="12 30 76 24" aria-hidden="true"><path d="M16 38H34C37 38 38.5 39.5 38.5 42.5V43.5C38.5 47 41 49.5 44.5 49.5H55.5C59 49.5 61.5 47 61.5 43.5V42.5C61.5 39.5 63 38 66 38H84" /></svg>
+      <h1 class="display rise"><span style="--d:0.05s">Nothing landed <em>here.</em></span></h1>
       <p class="css-in" style="--d:0.25s">That page didn’t count. It may have moved, or the link was mistyped. Try again from the start.</p>
       <div class="css-in" style="--d:0.35s"><Btn href={to('/')} solid>Back to TapDrop</Btn></div>
     </div>

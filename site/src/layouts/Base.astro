@@ -8,6 +8,7 @@ import '../styles/tokens.css';
 import '../styles/base.css';
 import '../styles/site.css';
 import '../styles/sends.css';
+import '../styles/originals.css';
 
 interface Props {
   title?: string;
@@ -44,8 +45,8 @@ const jsonLd = {
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
-    <meta name="theme-color" content="#0a0a0f" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#08080a" />
+    <meta name="color-scheme" content="dark light" />
     <link rel="icon" href={to('/favicon.svg')} type="image/svg+xml" />
     <link rel="icon" href={to('/favicon-32.png')} type="image/png" sizes="32x32" />
     <link rel="apple-touch-icon" href={to('/apple-touch-icon.png')} />
@@ -64,11 +65,39 @@ const jsonLd = {
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImage} />
     <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+    <link rel="preload" href={to('/fonts/instrument-serif-400-normal.woff2')} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={to('/fonts/instrument-serif-400-italic.woff2')} as="font" type="font/woff2" crossorigin />
     <link rel="preload" href={to('/fonts/geist-100_900-normal.woff2')} as="font" type="font/woff2" crossorigin />
     <slot name="head" />
     <script is:inline>
       document.documentElement.classList.add('js');
       if (!matchMedia('(prefers-reduced-motion: reduce)').matches) document.documentElement.classList.add('motion');
+      // The theme, before the first paint: System (default), Light or Dark, remembered. Page swaps replace <html>'s
+      // attributes, so it is applied again after every swap.
+      (function () {
+        var KEY = 'tapdrop-theme';
+        var sys = matchMedia('(prefers-color-scheme: light)');
+        var read = function () { try { var v = localStorage.getItem(KEY); return v === 'light' || v === 'dark' ? v : 'system'; } catch (e) { return 'system'; } };
+        var apply = function (pref) {
+          pref = pref || read();
+          var theme = pref === 'system' ? (sys.matches ? 'light' : 'dark') : pref;
+          var h = document.documentElement;
+          h.dataset.theme = theme;
+          h.dataset.themePref = pref;
+          var m = document.querySelector('meta[name="theme-color"]');
+          if (m) m.setAttribute('content', theme === 'light' ? '#efede7' : '#08080a');
+          document.querySelectorAll('[data-theme-set]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-theme-set') === pref)); });
+        };
+        window.__tdTheme = {
+          get: read,
+          set: function (pref) { try { if (pref === 'system') localStorage.removeItem(KEY); else localStorage.setItem(KEY, pref); } catch (e) {} apply(pref); document.dispatchEvent(new CustomEvent('td:theme')); },
+          apply: apply,
+        };
+        apply();
+        sys.addEventListener('change', function () { if (read() === 'system') { apply(); document.dispatchEvent(new CustomEvent('td:theme')); } });
+        document.addEventListener('astro:after-swap', function () { apply(); });
+        document.addEventListener('astro:page-load', function () { apply(); });
+      })();
     </script>
     <ClientRouter fallback="swap" />
   </head>

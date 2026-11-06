@@ -1,8 +1,8 @@
 /* ───────── What a tap sends: the pinned five-tap stage ───────── */
 
-.sends { position: relative; background: linear-gradient(var(--black), var(--ground) 320px); }
+.sends { position: relative; background: var(--ground); }
 .ts { position: relative; }
-.motion .ts { height: calc(var(--n) * 200svh + 100svh); }
+.motion .ts { height: calc(var(--n) * 175svh + 100svh); }
 .ts__stage { position: relative; }
 .motion .ts__stage { position: sticky; top: 0; height: 100svh; overflow: clip; --tw: clamp(150px, min(19.5vw, 36svh), 310px); }
 
@@ -17,7 +17,7 @@
   position: absolute; left: var(--gutter); top: calc(var(--bar-h) + 4.5svh); bottom: 4svh; padding: 0;
   width: min(25rem, 27vw); display: flex; flex-direction: column;
 }
-.ts__title { font-size: clamp(2.1rem, 1.1rem + 2.6vw, 3.6rem); font-weight: 620; letter-spacing: -0.048em; line-height: 0.96; color: var(--ink); max-width: 11ch; }
+.ts__title { font-family: var(--f-display); font-size: clamp(2.5rem, 1.3rem + 3vw, 4.4rem); font-weight: 400; letter-spacing: -0.02em; line-height: 0.94; color: var(--ink); max-width: 11ch; }
 html:not(.motion) .ts__title { font-size: var(--t-xl); max-width: 14ch; }
 .ts__intro { margin-top: 1.1rem; color: var(--muted); font-size: var(--t-s); line-height: 1.5; max-width: 23rem; }
 html:not(.motion) .ts__intro { font-size: var(--t-m); max-width: 34rem; }
@@ -25,15 +25,15 @@ html:not(.motion) .ts__index { display: none; }
 .ts__index { list-style: none; padding: 0; margin-top: auto; display: grid; }
 .ts__item {
   position: relative; width: 100%; display: grid; grid-template-columns: 2.6rem minmax(0, 1fr); align-items: baseline;
-  text-align: left; padding: 0.72rem 0 0.82rem; color: #85879a; transition: color 0.7s var(--e-soft);
+  text-align: left; padding: 0.72rem 0 0.82rem; color: var(--faint); transition: color 0.7s var(--e-soft);
 }
 .ts__num { font-size: var(--t-xs); }
-.ts__label { font-size: clamp(1.25rem, 0.85rem + 0.95vw, 1.7rem); font-weight: 600; letter-spacing: -0.032em; line-height: 1.08; transition: translate 0.8s var(--e-out); }
+.ts__label { font-family: var(--f-display); font-size: clamp(1.5rem, 1rem + 1.15vw, 2.1rem); font-weight: 400; letter-spacing: -0.012em; line-height: 1.04; transition: translate 0.8s var(--e-out); }
 .ts__bar { position: absolute; left: 2.6rem; right: 0; bottom: 0; height: 2px; background: var(--line); overflow: clip; border-radius: 2px; transition: height 0.5s var(--e-out); }
 @media (hover: hover) { .ts__item:hover .ts__bar { height: 4px; } }
 .ts__item:focus-visible .ts__bar { height: 4px; }
-.ts__bar i { position: absolute; inset: 0; transform-origin: left; transform: scaleX(0); background: linear-gradient(90deg, var(--blue), var(--violet), var(--orchid)); }
-.ts__item.is-done { color: #a6a8b8; }
+.ts__bar i { position: absolute; inset: 0; transform-origin: left; transform: scaleX(0); background: var(--ink); box-shadow: 0 0 8px var(--glow); }
+.ts__item.is-done { color: var(--muted); }
 .ts__bar i { transition: opacity 0.7s var(--e-soft); }
 .ts__item.is-done .ts__bar i { opacity: 0.35; }
 .ts__item.is-on { color: var(--ink); }
@@ -43,7 +43,7 @@ html:not(.motion) .ts__index { display: none; }
   .ts__item:hover .ts__label { translate: 0.35rem 0; }
 }
 .ts__item:focus-visible { color: var(--ink); outline-offset: 2px; }
-.is-white .ts__item { color: #5c5e70; }
+.is-white .ts__item { color: #5f5e59; }
 .is-white .ts__item.is-on { color: var(--ink); }
 
 /* The phone: front shows the real screen, back is what you see while it taps (screen facing the Mac). */
@@ -57,8 +57,8 @@ html:not(.motion) .ts__index { display: none; }
 .ts__flip { position: absolute; inset: 0; transform-style: preserve-3d; will-change: transform; }
 .ts__front, .ts__back { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
 .ts__front {
-  border-radius: 15.6% / 7.3%; background: #0c0c11; overflow: hidden;
-  box-shadow: inset 0 0 0 1.5px rgb(255 255 255 / 0.22), 0 40px 90px -30px rgb(0 0 0 / 0.8), 0 0 70px -10px rgb(133 97 255 / 0.25);
+  border-radius: 15.6% / 7.3%; background: #0c0c0e; overflow: hidden;
+  box-shadow: inset 0 0 0 1.5px rgb(255 255 255 / 0.22), 0 40px 90px -30px rgb(0 0 0 / 0.8), 0 0 80px -12px rgb(214 222 255 / 0.22);
 }
 .ts__screen, .ts__lasso { position: absolute; left: 3.4%; top: 1.6%; width: 93.2%; height: 96.8%; border-radius: 12.4% / 5.6%; }
 .ts__screen { overflow: hidden; opacity: 0; background: #000; }
@@ -66,17 +66,17 @@ html:not(.motion) .ts__index { display: none; }
 /* Photos and videos fill the screen the way you'd look at them: zoomed to the picture, not letterboxed. */
 .ts__screen--zoom img { scale: 2.05; }
 .motion .ts__screen.is-on { opacity: 0; }
-.ts__lasso { overflow: visible; filter: drop-shadow(0 0 6px rgb(133 97 255 / 0.8)); }
+.ts__lasso { overflow: visible; filter: drop-shadow(0 0 8px rgb(214 222 255 / 0.9)); }
 .ts__back { transform: rotateY(180deg); }
 .ts__back .phone__buzz { opacity: var(--buzz, 0); }
 .ts__glow, .ts__white { position: absolute; border-radius: 30%; filter: blur(calc(var(--tw) * 0.17)); opacity: 0; }
 .ts__glow {
   inset: -8% -20% -4% -20%;
   background:
-    radial-gradient(46% 16% at 50% 5%, rgb(255 255 255 / 0.85), transparent 75%),
-    radial-gradient(62% 34% at 50% 24%, rgb(242 107 217 / 0.95), transparent 72%),
-    radial-gradient(74% 46% at 50% 56%, rgb(133 97 255 / 1), transparent 72%),
-    radial-gradient(72% 36% at 50% 92%, rgb(64 158 255 / 0.95), transparent 75%);
+    radial-gradient(46% 16% at 50% 5%, rgb(255 255 255 / 0.95), transparent 75%),
+    radial-gradient(62% 34% at 50% 26%, rgb(236 240 255 / 0.75), transparent 72%),
+    radial-gradient(74% 46% at 50% 58%, rgb(214 222 255 / 0.55), transparent 72%),
+    radial-gradient(72% 36% at 50% 92%, rgb(214 222 255 / 0.35), transparent 75%);
 }
 .ts__white { inset: -12% -22%; background: #fff; }
 
@@ -95,29 +95,29 @@ html:not(.motion) .ts__index { display: none; }
 .ts__results .win { position: absolute; left: 50%; top: 50%; translate: -50% -50%; opacity: 0; will-change: transform, opacity; }
 
 .win {
-  width: 100%; border-radius: 12px; overflow: clip; background: #16161d;
-  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12), 0 40px 80px -24px rgb(0 0 0 / 0.85), 0 12px 30px -12px rgb(133 97 255 / 0.25);
+  width: 100%; border-radius: 12px; overflow: clip; background: #161618;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12), 0 40px 80px -24px rgb(0 0 0 / 0.85), 0 12px 40px -14px rgb(214 222 255 / 0.18);
 }
-.win__bar { position: relative; height: 30px; display: flex; align-items: center; justify-content: center; padding: 0 66px; background: #24242c; border-bottom: 1px solid rgb(0 0 0 / 0.5); }
+.win__bar { position: relative; height: 30px; display: flex; align-items: center; justify-content: center; padding: 0 66px; background: #232326; border-bottom: 1px solid rgb(0 0 0 / 0.5); }
 .win__lights { position: absolute; left: 11px; top: 50%; translate: 0 -50%; display: flex; gap: 7px; }
 .win__lights i { width: 11px; height: 11px; border-radius: 50%; background: #ff5f57; }
 .win__lights i + i { background: #febc2e; }
 .win__lights i + i + i { background: #28c840; }
-.win__title { font-size: 12px; font-weight: 600; color: #c9cad6; letter-spacing: -0.005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.win__url { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #c9cad6; background: #16161d; padding: 3px 14px; border-radius: 7px; min-width: 46%; max-width: 100%; justify-content: center; white-space: nowrap; }
+.win__title { font-size: 12px; font-weight: 600; color: #c8c7c2; letter-spacing: -0.005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.win__url { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #c8c7c2; background: #161618; padding: 3px 14px; border-radius: 7px; min-width: 46%; max-width: 100%; justify-content: center; white-space: nowrap; }
 .win__url svg { width: 11px; height: 11px; }
 .win__body { position: relative; }
 .win__body img, .win__body video { display: block; width: 100%; height: auto; }
-.win--pdf { width: 74%; background: #6b6b74; }
-.win--pdf .win__body { padding: 6% 6% 0; background: #55555e; }
+.win--pdf { width: 74%; background: #6b6b6f; }
+.win--pdf .win__body { padding: 6% 6% 0; background: #555558; }
 .win--pdf .win__body img { box-shadow: 0 6px 20px rgb(0 0 0 / 0.35); }
 .win__scrub { position: absolute; left: 4%; right: 4%; bottom: 8px; height: 3px; border-radius: 3px; background: rgb(255 255 255 / 0.25); overflow: clip; }
 .win__scrub i { position: absolute; inset: 0; background: #fff; transform-origin: left; transform: scaleX(0.3); }
-.win--text { width: 88%; background: #111117; }
+.win--text { width: 88%; background: #111113; }
 .win__clip { padding: 1.4rem 1.5rem 1.5rem; display: grid; gap: 0.8rem; }
-.win__chip { justify-self: start; font-size: 12px; font-weight: 600; color: var(--ok); background: rgb(46 209 122 / 0.14); padding: 0.28rem 0.7rem; border-radius: 999px; }
-.win__words { font-size: clamp(1.25rem, 0.9rem + 1vw, 1.75rem); font-weight: 560; letter-spacing: -0.025em; line-height: 1.22; color: #f5f5fa; }
-.win__paste { font-size: 12px; color: #9fa1b3; }
+.win__chip { justify-self: start; font-size: 12px; font-weight: 600; color: var(--night); background: var(--bone); padding: 0.28rem 0.7rem; border-radius: 999px; }
+.win__words { font-family: var(--f-display); font-size: clamp(1.6rem, 1.1rem + 1.3vw, 2.3rem); font-weight: 400; letter-spacing: -0.012em; line-height: 1.12; color: var(--bone); }
+.win__paste { font-family: var(--f-mono); font-size: 12px; color: #a2a2a8; }
 
 /* Captions under the stage: what just landed. */
 .ts__caps { position: absolute; z-index: 4; right: var(--gutter); bottom: 4.2svh; width: min(39vw, 40rem); height: 1.6em; list-style: none; padding: 0; }
@@ -137,7 +137,7 @@ html:not(.motion) .ts-still { display: block; padding: 0 var(--gutter); }
 }
 .ts-still__text { grid-column: 1 / span 4; display: grid; gap: 0.5rem; align-self: start; }
 .ts-still__text .mono { font-size: var(--t-xs); color: var(--muted); }
-.ts-still__text h3 { font-size: var(--t-l); font-weight: 600; letter-spacing: -0.035em; line-height: 1.05; }
+.ts-still__text h3 { font-family: var(--f-display); font-size: var(--t-l); font-weight: 400; letter-spacing: -0.016em; line-height: 1; }
 .ts-still__text p { color: var(--muted); max-width: 26rem; }
 .ts-still__phone { grid-column: 5 / span 2; display: grid; gap: 0.6rem; }
 .ts-still__phone img { border-radius: 22px; box-shadow: 0 0 0 1px rgb(255 255 255 / 0.14); }
@@ -152,7 +152,7 @@ html:not(.motion) .ts-still { display: block; padding: 0 var(--gutter); }
   .motion .ts { height: calc(var(--n) * 180svh + 100svh); }
   .motion .ts__side { left: var(--gutter); right: var(--gutter); width: auto; top: calc(var(--bar-h) + 0.8rem); bottom: auto; }
   .ts__title { font-size: 1.6rem; max-width: none; }
-  .motion .ts__title { font-size: 1.45rem; line-height: 1.02; }
+  .motion .ts__title { font-size: 1.85rem; line-height: 0.98; }
   .motion .ts__intro { display: none; }
   .motion .ts__index { margin-top: 0.75rem; grid-template-columns: repeat(5, minmax(0, 1fr)); column-gap: 6px; }
   .ts__item { grid-template-columns: 1fr; padding: 0.45rem 0 0.6rem; min-height: 40px; }
@@ -176,3 +176,8 @@ html:not(.motion) .ts-still { display: block; padding: 0 var(--gutter); }
   .ts-still__phone { grid-column: 1 / span 2; }
   .ts-still__mac { grid-column: 3 / span 4; }
 }
+
+/* Bone theme: the stage follows the page; the phone keeps its own light, its shadow grounds it on bone. */
+:root[data-theme='light'] .ts__front { box-shadow: inset 0 0 0 1.5px rgb(255 255 255 / 0.22), 0 40px 80px -30px rgb(11 11 13 / 0.45); }
+:root[data-theme='light'] .ts__back .phone__body { filter: drop-shadow(0 30px 40px rgb(11 11 13 / 0.22)); }
+:root[data-theme='light'] .win { box-shadow: 0 0 0 1px rgb(11 11 13 / 0.12), 0 40px 80px -24px rgb(11 11 13 / 0.4); }

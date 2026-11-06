@@ -42,6 +42,13 @@ function closeMenu(restore = true) {
 }
 
 export function startUI() {
+  // The theme buttons, wherever they are (bar, menu): one listener for the document.
+  document.addEventListener('click', (e) => {
+    const b = (e.target as Element).closest?.<HTMLElement>('[data-theme-set]');
+    if (!b) return;
+    (window as unknown as { __tdTheme?: { set: (v: string) => void } }).__tdTheme?.set(b.dataset.themeSet ?? 'system');
+  });
+
   document.addEventListener('click', (e) => {
     const t = e.target as HTMLElement;
     if (t.closest('[data-menu-btn]')) { menuOpen ? closeMenu() : openMenu(); return; }
@@ -69,19 +76,24 @@ export function startUI() {
       if (el) requestAnimationFrame(() => { ScrollTrigger.refresh(); scrollToTarget(el); });
     }
 
-    // The film: the poster until someone asks for it, then the real thing with sound.
-    const film = document.querySelector<HTMLElement>('[data-film]');
-    const play = film?.querySelector<HTMLButtonElement>('[data-film-play]');
-    const tpl = film?.querySelector<HTMLTemplateElement>('[data-film-tpl]');
-    const onPlay = () => {
-      if (!film || !tpl) return;
-      const video = tpl.content.firstElementChild!.cloneNode(true) as HTMLVideoElement;
-      film.appendChild(video);
-      film.classList.add('is-playing');
-      video.play().catch(() => {});
-      video.focus();
-    };
-    play?.addEventListener('click', onPlay);
+    // The films: the poster until someone asks for one, then the real thing with sound. Starting one pauses the others.
+    const films = [...document.querySelectorAll<HTMLElement>('[data-film]')];
+    const offs: (() => void)[] = [];
+    films.forEach((film) => {
+      const play = film.querySelector<HTMLButtonElement>('[data-film-play]');
+      const tpl = film.querySelector<HTMLTemplateElement>('[data-film-tpl]');
+      if (!play || !tpl) return;
+      const onPlay = () => {
+        films.forEach((f) => f.querySelector('video')?.pause());
+        const video = tpl.content.firstElementChild!.cloneNode(true) as HTMLVideoElement;
+        film.appendChild(video);
+        film.classList.add('is-playing');
+        video.play().catch(() => {});
+        video.focus();
+      };
+      play.addEventListener('click', onPlay);
+      offs.push(() => play.removeEventListener('click', onPlay));
+    });
 
     // The in-page index follows the section you are reading.
     const toc = document.querySelector('[data-toc]');
@@ -92,7 +104,7 @@ export function startUI() {
       tocST.push(ScrollTrigger.create({ trigger: sec, start: 'top 40%', end: 'bottom 40%', onToggle: (s) => a.classList.toggle('is-on', s.isActive) }));
     });
 
-    return () => { play?.removeEventListener('click', onPlay); tocST.forEach((s) => s.kill()); };
+    return () => { offs.forEach((o) => o()); tocST.forEach((s) => s.kill()); };
   });
 }
 
@@ -115,14 +127,62 @@ export function startGuide() {
     const body = document.querySelector<HTMLElement>('[data-guide]');
     if (!body) return;
     const root = document.documentElement;
-    const set = () => {
-      const r = body.getBoundingClientRect();
-      const p = Math.min(1, Math.max(0, (innerHeight * 0.4 - r.top) / Math.max(1, r.height - innerHeight * 0.4)));
-      root.style.setProperty('--gp', p.toFixed(4));
+    // Where you are: the last step (or reference section) whose top has passed 40% of the screen.
+    const steps = [...body.querySelectorAll<HTMLElement>('[data-step]')];
+    const marks = [...steps, ...body.querySelectorAll<HTMLElement>('.greference section[id]')];
+    const links = [...document.querySelectorAll<HTMLAnchorElement>('[data-gnav-step]')];
+    const titles = new Map(links.map((a) => [a.dataset.gnavStep ?? '', (a.querySelector('span:last-child')?.textContent ?? '').trim()]));
+    const count = document.querySelector('[data-gnav-count]');
+    const bn = document.querySelector('[data-gbar-n]');
+    const bt = document.querySelector('[data-gbar-title]');
+    const bc = document.querySelector('[data-gbar-count]');
+    const gbar = document.querySelector<HTMLButtonElement>('[data-gbar]');
+    const gnav = document.querySelector<HTMLElement>('[data-gnav]');
+    const N = steps.length;
+    let cur = -1;
+    const set = (i: number) => {
+      if (i === cur) return;
+      cur = i;
+      const el = marks[i];
+      links.forEach((a) => {
+        const j = marks.findIndex((m) => m.id === a.dataset.gnavStep);
+        a.classList.toggle('is-on', j === i);
+        a.classList.toggle('is-done', j > -1 && j < i);
+        if (j === i) a.setAttribute('aria-current', 'step'); else a.removeAttribute('aria-current');
+      });
+      steps.forEach((st, j) => st.classList.toggle('is-on', j === i));
+      const isStep = i < N;
+      const n = isStep ? i + 1 : N;
+      root.style.setProperty('--gp', (n / N).toFixed(4));
+      if (count) count.textContent = isStep ? `Step ${n} of ${N}` : `All ${N} steps done · reference`;
+      if (bn) bn.textContent = isStep ? el.dataset.step ?? '' : '';
+      if (bt) bt.textContent = titles.get(el.id) ?? '';
+      if (bc) bc.textContent = isStep ? `${n} of ${N}` : 'Reference';
     };
-    set();
-    const off = onScroll(set);
-    addEventListener('resize', set);
-    return () => { off(); removeEventListener('resize', set); root.style.removeProperty('--gp'); };
+    const pick = () => {
+      const y = innerHeight * 0.4;
+      let i = 0;
+      marks.forEach((m, j) => { if (m.getBoundingClientRect().top < y) i = j; });
+      set(i);
+    };
+    pick();
+    const off = onScroll(pick);
+    addEventListener('resize', pick);
+    // On a phone, the bar opens the navigator as a list under it; a jump, Escape or a tap elsewhere folds it away.
+    const setOpen = (open: boolean) => { gnav?.classList.toggle('is-open', open); gbar?.setAttribute('aria-expanded', String(open)); };
+    const onBar = () => setOpen(gbar?.getAttribute('aria-expanded') !== 'true');
+    const onDoc = (e: Event) => {
+      const t = e.target as Element;
+      if (t.closest?.('[data-gbar]')) return;
+      if (t.closest?.('[data-gnav] a') || !t.closest?.('[data-gnav]')) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && gbar?.getAttribute('aria-expanded') === 'true') { setOpen(false); gbar.focus(); } };
+    gbar?.addEventListener('click', onBar);
+    document.addEventListener('click', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      off(); removeEventListener('resize', pick); root.style.removeProperty('--gp');
+      gbar?.removeEventListener('click', onBar); document.removeEventListener('click', onDoc); document.removeEventListener('keydown', onKey);
+    };
   });
 }

@@ -1,6 +1,8 @@
 ---
 import { to } from '../data/url';
-// The install guide, step by step. Every step, label and dialog follows docs/INSTALL.md in this repository.
+// The install guide. A chooser up top (Mac first, then the phone), then six parts of short steps, one action each,
+// with a navigator that follows you (sticky beside the steps, a bar at the top on a phone) and a "Next" link after
+// every step. Every step, label and dialog follows docs/INSTALL.md in this repository.
 import { Image } from 'astro:assets';
 import Base from '../layouts/Base.astro';
 import Btn from '../components/Btn.astro';
@@ -8,23 +10,54 @@ import PageIsland from '../components/PageIsland.astro';
 import Ui from '../components/Ui.astro';
 import MenuPath from '../components/MenuPath.astro';
 import Code from '../components/Code.astro';
+import Film from '../components/Film.astro';
+import GuideStep from '../components/GuideStep.astro';
+import { film } from '../data/media';
 import { links, requirements } from '../data/site';
-import macPanel from '../assets/mac/mac-panel.png';
-import androidHome from '../assets/phone/android-home.png';
+import macPanel from '../assets/mac/panel-dark.png';
+import androidHome from '../assets/phone/home-dark.png';
+const macFilm = film('setup-mac.mp4', 'setup-mac-poster.webp');
+const androidFilm = film('setup-android.mp4', 'setup-android-poster.webp');
 
-const toc = [
-  { id: 'what-you-need', label: 'What you need', dev: '' },
-  { id: 'part-1-the-mac-app', label: '1. The Mac app', dev: 'Mac' },
-  { id: 'part-2-the-android-app', label: '2. The Android app', dev: 'Phone' },
-  { id: 'part-3-pair', label: '3. Pair them', dev: 'Both' },
-  { id: 'part-4-turn-on-tap-to-send', label: '4. Turn on tap to send', dev: 'Phone' },
-  { id: 'part-5-optional', label: '5. Optional extras', dev: 'Phone' },
-  { id: 'part-6-your-first-tap', label: '6. Your first tap', dev: 'Both' },
-  { id: 'everyday-use', label: 'Everyday use', dev: '' },
-  { id: 'updating', label: 'Updating', dev: '' },
-  { id: 'troubleshooting', label: 'Troubleshooting', dev: '' },
-  { id: 'uninstalling', label: 'Uninstalling', dev: '' },
-  { id: 'building-it-yourself', label: 'Building it yourself', dev: '' },
+type Step = { id: string; n: string; title: string; optional?: string };
+const parts: { id: string; n: number; title: string; where: string; time: string; steps: Step[] }[] = [
+  { id: 'part-1-the-mac-app', n: 1, title: 'The Mac app', where: 'On your Mac', time: 'about 3 min', steps: [
+    { id: 'download-it', n: '1.1', title: 'Download it' },
+    { id: 'open-it-the-first-time', n: '1.2', title: 'Open it the first time' },
+    { id: 'allow-your-local-network', n: '1.3', title: 'Allow your local network' },
+    { id: 'find-it-in-the-menu-bar', n: '1.4', title: 'Find it in the menu bar' },
+  ] },
+  { id: 'part-2-the-android-app', n: 2, title: 'The Android app', where: 'On your phone', time: 'about 4 min', steps: [
+    { id: 'download-it-to-your-phone', n: '2.1', title: 'Download it to your phone' },
+    { id: 'install-it', n: '2.2', title: 'Install it' },
+    { id: 'if-google-play-protect-stops-it', n: '2.3', title: 'If Play Protect stops it', optional: 'Only if it does' },
+  ] },
+  { id: 'part-3-pair', n: 3, title: 'Pair them', where: 'On both', time: 'about 1 min', steps: [
+    { id: 'pair-with-your-mac', n: '3.1', title: 'Pair with your Mac' },
+  ] },
+  { id: 'part-4-turn-on-tap-to-send', n: 4, title: 'Turn on tap to send', where: 'On your phone', time: 'about 2 min', steps: [
+    { id: 'try-tapdrop-in-accessibility', n: '4.1', title: 'Try TapDrop in Accessibility', optional: 'Only if Android restricts it' },
+    { id: 'allow-restricted-settings', n: '4.2', title: 'Allow restricted settings' },
+    { id: 'turn-on-tapdrop-in-accessibility', n: '4.3', title: 'Turn on TapDrop in Accessibility' },
+    { id: 'let-it-run-in-the-background', n: '4.4', title: 'Let it run in the background', optional: 'Some brands only' },
+  ] },
+  { id: 'part-5-optional', n: 5, title: 'Optional extras', where: 'On your phone', time: 'about 1 min', steps: [
+    { id: 'get-the-most-out-of-tapdrop', n: '5.1', title: 'Get the most out of TapDrop', optional: 'Optional' },
+  ] },
+  { id: 'part-6-your-first-tap', n: 6, title: 'Your first tap', where: 'On both', time: 'a second', steps: [
+    { id: 'tap-the-notch', n: '6.1', title: 'Touch the notch' },
+  ] },
+];
+const flat = parts.flatMap((p) => p.steps.map((st) => ({ ...st, part: p })));
+const total = flat.length;
+const nextOf = (id: string) => { const i = flat.findIndex((x) => x.id === id); return flat[i + 1] ?? null; };
+const step = (id: string) => { const st = flat.find((x) => x.id === id)!; return { id, n: st.n, title: st.title, where: st.part.where, optional: st.optional, next: nextOf(id) }; };
+const reference = [
+  { id: 'everyday-use', label: 'Everyday use' },
+  { id: 'updating', label: 'Updating' },
+  { id: 'troubleshooting', label: 'Troubleshooting' },
+  { id: 'uninstalling', label: 'Uninstalling' },
+  { id: 'building-it-yourself', label: 'Building it yourself' },
 ];
 ---
 <Base
@@ -35,43 +68,97 @@ const toc = [
   <div class="guide-progress" aria-hidden="true"><i data-guide-progress></i></div>
   <header class="grid page-head guide-head">
     <PageIsland title="MacBook Air" sub="Connected, ready to tap" tone="live" />
-    <h1 class="display rise"><span style="--d:0.05s">Install it, step by step.</span></h1>
+    <h1 class="display rise"><span style="--d:0.05s">Install it, step by <em>step.</em></span></h1>
     <div class="page-head__side">
-      <p class="page-head__kicker css-in" style="--d:0.25s">Install guide, about ten minutes</p>
+      <p class="eyebrow css-in" style="--d:0.25s">Install guide · {total} short steps · about ten minutes</p>
       <p class="lede css-in" style="--d:0.3s">
-        TapDrop is <strong>free and open source</strong>. This guide goes from nothing to your first tap, through every click and every warning macOS and Android show on the way, and why they appear.
+        TapDrop is <strong>free and open source</strong>. Start on your Mac, then your phone, then pair them. Every click and every warning macOS and Android show is here, and why they appear.
       </p>
-      <div class="guide-head__ctas css-in" style="--d:0.4s">
-        <Btn href={links.dmg} solid>Download for Mac</Btn>
-        <Btn href={links.apk}>Download for Android</Btn>
-      </div>
     </div>
   </header>
 
+  <!-- The chooser: two obvious paths, in order, and where they lead. -->
+  <section class="grid paths" aria-labelledby="paths-h">
+    <h2 id="paths-h" class="sr-only">Where to start</h2>
+    <ol class="paths__list">
+      <li class="path">
+        <p class="path__n serif" aria-hidden="true">1</p>
+        <h3>Start on your <em>Mac.</em></h3>
+        <p>Download TapDrop, open it once past macOS’s warning, and allow your local network.</p>
+        <p class="path__meta mono">{parts[0].steps.length} steps · {parts[0].time}</p>
+        <div class="path__ctas">
+          <Btn href={links.dmg} solid>Download for Mac</Btn>
+          <a class="link link--pad" href={`#${parts[0].id}`}>Go to Part 1</a>
+        </div>
+      </li>
+      <li class="path">
+        <p class="path__n serif" aria-hidden="true">2</p>
+        <h3>Then your <em>phone.</em></h3>
+        <p>Scan the QR code your Mac shows, or download the app directly, and allow the install.</p>
+        <p class="path__meta mono">{parts[1].steps.length} steps · {parts[1].time}</p>
+        <div class="path__ctas">
+          <Btn href={links.apk}>Download for Android</Btn>
+          <a class="link link--pad" href={`#${parts[1].id}`}>Go to Part 2</a>
+        </div>
+      </li>
+      <li class="path path--small">
+        <p class="path__n serif" aria-hidden="true">3</p>
+        <h3>Pair, and <em>tap.</em></h3>
+        <p>Match a six-digit code, turn on tap to send, touch the notch.</p>
+        <p class="path__meta mono">{parts.slice(2).reduce((n, p) => n + p.steps.length, 0)} steps · about 4 min</p>
+        <div class="path__ctas"><a class="link link--pad" href={`#${parts[2].id}`}>Go to Part 3</a></div>
+      </li>
+    </ol>
+    <div class="paths__needs" id="what-you-need">
+      <h2 class="eyebrow">What you need</h2>
+      <ul>
+        {requirements.map((r) => <li><strong>{r.what}.</strong> {r.detail}</li>)}
+      </ul>
+      <p>A Mac without a notch can still share files, links, the clipboard and codes. It just can’t take taps. A guest network, or one with “client isolation”, keeps the two apart.</p>
+    </div>
+  </section>
+
   <div class="grid doc guide">
-    <nav class="doc__index guide__index" aria-label="Steps" data-toc>
-      <span class="guide__rail" aria-hidden="true"><i data-guide-rail></i></span>
-      {toc.map((t) => <a href={`#${t.id}`}><span>{t.label}</span>{t.dev && <em>{t.dev}</em>}</a>)}
+    <!-- The navigator: where you are, and every step. Sticky beside the steps; on a phone, a bar at the top. -->
+    <nav class="gnav" id="gnav" aria-label="Steps" data-gnav>
+      <p class="gnav__now" aria-live="polite"><span class="mono" data-gnav-count>Step 1 of {total}</span></p>
+      <span class="gnav__bar" aria-hidden="true"><i></i></span>
+      {parts.map((p) => (
+        <div class="gnav__part">
+          <a class="gnav__parthead" href={`#${p.id}`}><span class="mono">Part {p.n}</span> {p.title}</a>
+          <ol>
+            {p.steps.map((st) => (
+              <li><a href={`#${st.id}`} data-gnav-step={st.id}><span class="gnav__dot" aria-hidden="true"></span><span class="mono">{st.n}</span><span>{st.title}</span></a></li>
+            ))}
+          </ol>
+        </div>
+      ))}
+      <div class="gnav__part gnav__ref">
+        <p class="gnav__parthead"><span class="mono">Reference</span></p>
+        <ol>
+          {reference.map((r) => <li><a href={`#${r.id}`} data-gnav-step={r.id}><span class="gnav__dot" aria-hidden="true"></span><span>{r.label}</span></a></li>)}
+        </ol>
+      </div>
     </nav>
 
+    <button class="gbar" type="button" aria-expanded="false" aria-controls="gnav" data-gbar>
+      <span class="gbar__now"><span class="mono" data-gbar-n>1.1</span> <span data-gbar-title>{flat[0].title}</span></span>
+      <span class="gbar__count mono" data-gbar-count>1 of {total}</span>
+      <span class="gbar__line" aria-hidden="true"><i></i></span>
+    </button>
+
     <div class="doc__body guide__body" data-guide>
-      <nav class="guide__chips" aria-label="Jump to a part">
-        {toc.slice(1, 7).map((t) => <a href={`#${t.id}`}>{t.label}</a>)}
-      </nav>
-
-      <section id="what-you-need" aria-labelledby="h-need">
-        <h2 id="h-need"><a class="anchor" href="#what-you-need" aria-hidden="true" tabindex="-1">#</a>What you need</h2>
-        <ul class="needs">
-          {requirements.map((r) => <li><strong>{r.what}.</strong> {r.detail}</li>)}
-        </ul>
-        <p>A Mac without a notch can still share files, links, the clipboard and codes. It just can’t take taps. A guest network, or one with “client isolation”, keeps the two apart.</p>
-      </section>
-
-      <section id="part-1-the-mac-app" class="part" aria-labelledby="h-p1">
-        <p class="part__tag"><span>Part 1</span> On your Mac</p>
-        <h2 id="h-p1"><a class="anchor" href="#part-1-the-mac-app" aria-hidden="true" tabindex="-1">#</a>The Mac app</h2>
-
-        <h3 id="download-it"><a class="anchor" href="#download-it" aria-hidden="true" tabindex="-1">#</a><span class="stepno">1.1</span>Download it</h3>
+      <!-- Part 1 -->
+      <section id="part-1-the-mac-app" class="gpart" aria-labelledby="h-p1">
+        <header class="gpart__head">
+          <p class="part__tag"><span>Part 1</span> {parts[0].where} · {parts[0].time}</p>
+          <h2 id="h-p1">The Mac <em>app.</em></h2>
+          <details class="gfilm">
+            <summary><span class="gfilm__dot" aria-hidden="true"><svg viewBox="0 0 14 14"><path d="M3 1.5v11l9.5-5.5z" fill="currentColor" /></svg></span>Watch Part 1 as a film{macFilm.length && <span class="mono">{macFilm.length}</span>}</summary>
+            <Film film={macFilm} small label="Part 1 as a film" soon="The Mac film is on its way" alt="Set up your Mac: the opening frame of the Mac install film" />
+          </details>
+        </header>
+        <GuideStep {...step('download-it')}>
         <ol class="steps-list">
           <li>Download <a class="link" href={links.dmg}>TapDrop.dmg</a>, always the latest version.</li>
           <li>Open it from your <Ui>Downloads</Ui> folder. A TapDrop window opens.</li>
@@ -79,8 +166,8 @@ const toc = [
           <li>Eject the TapDrop disk: click <Ui>⏏</Ui> next to it in Finder’s sidebar.</li>
         </ol>
         <p class="aside-note">Prefer to build it yourself? See <a class="link" href="#building-it-yourself">Building it yourself</a>. A copy you build on your own Mac opens without the warning in the next step.</p>
-
-        <h3 id="open-it-the-first-time"><a class="anchor" href="#open-it-the-first-time" aria-hidden="true" tabindex="-1">#</a><span class="stepno">1.2</span>Open it the first time</h3>
+        </GuideStep>
+        <GuideStep {...step('open-it-the-first-time')}>
         <p class="honest"><strong>TapDrop is free, so it isn’t notarized by Apple</strong> (that costs a yearly fee). The first time you open it, macOS stops it once. You allow it once, and it opens normally after that.</p>
         <ol class="steps-list">
           <li>Double-click <Ui>TapDrop</Ui> in Applications.</li>
@@ -96,12 +183,12 @@ const toc = [
             <Code code={'xattr -dr com.apple.quarantine /Applications/TapDrop.app\nopen /Applications/TapDrop.app'} />
           </div>
         </details>
-
-        <h3 id="allow-your-local-network"><a class="anchor" href="#allow-your-local-network" aria-hidden="true" tabindex="-1">#</a><span class="stepno">1.3</span>Allow your local network</h3>
+        </GuideStep>
+        <GuideStep {...step('allow-your-local-network')}>
         <p>macOS asks <span class="say">“Allow “TapDrop” to find devices on local networks?”</span> Click <Ui>Allow</Ui>. That’s how your phone and your Mac reach each other over your Wi-Fi.</p>
         <p class="aside-note">Clicked Don’t Allow? Open <MenuPath items={['System Settings', 'Privacy & Security', 'Local Network']} /> and switch <Ui>TapDrop</Ui> on.</p>
-
-        <h3 id="find-it-in-the-menu-bar"><a class="anchor" href="#find-it-in-the-menu-bar" aria-hidden="true" tabindex="-1">#</a><span class="stepno">1.4</span>Find it in the menu bar</h3>
+        </GuideStep>
+        <GuideStep {...step('find-it-in-the-menu-bar')}>
         <div class="with-shot">
           <div>
             <p>TapDrop lives in the menu bar, at the top right of your screen: the <Ui icon="tapdrop">TapDrop</Ui> icon. Click it to open the panel.</p>
@@ -116,14 +203,21 @@ const toc = [
             <figcaption>The panel, from the menu bar icon.</figcaption>
           </figure>
         </div>
+        </GuideStep>
       </section>
 
-      <section id="part-2-the-android-app" class="part" aria-labelledby="h-p2">
-        <p class="part__tag is-phone"><span>Part 2</span> On your phone</p>
-        <h2 id="h-p2"><a class="anchor" href="#part-2-the-android-app" aria-hidden="true" tabindex="-1">#</a>The Android app</h2>
-        <p>Your Mac hands the Android app to your phone over your Wi-Fi. You can also download it from GitHub.</p>
-
-        <h3 id="download-it-to-your-phone"><a class="anchor" href="#download-it-to-your-phone" aria-hidden="true" tabindex="-1">#</a><span class="stepno">2.1</span>Download it to your phone</h3>
+      <!-- Part 2 -->
+      <section id="part-2-the-android-app" class="gpart" aria-labelledby="h-p2">
+        <header class="gpart__head">
+          <p class="part__tag is-phone"><span>Part 2</span> {parts[1].where} · {parts[1].time}</p>
+          <h2 id="h-p2">The Android <em>app.</em></h2>
+          <p>Your Mac hands the Android app to your phone over your Wi-Fi. You can also download it from GitHub.</p>
+          <details class="gfilm">
+            <summary><span class="gfilm__dot" aria-hidden="true"><svg viewBox="0 0 14 14"><path d="M3 1.5v11l9.5-5.5z" fill="currentColor" /></svg></span>Watch Part 2 as a film{androidFilm.length && <span class="mono">{androidFilm.length}</span>}</summary>
+            <Film film={androidFilm} small label="Part 2 as a film" soon="The Android film is on its way" alt="Set up your phone: the opening frame of the Android install film" />
+          </details>
+        </header>
+        <GuideStep {...step('download-it-to-your-phone')}>
         <p class="sub"><strong>From your Mac (easiest)</strong></p>
         <ol class="steps-list">
           <li>On the Mac, the <Ui>Set Up a Phone</Ui> window shows <span class="say">“Step 1 of 3, Install TapDrop on your phone”</span> with a QR code.</li>
@@ -133,15 +227,15 @@ const toc = [
         <p>The Mac shows <span class="say">“Opened on your phone”</span> and then <span class="say">“Downloaded. Open TapDrop.apk on your phone.”</span></p>
         <p class="sub"><strong>Or directly:</strong> on your phone, download <a class="link" href={links.apk}>TapDrop.apk</a>, always the latest version.</p>
         <p class="aside-note">Chrome may say <span class="say">“File can’t be downloaded securely”</span>: your Mac’s page is plain http on your own Wi‑Fi. Tap <Ui>Keep</Ui>. If it warns that <span class="say">“this type of file can harm your device”</span>, tap <Ui>Download anyway</Ui>.</p>
-
-        <h3 id="install-it"><a class="anchor" href="#install-it" aria-hidden="true" tabindex="-1">#</a><span class="stepno">2.2</span>Install it</h3>
+        </GuideStep>
+        <GuideStep {...step('install-it')}>
         <ol class="steps-list">
           <li>Open the downloaded file. Tap the <Ui>TapDrop.apk</Ui> download notification, or open <MenuPath items={['Files', 'Downloads', 'TapDrop.apk']} />.</li>
           <li>Android says <span class="say">“For your security, your phone currently isn’t allowed to install unknown apps from this source.”</span> Tap <Ui>Settings</Ui>, switch on <Ui>Allow from this source</Ui>, then go back.</li>
           <li>Tap <Ui>Install</Ui>.</li>
         </ol>
-
-        <h3 id="if-google-play-protect-stops-it"><a class="anchor" href="#if-google-play-protect-stops-it" aria-hidden="true" tabindex="-1">#</a><span class="stepno">2.3</span>If Google Play Protect stops it</h3>
+        </GuideStep>
+        <GuideStep {...step('if-google-play-protect-stops-it')}>
         <p class="honest"><strong>TapDrop is free, so it isn’t on the Play Store.</strong> Play Protect warns about apps it hasn’t seen there, so you may see one of these:</p>
         <ul>
           <li><span class="say">“Unsafe app blocked”</span> or <span class="say">“Play Protect doesn’t recognise this app”</span>: tap <Ui>More details</Ui>, then <Ui>Install anyway</Ui>.</li>
@@ -167,11 +261,16 @@ const toc = [
           <summary>Installing from a computer with adb</summary>
           <div><p>With USB debugging on:</p><Code code="adb install TapDrop-<version>-android.apk" /></div>
         </details>
+        </GuideStep>
       </section>
 
-      <section id="part-3-pair" class="part" aria-labelledby="h-p3">
-        <p class="part__tag is-both"><span>Part 3</span> On both</p>
-        <h2 id="h-p3"><a class="anchor" href="#part-3-pair" aria-hidden="true" tabindex="-1">#</a>Pair your phone with your Mac</h2>
+      <!-- Part 3 -->
+      <section id="part-3-pair" class="gpart" aria-labelledby="h-p3">
+        <header class="gpart__head">
+          <p class="part__tag is-both"><span>Part 3</span> {parts[2].where} · {parts[2].time}</p>
+          <h2 id="h-p3">Pair your phone with your <em>Mac.</em></h2>
+        </header>
+        <GuideStep {...step('pair-with-your-mac')}>
         <p>Pairing happens once. It exchanges encryption keys, and you compare a code like you would with Bluetooth.</p>
         <ol class="steps-list">
           <li>On your phone, open <Ui>TapDrop</Ui> and tap <Ui>Pair with your Mac</Ui>.</li>
@@ -181,39 +280,43 @@ const toc = [
         </ol>
         <p>The Mac’s setup window moves on to <span class="say">“Step 3 of 3”</span>, and your phone shows your Mac as connected.</p>
         <p class="aside-note"><strong>Your Mac isn’t listed?</strong> Tap <Ui>Can’t see your Mac?</Ui>, then <Ui>Edit address</Ui>. Type the address shown under the QR code in the Mac’s <Ui>Set Up a Phone</Ui> window (like <code>192.168.1.20:47914</code>) and tap <Ui>Connect</Ui>. If that fails too, see <a class="link" href="#the-phone-cant-find-the-mac">The phone can’t find the Mac</a>.</p>
+        </GuideStep>
       </section>
 
-      <section id="part-4-turn-on-tap-to-send" class="part" aria-labelledby="h-p4">
-        <p class="part__tag is-phone"><span>Part 4</span> On your phone</p>
-        <h2 id="h-p4"><a class="anchor" href="#part-4-turn-on-tap-to-send" aria-hidden="true" tabindex="-1">#</a>Turn on tap to send</h2>
+      <!-- Part 4 -->
+      <section id="part-4-turn-on-tap-to-send" class="gpart" aria-labelledby="h-p4">
+        <header class="gpart__head">
+          <p class="part__tag is-phone"><span>Part 4</span> {parts[3].where} · {parts[3].time}</p>
+          <h2 id="h-p4">Turn on tap to <em>send.</em></h2>
         <p>Tap to send needs TapDrop’s <strong>accessibility service</strong>. That’s how it can see what’s on your screen at the moment you tap. It only looks when a tap passes, and what it sends goes only to your Mac, encrypted, over your Wi-Fi.</p>
         <p>On your phone’s TapDrop home screen, find <Ui>Tap your Mac to send</Ui> and tap <Ui>Turn on tap to send</Ui>. A checklist walks you through these steps, and each has a button that opens the right screen.</p>
 
-        <h3 id="try-tapdrop-in-accessibility"><a class="anchor" href="#try-tapdrop-in-accessibility" aria-hidden="true" tabindex="-1">#</a><span class="stepno">4.1</span>Try TapDrop in Accessibility first <span class="if">only if Android restricts it</span></h3>
+        </header>
+        <GuideStep {...step('try-tapdrop-in-accessibility')}>
         <p>Android 13 and newer restrict accessibility for apps installed from a file, and only offer the way to allow it once you’ve tried. If the checklist shows <Ui>Try TapDrop in Accessibility</Ui>:</p>
         <ol class="steps-list">
           <li>Tap <Ui>Open</Ui>. If you land on a list, TapDrop is under <Ui>Downloaded apps</Ui> (some phones: <Ui>Installed apps</Ui>).</li>
           <li>Tap <Ui>TapDrop <span class="dash"></span> tap your Mac to send</Ui>. Android says it’s restricted: <span class="say">“App was denied access”</span> or, on some versions, <span class="say">“Restricted setting”</span>. Tap <Ui>Close</Ui> (or <Ui>OK</Ui>).</li>
           <li>Go back to TapDrop.</li>
         </ol>
-
-        <h3 id="allow-restricted-settings"><a class="anchor" href="#allow-restricted-settings" aria-hidden="true" tabindex="-1">#</a><span class="stepno">4.2</span>Allow restricted settings</h3>
+        </GuideStep>
+        <GuideStep {...step('allow-restricted-settings')}>
         <ol class="steps-list">
           <li>Tap <Ui>App info</Ui> next to <Ui>Allow restricted settings</Ui>.</li>
-          <li>Tap <Ui icon="dots">More</Ui> (the three dots, top right). It’s there now, after 4.1.</li>
+          <li>Tap <Ui icon="dots">More</Ui> (the three dots, top right). It’s there now, after step 4.1.</li>
           <li>Tap <Ui>Allow restricted settings</Ui> and confirm with your PIN, pattern or fingerprint.</li>
           <li>Go back to TapDrop.</li>
         </ol>
-
-        <h3 id="turn-on-tapdrop-in-accessibility"><a class="anchor" href="#turn-on-tapdrop-in-accessibility" aria-hidden="true" tabindex="-1">#</a><span class="stepno">4.3</span>Turn on TapDrop in Accessibility</h3>
+        </GuideStep>
+        <GuideStep {...step('turn-on-tapdrop-in-accessibility')}>
         <ol class="steps-list">
           <li>Tap <Ui>Open</Ui> next to <Ui>Turn on TapDrop in Accessibility</Ui>.</li>
           <li>Tap <Ui>TapDrop <span class="dash"></span> tap your Mac to send</Ui> and switch on <Ui>Use TapDrop</Ui>.</li>
           <li>Android asks <span class="say">“Allow TapDrop to have full control of your device?”</span> Tap <Ui>Allow</Ui>.</li>
           <li>Go back to TapDrop.</li>
         </ol>
-
-        <h3 id="let-it-run-in-the-background"><a class="anchor" href="#let-it-run-in-the-background" aria-hidden="true" tabindex="-1">#</a><span class="stepno">4.4</span>Let it run in the background</h3>
+        </GuideStep>
+        <GuideStep {...step('let-it-run-in-the-background')}>
         <div class="with-shot">
           <div>
             <p>Some brands (Samsung, Xiaomi, OnePlus, OPPO, vivo, Huawei and others) stop apps in the background to save battery, which turns tap to send off. If the checklist shows <Ui>Let it run in the background</Ui>, tap <Ui>Allow</Ui>, then allow it in the dialog.</p>
@@ -225,11 +328,16 @@ const toc = [
             <figcaption>Paired and ready to tap.</figcaption>
           </figure>
         </div>
+        </GuideStep>
       </section>
 
-      <section id="part-5-optional" class="part" aria-labelledby="h-p5">
-        <p class="part__tag is-phone"><span>Part 5</span> Optional, on your phone</p>
-        <h2 id="h-p5"><a class="anchor" href="#part-5-optional" aria-hidden="true" tabindex="-1">#</a>Get the most out of TapDrop</h2>
+      <!-- Part 5 -->
+      <section id="part-5-optional" class="gpart" aria-labelledby="h-p5">
+        <header class="gpart__head">
+          <p class="part__tag is-phone"><span>Part 5</span> Optional, {parts[4].where.toLowerCase()}</p>
+          <h2 id="h-p5">Get the most out of <em>TapDrop.</em></h2>
+        </header>
+        <GuideStep {...step('get-the-most-out-of-tapdrop')}>
         <p>On the phone’s home screen, open <Ui>Get the most out of TapDrop</Ui>. Each permission is optional:</p>
         <div class="table-wrap">
           <table class="verdicts perms">
@@ -242,11 +350,16 @@ const toc = [
             </tbody>
           </table>
         </div>
+        </GuideStep>
       </section>
 
-      <section id="part-6-your-first-tap" class="part" aria-labelledby="h-p6">
-        <p class="part__tag is-both"><span>Part 6</span> On both</p>
-        <h2 id="h-p6"><a class="anchor" href="#part-6-your-first-tap" aria-hidden="true" tabindex="-1">#</a>Your first tap</h2>
+      <!-- Part 6 -->
+      <section id="part-6-your-first-tap" class="gpart" aria-labelledby="h-p6">
+        <header class="gpart__head">
+          <p class="part__tag is-both"><span>Part 6</span> {parts[5].where}</p>
+          <h2 id="h-p6">Your first <em>tap.</em></h2>
+        </header>
+        <GuideStep {...step('tap-the-notch')}>
         <ol class="steps-list">
           <li>Open anything on your phone: a web page, a photo, a PDF.</li>
           <li>Hold the phone <strong>screen toward the Mac’s display</strong> and touch the <strong>top edge of its screen</strong> to the <strong>notch</strong>.</li>
@@ -255,8 +368,11 @@ const toc = [
         </ol>
         <p><strong>Practice first, if you like:</strong> on the phone, <MenuPath items={['Settings', 'Test your tap']} />; on the Mac, menu bar icon, then <MenuPath items={['Settings', 'Tap to Send', 'Test your tap']} />. Both show a live graph of what the notch sees and say in plain words why a tap did or didn’t count. <Ui>Calibrate</Ui> measures your phone’s brightness up front, though TapDrop also learns it as you tap.</p>
         <p class="aside-note"><Ui>Pick before sending</Ui> (phone Settings) freezes the screen for a moment after the tap. Tap one photo or drag over an area to send just that part.</p>
+        </GuideStep>
       </section>
 
+      <div class="greference">
+        <p class="eyebrow">Reference</p>
       <section id="everyday-use" aria-labelledby="h-every">
         <h2 id="h-every"><a class="anchor" href="#everyday-use" aria-hidden="true" tabindex="-1">#</a>Everyday use</h2>
         <ul>
@@ -355,6 +471,8 @@ const toc = [
         <Code code={'cd TapDrop/android\n./gradlew :app:assembleDebug'} />
         <p>Build the Android app <strong>before</strong> the Mac app if you want the Mac’s setup page to offer it: <code>build-app.sh</code> bundles <code>app-release.apk</code> when it exists. Release builds and signing are covered in the <a class="link" href={`${links.repo}#build-from-source`}>README</a>.</p>
       </section>
+
+      </div>
 
       <div class="next-page">
         <p>Curious why a hand can’t send?</p>

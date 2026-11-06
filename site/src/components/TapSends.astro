@@ -18,7 +18,7 @@ const num = (i: number) => String(i + 1).padStart(2, '0');
       <div class="ts__dark" data-ts-dark aria-hidden="true"></div>
 
       <div class="ts__side">
-        <h2 class="ts__title" id="sends-title">{sends.title}</h2>
+        <h2 class="ts__title" id="sends-title">Whatever’s on <em>screen.</em></h2>
         <p class="ts__intro">{sends.intro}</p>
         <ol class="ts__index" aria-label="What a tap sends">
           {rows.map((r, i) => (
@@ -47,10 +47,10 @@ const num = (i: number) => String(i + 1).padStart(2, '0');
             <svg class="ts__lasso" viewBox="0 0 1080 2400" data-ts-lasso aria-hidden="true">
               <defs>
                 <linearGradient id="ts-lasso-g" x1="0" x2="1" y1="0" y2="0">
-                  <stop offset="0" stop-color="#409EFF" /><stop offset="0.5" stop-color="#8561FF" /><stop offset="1" stop-color="#F26BD9" />
+                  <stop offset="0" stop-color="#FFFFFF" /><stop offset="0.5" stop-color="#D6DEFF" /><stop offset="1" stop-color="#FFFFFF" />
                 </linearGradient>
               </defs>
-              <rect data-ts-lasso-fill x="20" y="1712" width="880" height="200" rx="60" fill="#8561FF" opacity="0" />
+              <rect data-ts-lasso-fill x="20" y="1712" width="880" height="200" rx="60" fill="#D6DEFF" opacity="0" />
               <path data-ts-lasso-path pathLength="1" d="M905 1748 C 975 1870, 640 1950, 430 1942 C 170 1932, 4 1882, 18 1798 C 32 1712, 300 1676, 530 1684 C 770 1692, 940 1726, 878 1806" fill="none" stroke="url(#ts-lasso-g)" stroke-width="16" stroke-linecap="round" stroke-dasharray="1" stroke-dashoffset="1" />
             </svg>
           </div>

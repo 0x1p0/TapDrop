@@ -1,0 +1,27 @@
+---
+// What fingerprinting costs: space and time, with the real library they were measured on.
+import { numbers as n } from '../data/site';
+---
+<section class="section nums" aria-labelledby="nums-title">
+  <div class="grid section__head nums__head">
+    <p class="eyebrow nums__eyebrow" data-reveal="up">{n.eyebrow}</p>
+    <h2 class="h-xl" id="nums-title" data-split="lines">Small enough to <em>forget.</em></h2>
+    <p class="lede" data-reveal="up">{n.intro}</p>
+  </div>
+  <dl class="grid nums__space">
+    {n.space.map((s, i) => (
+      <div class:list={['nums__item', i === 2 && 'nums__item--total']} data-reveal="up" data-delay={String(i * 0.07)}>
+        <dt class="serif"><span data-count={s.value}>{s.value}</span><small class="mono">{s.unit}</small></dt>
+        <dd>{s.label}</dd>
+      </div>
+    ))}
+  </dl>
+  <dl class="grid nums__time">
+    {n.time.map((t, i) => (
+      <div class="nums__row" data-reveal="up" data-delay={String(i * 0.06)}>
+        <dt class="serif">{t.value}</dt>
+        <dd>{t.label}</dd>
+      </div>
+    ))}
+  </dl>
+</section>

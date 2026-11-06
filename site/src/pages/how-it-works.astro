@@ -5,8 +5,8 @@ import Base from '../layouts/Base.astro';
 import Btn from '../components/Btn.astro';
 import Trace from '../components/Trace.astro';
 import PageIsland from '../components/PageIsland.astro';
-import testTap from '../assets/phone/android-test-your-tap.png';
-import macTap from '../assets/mac/mac-tap-to-send.png';
+import testTap from '../assets/phone/test-tap.png';
+import macTap from '../assets/mac/tap-to-send-dark.png';
 
 const toc = [
   { id: 'round', label: 'One round' },
@@ -24,7 +24,7 @@ const toc = [
 >
   <header class="grid page-head">
     <PageIsland title="Light key passed" sub="Screen 3 → 1,480 lux, dark again at 2 lux" tone="ok" />
-    <h1 class="display rise"><span style="--d:0.05s">The light key.</span></h1>
+    <h1 class="display rise"><span style="--d:0.05s">The light <em>key.</em></span></h1>
     <div class="page-head__side">
       <p class="page-head__kicker css-in" style="--d:0.25s">How it works</p>
       <p class="lede css-in" style="--d:0.3s">
@@ -100,8 +100,15 @@ const toc = [
 
       <section id="originals" aria-labelledby="originals-h">
         <h2 id="originals-h">Finding the original</h2>
-        <p>Android doesn’t tell apps which file another app has open. TapDrop finds it by the name the viewer shows (documents) or by fingerprinting your library in the background (photos and videos): a 256-bit hash of each photo, and of about one frame per second of each video.</p>
-        <p>A match has to be close and clearly better than every other candidate. If it isn’t, <strong>you get a screenshot, never a guess.</strong> Streaming apps don’t keep videos as files, so they always send a screenshot.</p>
+        <p>Android doesn’t tell apps which file another app has open. For documents, TapDrop finds the file by the name the viewer shows. For photos and videos it recognises the picture itself, against fingerprints it makes of your library in the background.</p>
+        <ol class="round">
+          <li><span class="mono">photo</span><span><b>A grid of light for every photo,</b> 16 × 16 brightness values and a short hash, about 0.45 KB each. All 29,674 photos of a real library took about fifteen minutes, once.</span></li>
+          <li><span class="mono">video</span><span><b>A grid every half second of every video,</b> about 30 KB a minute, about two seconds of work per video.</span></li>
+          <li><span class="mono">tap</span><span><b>The screen gets the same treatment.</b> Black bars around the picture are trimmed, then its grid is ranked against every fingerprint by correlation.</span></li>
+          <li><span class="mono">look</span><span><b>The best few get a closer look,</b> a 48 × 48 grid compared for both shading and edges. For a video, the moments around the best match are decoded frame by frame.</span></li>
+          <li><span class="mono">send</span><span><b>Only a clear winner is sent:</b> close to the screen, and clearly ahead of the runner-up. A receipt on a real phone ranked first at 0.959 against 0.537, then 0.99 up close, in about a second.</span></li>
+        </ol>
+        <p>If no photo or video is clearly the one, <strong>you get a screenshot, and the notch says so. Never a guess.</strong> Pictures that aren’t in your gallery and streaming video, which isn’t kept as a file, always arrive as screenshots. The fingerprints stay on your phone: the whole library came to about 38 MB, and none of it goes to the Mac.</p>
       </section>
 
       <section id="privacy" aria-labelledby="privacy-h">
