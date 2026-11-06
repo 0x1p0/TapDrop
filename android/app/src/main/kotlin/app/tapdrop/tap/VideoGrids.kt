@@ -42,18 +42,20 @@ internal class VideoGrids(private val ctx: Context, private val file: File) {
     @Volatile private var loaded = false
 
     val size: Int get() = entries.size
+    /** The file has been read (a fresh app reads it on its first search or in the background). */
+    val loadedNow: Boolean get() = loaded
 
     fun has(uri: Uri, key: String) = entries[uri.toString()]?.key == key
 
     // MARK: building
 
     /** Decodes the whole video once, keeping about two frames a second (at most [MAX_FRAMES]). null: unreadable. */
-    fun build(uri: Uri, key: String, durationMs: Long, until: Long): Entry? {
+    fun build(uri: Uri, key: String, durationMs: Long, until: Long, hold: () -> Long = { 0L }): Entry? {
         val step = max(STEP_MS.toLong(), durationMs / MAX_FRAMES) * 1000
         val times = ArrayList<Int>()
         val grids = java.io.ByteArrayOutputStream()
         var aspect = 0f
-        val ok = decode(uri, 0, Long.MAX_VALUE, step, until) { us, luma ->
+        val ok = decode(uri, 0, Long.MAX_VALUE, step, until, hold) { us, luma ->
             luma.grid(INSET_FULL)?.let {
                 times += (us / 1000).toInt()
                 grids.write(it)
@@ -173,7 +175,10 @@ internal class VideoGrids(private val ctx: Context, private val file: File) {
      * Decodes [uri] from the keyframe at or before [fromUs] up to [toUs], handing [take] the frames due: one every
      * [stepUs] (0: every frame) from [fromUs]. false: no decoder for it, it failed, or [until] passed.
      */
-    private fun decode(uri: Uri, fromUs: Long, toUs: Long, stepUs: Long, until: Long, take: (Long, Luma) -> Unit): Boolean {
+    private fun decode(
+        uri: Uri, fromUs: Long, toUs: Long, stepUs: Long, until: Long, hold: () -> Long = { 0L }, take: (Long, Luma) -> Unit,
+    ): Boolean {
+        var deadline = until
         val ex = MediaExtractor()
         var codec: MediaCodec? = null
         try {
@@ -197,7 +202,9 @@ internal class VideoGrids(private val ctx: Context, private val file: File) {
             var next = fromUs
             var inputDone = false
             while (true) {
-                if (SystemClock.elapsedRealtime() > until) return false
+                // Paused (a tap is searching): the pause doesn't count against the time allowed.
+                deadline += hold()
+                if (SystemClock.elapsedRealtime() > deadline) return false
                 if (!inputDone) {
                     val i = c.dequeueInputBuffer(5_000)
                     if (i >= 0) {

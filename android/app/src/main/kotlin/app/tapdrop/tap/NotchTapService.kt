@@ -302,6 +302,37 @@ class NotchTapService : AccessibilityService() {
 
     override fun onInterrupt() {}
 
+    /**
+     * Diagnostics, only from a computer with adb (dumpsys needs a permission apps can't have): runs a tap's search on
+     * a screenshot saved in TapDrop's own folder and prints everything it compared. Changes nothing.
+     *   adb push shot.png /sdcard/Android/data/app.tapdrop/files/
+     *   adb shell dumpsys activity service app.tapdrop/.tap.NotchTapService match shot.png [video] [gallery]
+     *   adb shell dumpsys activity service app.tapdrop/.tap.NotchTapService result
+     */
+    override fun dump(fd: java.io.FileDescriptor?, writer: java.io.PrintWriter, args: Array<out String>?) {
+        val dir = getExternalFilesDir(null)
+        when {
+            args?.getOrNull(0) == "result" -> writer.println(diagnosis)
+            args?.getOrNull(0) == "match" && args.size >= 2 && ::matcher.isInitialized -> {
+                val bmp = android.graphics.BitmapFactory.decodeFile(java.io.File(dir, java.io.File(args[1]).name).path)
+                    ?: return writer.println("can't read ${args[1]} in $dir")
+                val kind = if ("video" in args) MediaDetector.Kind.VIDEO else MediaDetector.Kind.IMAGE
+                val hit = MediaDetector.Hit(kind, android.graphics.Rect(0, 0, bmp.width, bmp.height), null)
+                matcher.diagnoseWant = args.firstOrNull { it.startsWith("want=") }?.removePrefix("want=")
+                diagnosis = "searching ${args[1]}…"
+                scope.launch(Dispatchers.Default) {
+                    val began = SystemClock.elapsedRealtime()
+                    val out = runCatching { matcher.diagnose(bmp, hit, gallery = "gallery" in args) }
+                    diagnosis = "${out.getOrNull() ?: out.exceptionOrNull()} in ${SystemClock.elapsedRealtime() - began} ms\n" +
+                        matcher.lastCheckNote.replace(" · ", "\n · ")
+                }
+                writer.println("searching; read it with: result")
+            }
+            else -> writer.println("usage: match <a picture in $dir> [video] [gallery] [want=<file name>] · result")
+        }
+    }
+    @Volatile private var diagnosis = "nothing searched yet"
+
     override fun onDestroy() {
         if (instance === this) instance = null
         _running.value = false
