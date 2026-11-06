@@ -134,6 +134,8 @@ import app.tapdrop.ui.design.GlassIconButton
 import app.tapdrop.ui.design.GlassLayers
 import app.tapdrop.ui.design.GlassTopBar
 import app.tapdrop.ui.design.LinkState
+import app.tapdrop.ui.design.raisedFill
+import app.tapdrop.ui.design.raisedShadow
 import app.tapdrop.ui.design.MediaThumb
 import app.tapdrop.ui.design.PlayBadge
 import app.tapdrop.ui.design.SectionHeader
@@ -591,13 +593,9 @@ private fun RoundAction(icon: ImageVector, label: String, detail: String, onClic
         Box(
             Modifier
                 .size(64.dp)
-                .then(
-                    if (c.isDark) Modifier
-                    else Modifier.shadow(10.dp, CircleShape, ambientColor = c.shadow.copy(alpha = 0.10f), spotColor = c.shadow.copy(alpha = 0.10f))
-                )
+                .raisedShadow(CircleShape, c)
                 .pressable(CircleShape, enabled = enabled, pressedScale = 0.92f, onClick = onClick)
-                .background(if (c.isDark) Color.White.copy(alpha = 0.055f) else Color.White, CircleShape)
-                .border(1.dp, c.hairline, CircleShape),
+                .raisedFill(CircleShape, c),
             contentAlignment = Alignment.Center,
         ) {
             Icon(icon, label, tint = if (enabled) c.text else c.textTertiary, modifier = Modifier.size(24.dp))

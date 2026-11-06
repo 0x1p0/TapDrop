@@ -1,5 +1,8 @@
 package app.tapdrop.ui.pair
 
+import app.tapdrop.ui.design.litFill
+import app.tapdrop.ui.design.litHalo
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
@@ -354,7 +357,7 @@ private fun PairPill(prominent: Boolean) {
     Box(
         Modifier
             .height(36.dp)
-            .then(if (prominent) Modifier.background(c.accent, CircleShape) else Modifier.background(c.accentSoft, CircleShape))
+            .then(if (prominent) Modifier.litHalo(CircleShape, c, 0.7f).litFill(CircleShape, c) else Modifier.background(c.accentSoft, CircleShape))
             .padding(horizontal = 18.dp),
         contentAlignment = Alignment.Center,
     ) {

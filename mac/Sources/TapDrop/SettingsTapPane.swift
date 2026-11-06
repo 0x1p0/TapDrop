@@ -35,9 +35,7 @@ struct TapPane: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
                     if readiness != .unavailable {
                         Toggle("Tap to Send", isOn: $store.settings.notchTap)
-                            .toggleStyle(.switch)
-                            .labelsHidden()
-                            .tint(TD.violet)
+                            .tdSwitch()
                             .help(store.settings.notchTap ? "Turn off Tap to Send" : "Turn on Tap to Send")
                     }
                 }

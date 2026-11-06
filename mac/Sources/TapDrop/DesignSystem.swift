@@ -598,10 +598,13 @@ private struct TDCapsuleButtonStyle: ButtonStyle {
         func body(content: Content) -> some View {
             if role == .quiet {
                 content.background(Capsule().fill(pressed ? TD.fillStrong : (hover ? TD.fill : .clear)))
+            } else if role == .primary {
+                // Never a flat white pill: the accent, lit.
+                content.background { LitCapsule(hover: hover, pressed: pressed) }
             } else if #available(macOS 26.0, *) {
                 content
                     .background(Capsule().fill(.white.opacity(wash)))
-                    .tdGlass(role == .primary ? .regular.tint(TD.violetDeep).interactive() : .regular.interactive(), in: Capsule())
+                    .tdGlass(.regular.interactive(), in: Capsule())
             } else {
                 content.background { drawn }
             }
@@ -619,6 +622,31 @@ private struct TDCapsuleButtonStyle: ButtonStyle {
                     .overlay(Capsule().strokeBorder(TD.hairline, lineWidth: 1))
             }
         }
+    }
+}
+
+/// The primary button's fill: the accent, lit. Bone with a soft top-to-bottom falloff, a rim and a faint glow of the
+/// notch's light in dark mode; ink with a sheen and a shadow in light mode.
+struct LitCapsule: View {
+    var hover = false
+    var pressed = false
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        let dark = scheme == .dark
+        Capsule()
+            .fill(LinearGradient(colors: dark ? [Color(tdHex: 0xFFFFFF), Color(tdHex: 0xE2E0D9)]
+                                              : [Color(tdHex: 0x303036), Color(tdHex: 0x0B0B0D)],
+                                 startPoint: .top, endPoint: .bottom))
+            .overlay(Capsule().strokeBorder(
+                LinearGradient(colors: dark ? [.white, .white.opacity(0), .black.opacity(0.12)]
+                                            : [.white.opacity(0.26), .white.opacity(0.04), .clear],
+                               startPoint: .top, endPoint: .bottom),
+                lineWidth: 1))
+            .brightness(pressed ? (dark ? -0.06 : 0.06) : (hover ? (dark ? 0.02 : 0.04) : 0))
+            .shadow(color: dark ? TD.light.opacity(pressed ? 0.18 : (hover ? 0.5 : 0.32)) : .black.opacity(0.24),
+                    radius: dark ? (hover ? 14 : 10) : 6, y: dark ? 0 : 3)
+            .shadow(color: .black.opacity(dark ? 0.45 : 0.14), radius: 1.2, y: 1)
     }
 }
 
@@ -673,7 +701,7 @@ private struct TDIconDrawnStyle: ButtonStyle {
                 .labelStyle(.iconOnly)
                 .font(.system(size: (style.size * 0.43).rounded(), weight: .semibold))
                 .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(style.prominent ? AnyShapeStyle(.white) : AnyShapeStyle(hover ? TD.text : TD.textSecondary))
+                .foregroundStyle(style.prominent ? AnyShapeStyle(TD.onAccent) : AnyShapeStyle(hover ? TD.text : TD.textSecondary))
                 .frame(width: style.size, height: style.size)
                 .contentShape(Circle())
                 .modifier(CircleFill(style: style, hover: hover, pressed: configuration.isPressed))
@@ -694,7 +722,7 @@ private struct TDIconDrawnStyle: ButtonStyle {
             if style.quiet {
                 content.background(Circle().fill(pressed ? TD.fillStrong : (hover ? TD.fillHover : .clear)))
             } else if style.prominent {
-                content.tdGlass(.regular.tint(TD.violetDeep).interactive(), in: Circle())
+                content.background { LitCapsule(hover: hover, pressed: pressed) }
             } else {
                 content
                     .background(Circle().fill(pressed ? TD.fillHover : (hover ? TD.fill : .clear)))

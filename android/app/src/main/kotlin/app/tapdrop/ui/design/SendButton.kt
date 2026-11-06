@@ -174,7 +174,7 @@ fun SendButton(
             .drawBehind {
                 val w = size.width
                 val h = size.height
-                if (ready > 0f) drawRect(if (enabled) c.accent else neutral, alpha = ready)
+                if (ready > 0f) { if (enabled) drawRect(litBrush(c), alpha = ready) else drawRect(neutral, alpha = ready) }
                 if (work > 0f) {
                     drawRect(track, alpha = work)
                     if (indeterminate) {
@@ -192,7 +192,7 @@ fun SendButton(
                         drawRect(c.accent, size = Size(w * fill, h), alpha = work)
                     }
                 }
-                if (done > 0f) drawRect(c.accent, alpha = done)
+                if (done > 0f) drawRect(litBrush(c), alpha = done)
                 if (notice > 0f) drawRect(neutral, alpha = notice)
                 if (fail > 0f) drawRect(danger, alpha = fail)
             }

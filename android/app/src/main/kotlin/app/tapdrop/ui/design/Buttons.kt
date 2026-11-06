@@ -50,10 +50,11 @@ fun PrimaryButton(
     Box(
         modifier
             .heightIn(min = 56.dp)
+            .then(if (enabled) Modifier.litHalo(CircleShape, c) else Modifier)
             .pressable(CircleShape, enabled = active, onClick = onClick)
             .then(
-                // Bone in dark mode, ink in light: the one solid fill on a screen.
-                if (enabled) Modifier.background(c.accent)
+                // Bone in dark mode, ink in light, lit: the one solid fill on a screen.
+                if (enabled) Modifier.litFill(CircleShape, c)
                 else Modifier.background(c.surfaceSunken)
             )
             .padding(horizontal = 24.dp),
@@ -99,9 +100,9 @@ fun SecondaryButton(
     Box(
         modifier
             .heightIn(min = 56.dp)
+            .then(if (accent) Modifier else Modifier.raisedShadow(CircleShape, c))
             .pressable(CircleShape, enabled = enabled, onClick = onClick)
-            .background(bg)
-            .border(1.dp, if (accent) Color.Transparent else c.hairline, CircleShape)
+            .then(if (accent) Modifier.background(bg) else Modifier.raisedFill(CircleShape, c))
             .padding(horizontal = 24.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -152,8 +153,9 @@ fun SmallButton(
         Box(
             Modifier
                 .height(36.dp)
+                .then(if (prominent && enabled) Modifier.litHalo(CircleShape, c, 0.7f) else Modifier)
                 .pressable(CircleShape, enabled = enabled, pressedScale = 0.94f, onClick = onClick)
-                .then(if (prominent && enabled) Modifier.background(c.accent) else Modifier.background(c.accentSoft))
+                .then(if (prominent && enabled) Modifier.litFill(CircleShape, c) else Modifier.background(c.accentSoft))
                 .padding(horizontal = 16.dp),
             contentAlignment = Alignment.Center,
         ) {

@@ -811,11 +811,9 @@ struct IslandButtonStyle: ButtonStyle {
 
         @ViewBuilder private var fill: some View {
             if prominent && tint == nil {
-                // Lumen: a bone pill with night text, the island's one light; a soft glow of the light on hover.
-                Capsule()
-                    .fill(TD.bone)
-                    .overlay(Capsule().fill(.black.opacity(configuration.isPressed ? 0.12 : 0)))
-                    .shadow(color: TD.light.opacity(hover ? 0.45 : 0.2), radius: hover ? 10 : 6, y: 0)
+                // Lumen: the island's one light, lit (never a flat white pill).
+                LitCapsule(hover: hover, pressed: configuration.isPressed)
+                    .environment(\.colorScheme, .dark)
             } else {
                 Capsule()
                     .fill((tint ?? .white).opacity(configuration.isPressed ? 0.26 : (hover ? 0.2 : 0.14)))
