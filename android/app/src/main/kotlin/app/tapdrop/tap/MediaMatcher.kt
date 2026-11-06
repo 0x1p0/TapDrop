@@ -119,6 +119,7 @@ class MediaMatcher(
         // Every video is fingerprinted in the background (new ones too): nothing is decoded here, where it would
         // compete with a tap's own search for the phone's video decoder.
         index(recentVideos(force = true))
+        gridVideos()
         indexPhotos()
     }
 
@@ -205,6 +206,68 @@ class MediaMatcher(
                 "(next video ${indexed.third}) · index ${indexEntries.size}/${recentVideos().size} videos → " +
                 "${indexed.first.name} in ${SystemClock.elapsedRealtime() - start} ms"
             return@withContext Outcome.Found(indexed.first)
+        }
+
+        // 0b) the video grids: which video is on screen, and about where in it, at any moment; then the second
+        // around that moment decoded, so only a frame that truly matches the screen sends it.
+        val quarter by lazy { VideoGrids.quarter(screen) }
+        fun screenGrid(band: Rect, aspect: Float, inset: Float): ByteArray? {
+            val (lum, qw, qh) = quarter
+            val b = Rect(band)
+            if (!b.intersect(0, 0, qw, qh) || b.height() == 0) return null
+            val (w, h) = if (b.width().toFloat() / b.height() > aspect) (b.height() * aspect).toInt() to b.height()
+            else b.width() to (b.width() / aspect).toInt()
+            val x = b.left + (b.width() - w) / 2
+            val y = b.top + (b.height() - h) / 2
+            return VideoGrids.gridOf(lum, qw, qh, Rect(x, y, x + w, y + h), inset)
+        }
+        var gridNote = ""
+        fun byGrids(strict: Boolean): Media? {
+            val videos = recentVideos()
+            if (grids.size == 0) return null
+            val gridBands = (if (hit != null) listOf(bands[0], bands[2]) else listOf(bands[0])).distinct()
+            val best = HashMap<String, Pair<VideoGrids.Ranked, Rect>>()
+            for (band in gridBands) {
+                for (r in grids.rank(videos, ::key) { a -> screenGrid(band, a, VideoGrids.INSET_FULL) }) {
+                    if ((best[r.uri]?.first?.score ?: -2f) < r.score) best[r.uri] = r to band
+                }
+            }
+            val ranked = best.values.sortedByDescending { it.first.score }
+            val byUri = videos.associateBy { it.uri.toString() }
+            val (top, topBand) = ranked.firstOrNull() ?: return null
+            val tm = byUri[top.uri] ?: return null
+            // The next video that isn't a copy of it (WhatsApp keeps a received video and, once forwarded, a copy).
+            val next = ranked.drop(1).firstOrNull { (r, _) ->
+                byUri[r.uri]?.let { abs(it.durationMs - tm.durationMs) > 500 } ?: false
+            }
+            gridNote = " · closest video moment ${tm.name} at %.1f s %.2f (next %.2f)".format(
+                top.atMs / 1000f, top.score, next?.first?.score ?: -1f,
+            )
+            if (top.score < GRID_TRY) return null
+            val confirmBy = start + BUDGET_MS + 2_000
+            fun confirm(r: VideoGrids.Ranked, band: Rect): Float? {
+                val m = byUri[r.uri] ?: return null
+                val full = screenGrid(band, r.aspect, VideoGrids.INSET_FULL) ?: return null
+                return grids.confirm(m.uri, r.atMs, full, screenGrid(band, r.aspect, VideoGrids.INSET_MIDDLE), confirmBy)
+            }
+            val c1 = confirm(top, topBand)
+            gridNote += c1?.let { " · its frames there %.2f".format(it) } ?: " · couldn't decode it in time"
+            val need = if (strict) CONFIRM_STRICT else CONFIRM_MIN
+            if (c1 != null && c1 >= need) {
+                // A close second video gets the same look; the first has to stay clearly ahead.
+                val c2 = next?.takeIf { it.first.score >= top.score - GRID_MARGIN }?.let { (r, band) -> confirm(r, band) }
+                c2?.let { gridNote += " · next video's frames %.2f".format(it) }
+                return tm.takeIf { c2 == null || c2 <= c1 - CONFIRM_MARGIN }
+            }
+            // Not decoded in time: only an unmistakable grid match.
+            return tm.takeIf {
+                c1 == null && !strict && top.score >= GRID_ALONE && top.score - (next?.first?.score ?: -1f) >= GRID_MARGIN
+            }
+        }
+        if (video && allowVideos) byGrids(strict = false)?.let { m ->
+            lastNote = "video on screen$gridNote · video grids ${grids.size}/${recentVideos().size} → ${m.name} in " +
+                "${SystemClock.elapsedRealtime() - start} ms"
+            return@withContext Outcome.Found(m)
         }
 
         // 1) thumbnails: cheap, mostly cached
@@ -351,6 +414,7 @@ class MediaMatcher(
         }
         // Chat viewers often hide a playing video's controls, so it may not have looked like one: the newest videos'
         // frames against the screen too.
+        if (found == null && !video && allowVideos) found = byGrids(strict = true)
         var videoBest: Pair<Media, Int>? = null
         var videoNext = BITS
         if (found == null && !video && allowVideos) {
@@ -388,6 +452,8 @@ class MediaMatcher(
             append(" · index ${indexEntries.size}/${recentVideos().size} videos")
             if (!allowVideos) append(" · videos not searched here")
             indexed?.let { append(" · closest indexed frame ${it.first.name} ${it.second} (next video ${it.third})") }
+            append(gridNote)
+            if (allowVideos) append(" · video grids ${grids.size}/${recentVideos().size}")
             videoBest?.let { append(" · closest video frame ${it.first.name} ${it.second} (next $videoNext)") }
             append(" → ${found?.name ?: "no match"} in ${SystemClock.elapsedRealtime() - start} ms (of 256)")
         }
@@ -554,8 +620,6 @@ class MediaMatcher(
         val eligible = videos.take(LIBRARY_LIMIT).filter { it.durationMs > 0 }
         val todo = eligible.filter { indexEntries[it.uri.toString()]?.key != key(it) }
         if (indexing) return
-        var done = eligible.size - todo.size
-        onIndex(done, eligible.size)
         if (todo.isEmpty()) return
         indexing = true
         thread(name = "TapDrop video index", isDaemon = true, priority = Thread.MIN_PRIORITY) {
@@ -570,7 +634,6 @@ class MediaMatcher(
                     // counts as done).
                     indexEntries[m.uri.toString()] = limited(30_000) { runCatching { fingerprint(m) }.getOrNull() }
                         ?: Indexed(key(m), 1f, emptyList())
-                    onIndex(++done, eligible.size)
                     if (++n % 5 == 0) saveIndex()
                     Thread.sleep(250)
                 }
@@ -581,6 +644,55 @@ class MediaMatcher(
                 Log.i("TapDrop", "video index: ${indexEntries.size} videos")
             } finally {
                 indexing = false
+            }
+            gridVideos()
+        }
+    }
+
+    // MARK: video grids
+
+    private val grids = VideoGrids(ctx, File(ctx.filesDir, "video-grids.bin"))
+    @Volatile private var gridding = false
+
+    /**
+     * Grids every video not yet gridded (newest first), each decoded once from start to end, in the background at
+     * low priority, saving as it goes: what lets a tap find a video at any moment, not only near its keyframes.
+     * (The phone's progress shows in Settings → Photos & videos for tap.)
+     */
+    private fun gridVideos() {
+        if (gridding || indexing) return
+        gridding = true
+        thread(name = "TapDrop video grids", isDaemon = true, priority = Thread.MIN_PRIORITY) {
+            try {
+                runCatching {
+                    grids.load()
+                    val videos = recentVideos(force = true).filter { it.durationMs > 0 }
+                    val todo = videos.filter { !grids.has(it.uri, key(it)) }
+                    var done = videos.size - todo.size
+                    onIndex(done, videos.size)
+                    val began = SystemClock.elapsedRealtime()
+                    var n = 0
+                    var unreadable = 0
+                    for (m in todo) {
+                        if (!hasAccess()) break
+                        restWhileBusy()
+                        // A long video gets longer; one that can't be read (or hangs the decoder) is recorded empty,
+                        // so it isn't tried again, and the frame fingerprints still cover it.
+                        val budget = 60_000L + m.durationMs / 2
+                        val e = limited(budget + 5_000) {
+                            runCatching { grids.build(m.uri, key(m), m.durationMs, SystemClock.elapsedRealtime() + budget) }.getOrNull()
+                        }
+                        if (e == null) unreadable++
+                        grids.put(m.uri, e ?: VideoGrids.Entry(key(m), 0f, IntArray(0), ByteArray(0)))
+                        onIndex(++done, videos.size)
+                        if (++n % 25 == 0) Log.i("TapDrop", "video grids: $done of ${videos.size} (${n} in ${(SystemClock.elapsedRealtime() - began) / 1000} s, $unreadable unreadable)")
+                        Thread.sleep(100)
+                    }
+                    if (videos.size < LIBRARY_LIMIT) grids.keepOnly(videos.map { it.uri.toString() }.toSet())
+                    Log.i("TapDrop", "video grids: ${grids.size} videos")
+                }.onFailure { Log.w("TapDrop", "video grids stopped", it) }
+            } finally {
+                gridding = false
             }
         }
     }
@@ -913,5 +1025,18 @@ class MediaMatcher(
         const val FINE_MARGIN = 0.05f
         /** How much closer the match must be than the next-closest picture that isn't a copy of it (of 256 bits). */
         const val MARGIN = 10
+        /**
+         * The video grids: a video whose closest moment correlates at least 0.6 with the screen gets a closer look
+         * (the second around that moment decoded); its frames there must reach 0.95 (0.97 when the screen didn't look
+         * like a video), and 0.03 more than the next video's if that one came within 0.08. Without the closer look in
+         * time, only a grid match of 0.90 that's 0.08 clear of every other video counts. (From 180 simulated taps on
+         * 60 real videos: no wrong video ever passed.)
+         */
+        const val GRID_TRY = 0.6f
+        const val CONFIRM_MIN = 0.95f
+        const val CONFIRM_STRICT = 0.97f
+        const val CONFIRM_MARGIN = 0.03f
+        const val GRID_ALONE = 0.90f
+        const val GRID_MARGIN = 0.08f
     }
 }

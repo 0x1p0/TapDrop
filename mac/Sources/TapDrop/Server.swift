@@ -234,7 +234,7 @@ final class Server: @unchecked Sendable {
                 await MainActor.run { TapStatus.shared.videoIndex(device.name, done: done, total: total) }
             case "tap-note":
                 // What the phone sent for a tap and why (which file it matched), for the tap log.
-                if let text = m.str("text")?.prefix(400) {
+                if let text = m.str("text")?.prefix(1500) {
                     await MainActor.run { TapLog.shared.note("\(device.name) \(text)") }
                 }
             case "grab-ack" where !m.bool("ok"):

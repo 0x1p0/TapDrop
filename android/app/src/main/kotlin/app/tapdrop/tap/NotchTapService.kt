@@ -934,7 +934,7 @@ class NotchTapService : AccessibilityService() {
             is Plan.Shot -> "a screenshot" + (plan.why?.let { " ($it)" } ?: "")
         }
         val note = "sent $decided from $appName" + (matchNote.takeIf { it.isNotEmpty() }?.let { " · $it" } ?: "")
-        scope.launch(Dispatchers.IO) { runCatching { s.send("t" to "tap-note", "text" to note.take(400)) } }
+        scope.launch(Dispatchers.IO) { runCatching { s.send("t" to "tap-note", "text" to note.take(1500)) } }
         if (frozen == null) {
             if (shot == null && plan is Plan.Shot) {
                 if (shotResult == Shot.Secure) {
@@ -1068,7 +1068,7 @@ class NotchTapService : AccessibilityService() {
 
     /** What the pick step chose, for the Mac's tap log. */
     private fun pickNote(s: WatchSession, note: String) {
-        scope.launch(Dispatchers.IO) { runCatching { s.send("t" to "tap-note", "text" to note.take(400)) } }
+        scope.launch(Dispatchers.IO) { runCatching { s.send("t" to "tap-note", "text" to note.take(1500)) } }
     }
 
     private suspend fun sendPicked(
