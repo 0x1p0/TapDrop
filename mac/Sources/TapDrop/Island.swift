@@ -64,10 +64,10 @@ private struct StandInNotch: View {
         ZStack {
             NotchShape(ear: 4, radius: 9).fill(Color.black)
             Circle()
-                .fill(RadialGradient(colors: [Color(tdHex: 0x2A3350), Color(tdHex: 0x10131D)], center: .init(x: 0.4, y: 0.35),
+                .fill(RadialGradient(colors: [Color(tdHex: 0x34343A), Color(tdHex: 0x111114)], center: .init(x: 0.4, y: 0.35),
                                      startRadius: 0, endRadius: 4))
                 .frame(width: 7, height: 7)
-                .overlay(Circle().fill(Color(tdHex: 0x4A5A8A).opacity(0.5)).frame(width: 1.6, height: 1.6).offset(x: -1, y: -1))
+                .overlay(Circle().fill(Color(tdHex: 0x5A5A62).opacity(0.5)).frame(width: 1.6, height: 1.6).offset(x: -1, y: -1))
         }
         .frame(width: size.width + 8, height: size.height)
         .allowsHitTesting(false)

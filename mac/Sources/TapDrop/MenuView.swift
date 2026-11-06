@@ -136,10 +136,7 @@ private struct PanelHeader: View {
     var body: some View {
         HStack(spacing: TD.Space.s) {
             AppGlyph(size: 22)
-            Text("TapDrop")
-                .tdFont(.bodySemibold)
-                .foregroundStyle(TD.text)
-                .fixedSize()
+            Wordmark(size: 16)
             Spacer(minLength: TD.Space.s)
             if let pill {
                 StatusPill(pill.0, pill.1)
@@ -189,23 +186,30 @@ private struct LinkHero: View {
     private var tapReady: Bool { NotchSensor.shared.available && store.settings.notchTap }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: TD.Space.xs + 1) {
-            Text(title)
-                .tdFont(.headline)
+        VStack(spacing: TD.Space.xs + 1) {
+            NotchlineGlow(glow: link == .live ? 1 : (link == .waiting || link == .starting ? 0.55 : 0.2))
+                .frame(width: 150, height: 30)
+                .padding(.top, 2)
+            title
+                .multilineTextAlignment(.center)
                 .foregroundStyle(TD.text)
                 .fixedSize(horizontal: false, vertical: true)
                 .contentTransition(.interpolate)
+                .padding(.top, 4)
             Text(message)
                 .tdFont(.body)
                 .foregroundStyle(TD.textSecondary)
+                .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
                 .lineSpacing(1)
+                .frame(maxWidth: 270)
             if let note {
                 Text(note)
                     .tdFont(.caption)
-                    .foregroundStyle(TD.textSecondary.opacity(0.8))
+                    .foregroundStyle(TD.textTertiary)
+                    .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, 3)
+                    .padding(.top, 2)
             }
             if link == .live && NotchSensor.shared.available && !store.settings.notchTap {
                 Button("Turn On") { store.settings.notchTap = true }
@@ -223,24 +227,30 @@ private struct LinkHero: View {
                 .padding(.top, TD.Space.s)
             }
         }
-        .padding(.leading, TD.Space.l)
-        .padding(.trailing, 124)
-        .padding(.vertical, TD.Space.l)
-        .frame(maxWidth: .infinity, minHeight: 118, alignment: .topLeading)
-        .overlay(alignment: .topTrailing) {
-            // the notch hangs from the card's top edge; the phone rises from below it
-            DeviceHero(link: heroLink)
-                .frame(width: 108)
-                .frame(maxHeight: .infinity, alignment: .top)
-                .padding(.trailing, TD.Space.s)
-        }
+        .padding(.horizontal, TD.Space.l)
+        .padding(.top, TD.Space.m)
+        .padding(.bottom, TD.Space.l)
+        .frame(maxWidth: .infinity)
         .background {
-            AuroraBackdrop(intensity: link == .live ? 1 : 0.45)
+            // The light spilling from the notch line.
+            RadialGradient(colors: [TD.light.opacity(scheme == .dark ? (link == .live ? 0.16 : 0.07) : 0), .clear],
+                           center: .top, startRadius: 0, endRadius: 190)
         }
+        .background(RoundedRectangle(cornerRadius: TD.Radius.card, style: .continuous).fill(TD.fill))
         .clipShape(RoundedRectangle(cornerRadius: TD.Radius.card, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: TD.Radius.card, style: .continuous).strokeBorder(TD.hairline, lineWidth: 1))
         .help(link == .live && tapReady ? TapCopy.safety : "")
         .accessibilityElement(children: .combine)
+    }
+
+    @Environment(\.colorScheme) private var scheme
+
+    /// The hero line in the serif, its last word in italic ("Tap to *send.*").
+    private var title: Text {
+        let words = titleText.split(separator: " ")
+        guard words.count > 1 else { return Text(titleText).font(.serif(30)) }
+        return Text(words.dropLast().joined(separator: " ") + " ").font(.serif(30))
+            + Text(String(words.last!)).font(.serif(30, italic: true))
     }
 
     private var heroLink: DeviceHero.Link {
@@ -253,13 +263,13 @@ private struct LinkHero: View {
         }
     }
 
-    private var title: String {
+    private var titleText: String {
         switch link {
-        case .live: tapReady ? "Tap to send" : (NotchSensor.shared.available ? "Tap to send is off" : "\(phoneName) is connected")
-        case .waiting: "Waiting for \(phoneName)"
-        case .away: "\(phoneName) isn't connected"
-        case .starting: status.hasPrefix("Restart") ? "Getting back online" : "Getting ready"
-        case .macOffline: "This Mac is offline"
+        case .live: tapReady ? "Tap to send." : (NotchSensor.shared.available ? "Tap to send is off." : "\(phoneName) is connected.")
+        case .waiting: "Waiting for \(phoneName)."
+        case .away: "\(phoneName) isn't connected."
+        case .starting: status.hasPrefix("Restart") ? "Getting back online." : "Getting ready."
+        case .macOffline: "This Mac is offline."
         case .setup: ""
         }
     }
@@ -848,7 +858,7 @@ private struct FileStack: View {
             .overlay(alignment: .bottomTrailing) {
                 Text("\(urls.count)")
                     .tdFont(.number(9.5, .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(TD.onAccent)
                     .padding(.horizontal, 4)
                     .frame(minWidth: 16, minHeight: 16)
                     .background(Capsule().fill(TD.violet))
@@ -887,7 +897,7 @@ private struct DropTarget: View {
                         .shadow(color: TD.violet.opacity(0.5), radius: 14, y: 6)
                     Image(systemName: ok ? "arrow.down" : "iphone.slash")
                         .font(.system(size: 28, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(ok ? TD.onAccent : TD.text)
                         .symbolEffect(.bounce.down, options: .repeat(3), isActive: ok && !reduceMotion)
                 }
                 VStack(spacing: 4) {

@@ -200,24 +200,16 @@ struct IconChip: View {
     }
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+        // Lumen: a plain glyph in the text colour in a quiet round well, whatever tint a caller passes (no rainbow,
+        // no gradients); only a red tint (something needs fixing) keeps its colour.
+        let danger = tint.first == TDTint.red.first
         Image(systemName: symbol)
-            .font(.system(size: size * 0.46, weight: .semibold))
-            .symbolRenderingMode(style == .gradient ? .monochrome : .hierarchical)
-            .foregroundStyle(foreground)
+            .font(.geist(size * 0.46, .medium))
+            .symbolRenderingMode(.monochrome)
+            .foregroundStyle(danger ? TD.danger : TD.text)
             .frame(width: size, height: size)
-            .background {
-                switch style {
-                case .gradient:
-                    shape.fill(LinearGradient(colors: tint, startPoint: .top, endPoint: .bottom))
-                        .overlay(shape.fill(LinearGradient(colors: [.white.opacity(0.22), .clear], startPoint: .top, endPoint: .center)))
-                        .overlay(shape.strokeBorder(.white.opacity(0.14), lineWidth: 0.5))
-                case .tinted:
-                    shape.fill((tint.first ?? TD.violet).opacity(0.15))
-                case .plain:
-                    shape.fill(TD.fill)
-                }
-            }
+            .background(Circle().fill(danger ? TD.danger.opacity(0.14) : TD.fill))
+            .overlay(Circle().strokeBorder(TD.hairline, lineWidth: 0.5))
             .accessibilityHidden(true)
     }
 
@@ -404,7 +396,8 @@ extension SettingsRow where Trailing == EmptyView {
 extension View {
     /// The settings switch: small, violet.
     func tdSwitch() -> some View {
-        toggleStyle(.switch).labelsHidden().controlSize(.small).tint(TD.violet)
+        // The switch's knob is always white, so "on" is ink in light mode and a mid grey in dark (bone would hide it).
+        toggleStyle(.switch).labelsHidden().controlSize(.small).tint(Color.td(light: 0x0B0B0D, dark: 0x8D8D95))
     }
 }
 

@@ -17,6 +17,9 @@ VNAME=$(tr -d '[:space:]' < ../VERSION)
 VCODE=$(echo "$VNAME" | awk -F. '{ print $1 * 10000 + $2 * 100 + $3 }')
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VNAME" -c "Set :CFBundleVersion $VCODE" "$APP/Contents/Info.plist"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+# The typefaces (Geist, Geist Mono, Instrument Serif; SIL OFL, licences beside them), registered at launch.
+mkdir -p "$APP/Contents/Resources/Fonts"
+cp Resources/Fonts/* "$APP/Contents/Resources/Fonts/"
 
 APK="../android/app/build/outputs/apk/release/app-release.apk"
 if [[ -f "$APK" ]]; then

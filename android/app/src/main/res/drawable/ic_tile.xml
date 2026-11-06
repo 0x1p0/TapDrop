@@ -1,12 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The Notchline, for the notification icon and the quick settings tile. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp" android:height="24dp"
-    android:viewportWidth="108" android:viewportHeight="108">
-    <group android:scaleX="1.45" android:scaleY="1.45" android:pivotX="54" android:pivotY="54">
-    <path android:fillColor="#FFFFFFFF" android:pathData="M54,47.5a6.5,6.5 0,1 1,0 13a6.5,6.5 0,1 1,0 -13z" />
-    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="6" android:strokeLineCap="round" android:pathData="M43.4,43.4A15,15 0,0 0,43.4 64.6" />
-    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="6" android:strokeLineCap="round" android:pathData="M64.6,43.4A15,15 0,0 1,64.6 64.6" />
-    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="6" android:strokeLineCap="round" android:pathData="M35.6,35.6A26,26 0,0 0,35.6 72.4" />
-    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="6" android:strokeLineCap="round" android:pathData="M72.4,35.6A26,26 0,0 1,72.4 72.4" />
-    </group>
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="2.2" android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M2.0,10.309 L7.294,10.309 C8.176,10.309 8.618,10.75 8.618,11.632 L8.618,11.926 C8.618,12.956 9.353,13.691 10.382,13.691 L13.618,13.691 C14.647,13.691 15.382,12.956 15.382,11.926 L15.382,11.632 C15.382,10.75 15.824,10.309 16.706,10.309 L22.0,10.309" />
 </vector>

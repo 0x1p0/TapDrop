@@ -134,7 +134,7 @@ struct DeviceHero: View {
                     // screen meets the notch, spreading out to both sides
                     Ellipse()
                         .fill(RadialGradient(stops: [.init(color: .white, location: 0),
-                                                     .init(color: Color(tdHex: 0xF1ECFF).opacity(0.8), location: 0.24),
+                                                     .init(color: Color(tdHex: 0xEEF1FF).opacity(0.8), location: 0.24),
                                                      .init(color: TD.violet.opacity(0.42), location: 0.55),
                                                      .init(color: TD.violet.opacity(0), location: 1)],
                                              center: .center, startRadius: 0, endRadius: 60 * u))
@@ -161,7 +161,7 @@ struct DeviceHero: View {
                 // light escaping around the phone's edges, where its screen faces the display
                 ZStack {
                     RoundedRectangle(cornerRadius: 8.5 * u, style: .continuous)
-                        .stroke(Color(tdHex: 0xF4F0FF), lineWidth: 5 * u)
+                        .stroke(Color(tdHex: 0xF4F3EF), lineWidth: 5 * u)
                         .blur(radius: 5 * u)
                     RoundedRectangle(cornerRadius: 8.5 * u, style: .continuous)
                         .stroke(Color.white, lineWidth: 1.4 * u)
@@ -212,8 +212,8 @@ struct DeviceHero: View {
     private func wallpaper(_ u: CGFloat, tall: CGFloat) -> some View {
         let dim = link == .error || link == .offline ? 0.55 : 1.0
         return ZStack {
-            LinearGradient(colors: dark ? [Color(tdHex: 0x0C0C18), Color(tdHex: 0x1B1440)]
-                                        : [Color(tdHex: 0x141430), Color(tdHex: 0x2A1D5E)],
+            LinearGradient(colors: dark ? [Color(tdHex: 0x0B0B0E), Color(tdHex: 0x17171B)]
+                                        : [Color(tdHex: 0x111114), Color(tdHex: 0x1C1C21)],
                            startPoint: .top, endPoint: .bottom)
             RadialGradient(colors: [TD.blue.opacity(0.5 * dim), .clear], center: UnitPoint(x: 0.1, y: 0.95),
                            startRadius: 0, endRadius: 80 * u)
@@ -236,7 +236,7 @@ struct DeviceHero: View {
                 .blur(radius: 2.2 * u)
             shape.fill(Color.black)
             Circle()
-                .fill(Color(tdHex: 0x1C2238))
+                .fill(Color(tdHex: 0x1E1E22))
                 .overlay(Circle().fill(TD.blue.opacity(0.5 * lit)))
                 .frame(width: 2.2 * u, height: 2.2 * u)
                 .offset(y: 2.4 * u)
@@ -244,7 +244,7 @@ struct DeviceHero: View {
             HStack(spacing: 1.6 * u) {
                 Image(systemName: "checkmark")
                     .font(.system(size: 2.4 * u, weight: .black))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(TD.onAccent)
                     .frame(width: 4 * u, height: 4 * u)
                     .background(Circle().fill(TD.success))
                 Spacer(minLength: 0)
@@ -293,7 +293,7 @@ struct DeviceHero: View {
                     .overlay(alignment: .top) { Rectangle().fill(.white.opacity(dark ? 0.28 : 0.6)).frame(height: 0.5 * u) }
                 ForEach([0.24, 0.42], id: \.self) { fx in
                     Circle()
-                        .fill(RadialGradient(colors: [Color(tdHex: 0x2E3A58), Color(tdHex: 0x07080B)], center: .init(x: 0.4, y: 0.4),
+                        .fill(RadialGradient(colors: [Color(tdHex: 0x34343A), Color(tdHex: 0x07080B)], center: .init(x: 0.4, y: 0.4),
                                              startRadius: 0, endRadius: lens * u))
                         .overlay(Circle().fill(.white.opacity(0.45)).frame(width: lens * 0.42 * u, height: lens * 0.42 * u)
                             .offset(x: -lens * 0.3 * u, y: -lens * 0.3 * u))
@@ -355,14 +355,14 @@ struct DeviceHero: View {
     private var screenFill: AnyShapeStyle {
         switch link {
         case .live, .connected:
-            AnyShapeStyle(LinearGradient(colors: [Color(tdHex: 0x8CC6FF), TD.blue, TD.violet, Color(tdHex: 0x5B34D6)],
+            AnyShapeStyle(LinearGradient(colors: [Color.white, TD.light, Color(tdHex: 0xC9CEDD), Color(tdHex: 0xAEB3C2)],
                                          startPoint: .top, endPoint: .bottom))
         case .setup:
             AnyShapeStyle(LinearGradient(colors: [TD.blue, TD.violet], startPoint: .top, endPoint: .bottom))
         case .searching:
-            AnyShapeStyle(LinearGradient(colors: [Color(tdHex: 0x2C2B45), Color(tdHex: 0x1A1A26)], startPoint: .top, endPoint: .bottom))
+            AnyShapeStyle(LinearGradient(colors: [Color(tdHex: 0x2B2B30), Color(tdHex: 0x1A1A1E)], startPoint: .top, endPoint: .bottom))
         case .offline, .error:
-            AnyShapeStyle(LinearGradient(colors: [Color(tdHex: 0x22222B), Color(tdHex: 0x15151B)], startPoint: .top, endPoint: .bottom))
+            AnyShapeStyle(LinearGradient(colors: [Color(tdHex: 0x222226), Color(tdHex: 0x151518)], startPoint: .top, endPoint: .bottom))
         }
     }
 

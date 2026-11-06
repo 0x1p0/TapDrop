@@ -797,7 +797,7 @@ struct IslandButtonStyle: ButtonStyle {
             configuration.label
                 .font(.system(size: 12, weight: .semibold))
                 .lineLimit(1)
-                .foregroundStyle(tint ?? .white)
+                .foregroundStyle(tint ?? (prominent ? TD.night : .white))
                 .padding(.horizontal, 13)
                 .frame(height: 28)
                 .background { fill }
@@ -811,14 +811,11 @@ struct IslandButtonStyle: ButtonStyle {
 
         @ViewBuilder private var fill: some View {
             if prominent && tint == nil {
+                // Lumen: a bone pill with night text, the island's one light; a soft glow of the light on hover.
                 Capsule()
-                    .fill(LinearGradient(colors: [TD.violet.mix(with: .white, by: 0.06), TD.violetDeep],
-                                         startPoint: .top, endPoint: .bottom))
-                    .overlay(Capsule().fill(.white.opacity(configuration.isPressed ? 0.16 : (hover ? 0.1 : 0))))
-                    .overlay(Capsule().strokeBorder(
-                        LinearGradient(colors: [.white.opacity(0.35), .white.opacity(0.06)], startPoint: .top, endPoint: .bottom),
-                        lineWidth: 0.75))
-                    .shadow(color: TD.violet.opacity(hover ? 0.55 : 0.35), radius: hover ? 10 : 7, y: 2)
+                    .fill(TD.bone)
+                    .overlay(Capsule().fill(.black.opacity(configuration.isPressed ? 0.12 : 0)))
+                    .shadow(color: TD.light.opacity(hover ? 0.45 : 0.2), radius: hover ? 10 : 6, y: 0)
             } else {
                 Capsule()
                     .fill((tint ?? .white).opacity(configuration.isPressed ? 0.26 : (hover ? 0.2 : 0.14)))

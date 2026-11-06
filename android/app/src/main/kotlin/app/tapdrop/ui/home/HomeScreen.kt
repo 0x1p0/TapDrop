@@ -1,6 +1,8 @@
 package app.tapdrop.ui.home
 
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.material.icons.rounded.SouthWest
+import androidx.compose.material.icons.rounded.NorthEast
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -315,6 +317,7 @@ fun HomeScreen(
             item("update") { UpdateCard(Modifier.entrance(1, enabled = intro)) }
             item("send") {
                 QuickActions(
+                    macName = mac.name,
                     enabled = online != false,
                     onPhotos = { pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
                     onFiles = { pickFiles.launch(arrayOf("*/*")) },
@@ -327,12 +330,22 @@ fun HomeScreen(
                             app.transfers.send(mac, items, if (items.size == 1 && items[0] is OutItem.Text) "clipboard" else Outgoing.label(items))
                         }
                     },
-                    onMacClipboard = { app.transfers.pullClipboard(mac) },
-                    modifier = Modifier.padding(top = 30.dp).entrance(2, enabled = intro),
+                    modifier = Modifier.padding(top = 18.dp).entrance(2, enabled = intro),
+                )
+            }
+            item("fromMac") {
+                FromMacRow(
+                    enabled = online != false,
+                    onClick = { app.transfers.pullClipboard(mac) },
+                    modifier = Modifier.entrance(3, enabled = intro),
                 )
             }
             item("extras") { ExtrasChecklist(Modifier.padding(top = 24.dp).entrance(4, enabled = intro)) }
-            item("recentHeader") { SectionHeader("Recent", Modifier.padding(top = 10.dp).entrance(5, enabled = intro)) }
+            item("recentHeader") {
+                SectionHeader("Recent", Modifier.padding(top = 10.dp).entrance(5, enabled = intro)) {
+                    Text("Sent & received", style = TdType.caption, color = Td.colors.textTertiary)
+                }
+            }
             if (history.isEmpty()) {
                 item("recentEmpty") {
                     EmptyState(
@@ -513,24 +526,55 @@ private fun HeroLine(text: String) {
 
 @Composable
 private fun QuickActions(
+    macName: String,
     enabled: Boolean,
     onPhotos: () -> Unit,
     onFiles: () -> Unit,
     onClipboard: () -> Unit,
-    onMacClipboard: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(modifier.fillMaxWidth().semantics { contentDescription = "Send to your Mac" }, horizontalArrangement = Arrangement.SpaceBetween) {
-        RoundAction(Icons.Outlined.Image, "Photos", onPhotos, enabled, Modifier.weight(1f))
-        RoundAction(Icons.Outlined.Description, "Files", onFiles, enabled, Modifier.weight(1f))
-        RoundAction(Icons.Outlined.ContentPaste, "Clipboard", onClipboard, enabled, Modifier.weight(1f))
-        RoundAction(Icons.Outlined.Laptop, "From Mac", onMacClipboard, enabled, Modifier.weight(1f))
+    Column(modifier) {
+        SectionHeader("Send to $macName")
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            RoundAction(Icons.Outlined.Image, "Photos", "& videos", onPhotos, enabled, Modifier.weight(1f))
+            RoundAction(Icons.Outlined.Description, "Files", "Any kind", onFiles, enabled, Modifier.weight(1f))
+            RoundAction(Icons.Outlined.ContentPaste, "Clipboard", "What you copied", onClipboard, enabled, Modifier.weight(1f))
+        }
+    }
+}
+
+/** The one thing that comes the other way: the Mac's clipboard, onto this phone. */
+@Composable
+private fun FromMacRow(enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val c = Td.colors
+    val shape = RoundedCornerShape(22.dp)
+    Column(modifier) {
+        SectionHeader("From your Mac")
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 68.dp)
+                .pressable(shape, enabled = enabled, pressedScale = 0.98f, onClick = onClick)
+                .background(c.surface, shape)
+                .border(1.dp, c.hairline, shape)
+                .padding(start = 14.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.size(40.dp).background(c.accentSoft, CircleShape), contentAlignment = Alignment.Center) {
+                Icon(Icons.Outlined.Laptop, null, tint = if (enabled) c.text else c.textTertiary, modifier = Modifier.size(21.dp))
+            }
+            Column(Modifier.weight(1f).padding(start = 14.dp, end = 10.dp)) {
+                Text("Your Mac’s clipboard", style = TdType.subtitle, color = if (enabled) c.text else c.textTertiary)
+                Text("Bring what you copied on the Mac to this phone", style = TdType.bodySmall, color = c.textSecondary)
+            }
+            Icon(Icons.Rounded.SouthWest, null, tint = c.textSecondary, modifier = Modifier.size(18.dp))
+        }
     }
 }
 
 /** A round glass button with its label below: the home screen's send actions. */
 @Composable
-private fun RoundAction(icon: ImageVector, label: String, onClick: () -> Unit, enabled: Boolean, modifier: Modifier = Modifier) {
+private fun RoundAction(icon: ImageVector, label: String, detail: String, onClick: () -> Unit, enabled: Boolean, modifier: Modifier = Modifier) {
     val c = Td.colors
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
@@ -547,7 +591,8 @@ private fun RoundAction(icon: ImageVector, label: String, onClick: () -> Unit, e
         ) {
             Icon(icon, label, tint = if (enabled) c.text else c.textTertiary, modifier = Modifier.size(24.dp))
         }
-        Text(label, style = TdType.caption.copy(fontSize = 12.5.sp), color = c.textSecondary, modifier = Modifier.padding(top = 9.dp))
+        Text(label, style = TdType.label, color = if (enabled) c.text else c.textTertiary, modifier = Modifier.padding(top = 10.dp))
+        Text(detail, style = TdType.caption, color = c.textTertiary)
     }
 }
 
@@ -569,6 +614,26 @@ private fun RecentCard(h: HistoryEntry) {
         h.outgoing -> "To ${h.mac} · ${relativeTime(h.time)}"
         else -> "From ${h.mac} · ${relativeTime(h.time)}"
     }
+    // Which way it went, said on the card itself.
+    val direction: @Composable (onPhoto: Boolean) -> Unit = { onPhoto ->
+        Row(
+            Modifier
+                .padding(10.dp)
+                .background(if (onPhoto) Color(0x8C08080A) else c.accentSoft, CircleShape)
+                .padding(start = 7.dp, end = 9.dp, top = 3.dp, bottom = 3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                if (h.outgoing) Icons.Rounded.NorthEast else Icons.Rounded.SouthWest, null,
+                tint = if (onPhoto) Brand.Bone else c.text, modifier = Modifier.size(12.dp),
+            )
+            Text(
+                if (h.outgoing) "Sent" else "Received",
+                style = TdType.caption.copy(fontSize = 11.sp), color = if (onPhoto) Brand.Bone else c.text,
+                modifier = Modifier.padding(start = 3.dp),
+            )
+        }
+    }
     Box(
         Modifier
             .size(width = 168.dp, height = 196.dp)
@@ -582,6 +647,7 @@ private fun RecentCard(h: HistoryEntry) {
             MediaThumb(uri, Modifier.fillMaxSize(), fallback = kind.icon, mime = h.mime) { loaded ->
                 if (loaded && mime.startsWith("video/")) PlayBadge(Modifier.align(Alignment.Center), size = 28.dp)
             }
+            Box(Modifier.align(Alignment.TopStart)) { direction(true) }
             Column(
                 Modifier
                     .align(Alignment.BottomStart)
@@ -593,6 +659,7 @@ private fun RecentCard(h: HistoryEntry) {
                 Text(sub, style = TdType.caption, color = Color(0xFFD4D3CE), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         } else {
+            Box(Modifier.align(Alignment.TopEnd)) { direction(false) }
             Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
                 Icon(
                     when {

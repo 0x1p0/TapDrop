@@ -15,12 +15,12 @@ enum SettingsChrome {
     static let sidebarRadius: CGFloat = 18
 
     /// The selected sidebar row: a violet wash, quiet enough to sit inside glass.
-    static let selectionFill = Color.td(light: NSColor(tdHex: 0x8561FF, alpha: 0.13), dark: NSColor(tdHex: 0x8561FF, alpha: 0.22))
-    static let selectionStroke = Color.td(light: NSColor(tdHex: 0x8561FF, alpha: 0.16), dark: NSColor(tdHex: 0xA48BFF, alpha: 0.18))
+    static let selectionFill = Color.td(light: NSColor(white: 0, alpha: 0.07), dark: NSColor(white: 1, alpha: 0.10))
+    static let selectionStroke = Color.td(light: NSColor(white: 0, alpha: 0.08), dark: NSColor(white: 1, alpha: 0.12))
 
     /// The window background (TD.bg as an NSColor that follows the appearance).
     static let windowColor = NSColor(name: nil) { a in
-        a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(tdHex: 0x0A0A0F) : NSColor(tdHex: 0xF4F4F8)
+        a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(tdHex: 0x08080A) : NSColor(tdHex: 0xEFEDE7)
     }
 
     /// A titled window with a transparent unified toolbar (the traffic lights sit in the toolbar row, inside a

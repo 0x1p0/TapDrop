@@ -245,7 +245,7 @@ private struct StepDot: View {
                     Circle().fill(TD.aurora)
                     Image(systemName: "checkmark")
                         .font(.system(size: 9, weight: .heavy))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(TD.onAccent)
                         .transition(.scale.combined(with: .opacity))
                 case .current:
                     Circle().fill(TD.violet.opacity(0.16))
@@ -552,7 +552,7 @@ private struct DownloadStatus: View {
     }
 }
 
-/// The big QR code on a white card, glowing on the aurora; the link under it.
+/// The big QR code on a white card, glowing with the light; the link under it.
 private struct QRCard: View {
     let url: String?
     let server: InstallStatus.Server
@@ -680,7 +680,7 @@ struct QRCodeView: View {
         }
         let size = CGFloat(n) * cell
         let ink = GraphicsContext.Shading.linearGradient(
-            Gradient(colors: [Color(tdHex: 0x152052), Color(tdHex: 0x2C1466)]),
+            Gradient(colors: [Color(tdHex: 0x0B0B0D), Color(tdHex: 0x0B0B0D)]),
             startPoint: .zero, endPoint: CGPoint(x: size, y: size))
         ctx.fill(dots, with: ink)
         for (ex, ey) in eyes {
@@ -689,7 +689,7 @@ struct QRCodeView: View {
             ring.addPath(Path(roundedRect: outer.insetBy(dx: cell, dy: cell), cornerRadius: cell * 1.5, style: .continuous))
             ctx.fill(ring, with: ink, style: FillStyle(eoFill: true))
             ctx.fill(Path(roundedRect: outer.insetBy(dx: cell * 2, dy: cell * 2), cornerRadius: cell * 1.0, style: .continuous),
-                     with: .linearGradient(Gradient(colors: [Color(tdHex: 0x2F6BE8), Color(tdHex: 0x5B34D6)]),
+                     with: .linearGradient(Gradient(colors: [Color(tdHex: 0x0B0B0D), Color(tdHex: 0x2A2A30)]),
                                            startPoint: outer.origin, endPoint: CGPoint(x: outer.maxX, y: outer.maxY)))
         }
     }
@@ -758,7 +758,7 @@ private struct PairArt: View {
             body.strokeBorder(LinearGradient(colors: [.white.opacity(0.42), .white.opacity(0.1), .white.opacity(0.05)],
                                              startPoint: .top, endPoint: .bottom), lineWidth: 1.2)
             screen
-                .fill(LinearGradient(colors: [Color(tdHex: 0x1F1A3D), Color(tdHex: 0x0E0E16)], startPoint: .top, endPoint: .bottom))
+                .fill(LinearGradient(colors: [Color(tdHex: 0x1C1C21), Color(tdHex: 0x0E0E11)], startPoint: .top, endPoint: .bottom))
                 .overlay(alignment: .top) {
                     Ellipse().fill(TD.violet.opacity(0.35)).frame(width: 240, height: 130).blur(radius: 40).offset(y: -56)
                 }
@@ -800,10 +800,10 @@ private struct PairArt: View {
         HStack(spacing: 8) {
             Image(systemName: "laptopcomputer")
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(highlighted ? TD.night : .white)
                 .frame(width: 24, height: 24)
                 .background(RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(highlighted ? AnyShapeStyle(TD.aurora) : AnyShapeStyle(Color.white.opacity(0.12))))
+                    .fill(highlighted ? AnyShapeStyle(TD.bone) : AnyShapeStyle(Color.white.opacity(0.12))))
             VStack(alignment: .leading, spacing: 1) {
                 Text(name)
                     .font(.system(size: 10.5, weight: .semibold))
@@ -812,13 +812,13 @@ private struct PairArt: View {
                     .minimumScaleFactor(0.75)
                 Text(highlighted && paired ? "Paired" : "TapDrop")
                     .font(.system(size: 8.5, weight: .medium))
-                    .foregroundStyle(highlighted && paired ? Color(tdHex: 0x5BE39A) : .white.opacity(0.5))
+                    .foregroundStyle(highlighted && paired ? TD.bone : .white.opacity(0.5))
             }
             Spacer(minLength: 0)
             if highlighted && paired {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 12))
-                    .foregroundStyle(Color(tdHex: 0x2ED17A))
+                    .foregroundStyle(TD.bone)
             } else {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 8, weight: .bold))
