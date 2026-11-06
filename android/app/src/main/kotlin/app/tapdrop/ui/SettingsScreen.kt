@@ -134,6 +134,7 @@ fun SettingsScreen(
     val videoIndex by NotchTapService.videoIndex.collectAsStateWithLifecycle()
     val photoIndex by NotchTapService.photoIndex.collectAsStateWithLifecycle()
     val indexPaused by NotchTapService.indexPaused.collectAsStateWithLifecycle()
+    val selfCheck by NotchTapService.selfCheck.collectAsStateWithLifecycle()
     // Photos and videos together: what a tap can find as the original.
     val library = listOfNotNull(videoIndex, photoIndex).takeIf { it.isNotEmpty() }
         ?.let { l -> l.sumOf { it.first } to l.sumOf { it.second } }
@@ -239,6 +240,11 @@ fun SettingsScreen(
                         SettingsRow(
                             title = "Photos & videos for tap",
                             subtitle = when {
+                                done >= total && selfCheck != null -> selfCheck!!.let { c ->
+                                    "All $total ready · self-check found ${c.photosRight} of ${c.photos} photos and " +
+                                        "${c.videosRight} of ${c.videos} videos" +
+                                        if (c.wrong == 0) ", none wrong" else ", ${c.wrong} wrong, so it's stricter on this phone now"
+                                }
                                 done >= total -> "All $total ready · a tap sends the original"
                                 indexPaused == "warm" -> "Paused while your phone cools down · $done of $total"
                                 indexPaused == "tap" -> "Paused during a tap · $done of $total"

@@ -17,6 +17,7 @@ import android.util.Log
 import android.util.Size
 import app.tapdrop.core.TimeHints
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.io.DataInputStream
 import java.io.DataOutputStream
@@ -27,6 +28,8 @@ import java.util.concurrent.Executors
 import kotlin.concurrent.thread
 import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 /**
@@ -46,6 +49,8 @@ class MediaMatcher(
     private val onPhotos: (done: Int, total: Int) -> Unit = { _, _ -> },
     /** Fingerprinting is waiting (the phone is warm, or a tap is happening), or going again. */
     private val onPaused: (Boolean) -> Unit = {},
+    /** A self-check finished ([lastSelfCheck] keeps it across restarts). */
+    private val onSelfCheck: (SelfCheck) -> Unit = {},
 ) {
     /** Waits while [busy], saying so, so the progress doesn't look stuck. */
     private fun restWhileBusy() {
@@ -132,6 +137,7 @@ class MediaMatcher(
     suspend fun find(
         screen: Bitmap, labels: List<String>, hit: MediaDetector.Hit?, allowVideos: Boolean = true, picked: Boolean = false,
         gallery: Boolean = false,
+        check: Boolean = false,
     ): Outcome =
         withContext(Dispatchers.Default) {
         if (!hasAccess()) return@withContext Outcome.NoAccess
@@ -202,24 +208,81 @@ class MediaMatcher(
         // A video on screen that the index clearly knows: that's it, at once. (Nothing below is needed, and decoding
         // videos while the phone is busy can take longer than a tap may wait.)
         if (video && indexed != null && indexed.second <= 40 && indexed.third - indexed.second >= 16) {
-            lastNote = "video on screen · closest indexed frame ${indexed.first.name} ${indexed.second} " +
+            setNote(check, "video on screen · closest indexed frame ${indexed.first.name} ${indexed.second} " +
                 "(next video ${indexed.third}) · index ${indexEntries.size}/${recentVideos().size} videos → " +
-                "${indexed.first.name} in ${SystemClock.elapsedRealtime() - start} ms"
+                "${indexed.first.name} in ${SystemClock.elapsedRealtime() - start} ms")
             return@withContext Outcome.Found(indexed.first)
         }
 
         // 0b) the video grids: which video is on screen, and about where in it, at any moment; then the second
         // around that moment decoded, so only a frame that truly matches the screen sends it.
-        val quarter by lazy { VideoGrids.quarter(screen) }
+        val sums by lazy { VideoGrids.quarter(screen).let { (lum, qw, qh) -> VideoGrids.Sums(lum, qw, qh) } }
+        /** Where a picture of [aspect] would show, fit and centred in [band]. */
+        fun fitIn(band: Rect, aspect: Float): Rect? {
+            if (band.width() <= 0 || band.height() <= 0 || aspect.isNaN() || aspect <= 0f) return null
+            val (w, h) = if (band.width().toFloat() / band.height() > aspect) (band.height() * aspect).toInt() to band.height()
+            else band.width() to (band.width() / aspect).toInt()
+            val x = band.left + (band.width() - w) / 2
+            val y = band.top + (band.height() - h) / 2
+            return Rect(x, y, x + w, y + h)
+        }
         fun screenGrid(band: Rect, aspect: Float, inset: Float): ByteArray? {
-            val (lum, qw, qh) = quarter
             val b = Rect(band)
-            if (!b.intersect(0, 0, qw, qh) || b.height() == 0) return null
-            val (w, h) = if (b.width().toFloat() / b.height() > aspect) (b.height() * aspect).toInt() to b.height()
-            else b.width() to (b.width() / aspect).toInt()
-            val x = b.left + (b.width() - w) / 2
-            val y = b.top + (b.height() - h) / 2
-            return VideoGrids.gridOf(lum, qw, qh, Rect(x, y, x + w, y + h), inset)
+            if (!b.intersect(0, 0, sums.w, sums.h)) return null
+            return fitIn(b, aspect)?.let { sums.grid(it, inset) }
+        }
+
+        // The photo grids: every photo in the library by how its layout matches the picture on screen (what tells
+        // a receipt, a document or a page of text from the next, where fingerprints all look alike), then the two
+        // closest compared at 48 × 48 with a sharper thumbnail. Only a clear match there sends the photo.
+        var photoGridNote = ""
+        fun byPhotoGrids(): Media? {
+            loadPhotos()
+            val gridBands = when {
+                hit != null -> (if (onlyPicture) listOf(bands[0]) else listOf(bands[0], bands[2])).distinct()
+                gallery -> listOf(bands[0])
+                else -> return null
+            }
+            class Cand(val e: PhotoEntry, val score: Float, val band: Rect)
+            val best = HashMap<String, Cand>()
+            for (band in gridBands) {
+                // Shapes within 2 % of each other share the screen's grid (the difference is under a cell).
+                val memo = HashMap<Int, ByteArray?>()
+                for ((uri, e) in photoIndex) {
+                    val g = e.grid?.takeIf { it.isNotEmpty() } ?: continue
+                    if (e.aspect.isNaN() || ruledOut(Print(LongArray(0), e.aspect))) continue
+                    val q = memo.getOrPut((kotlin.math.ln(e.aspect) / 0.02f).roundToInt()) { screenGrid(band, e.aspect, VideoGrids.INSET_FULL) }
+                        ?: continue
+                    val s = VideoGrids.correlation(q, g)
+                    if ((best[uri]?.score ?: -2f) < s) best[uri] = Cand(e, s, band)
+                }
+            }
+            val ranked = best.values.sortedByDescending { it.score }
+            val top = ranked.firstOrNull() ?: return null
+            // The next photo that isn't a copy of it (a chat's copy and the original look the same).
+            val next = ranked.drop(1).firstOrNull { VideoGrids.correlation(it.e.grid!!, top.e.grid!!) < PHOTO_COPY }
+            photoGridNote = " · closest photo layout ${top.e.media.name} %.2f (next %.2f)".format(top.score, next?.score ?: -1f)
+            if (top.score < PHOTO_TRY) return null
+            fun fine(c: Cand): Float? {
+                val area = fitIn(Rect(c.band.left * 4, c.band.top * 4, c.band.right * 4, c.band.bottom * 4), c.e.aspect) ?: return null
+                val here = VideoGrids.region(screen, area, VideoGrids.INSET_FULL, FINE_GRID) ?: return null
+                val t = thumbnail(c.e.media, 512) ?: return null
+                val there = try {
+                    VideoGrids.gridOf(t, VideoGrids.INSET_FULL, FINE_GRID)
+                } finally {
+                    t.recycle()
+                }
+                // Its brightness and its edges both have to match: edges alone ignore the viewer's black bars, which
+                // otherwise make any dark picture with a bright middle look like a document between them.
+                return there?.let { minOf(VideoGrids.correlation(here, it), VideoGrids.edgeCorrelation(here, it)) }
+            }
+            val f1 = fine(top)
+            photoGridNote += f1?.let { " · up close %.2f".format(it) } ?: " · couldn't look closer"
+            if (f1 == null || f1 < PHOTO_FINE + 0.02f * strict) return null
+            // A close second gets the same closer look; the first has to stay clearly ahead.
+            val f2 = next?.takeIf { it.score >= top.score - PHOTO_MARGIN }?.let { fine(it) }
+            f2?.let { photoGridNote += " · next up close %.2f".format(it) }
+            return top.e.media.takeIf { f2 == null || f2 <= f1 - PHOTO_FINE_MARGIN - 0.02f * strict }
         }
         var gridNote = ""
         fun byGrids(strict: Boolean): Media? {
@@ -252,21 +315,22 @@ class MediaMatcher(
             }
             val c1 = confirm(top, topBand)
             gridNote += c1?.let { " · its frames there %.2f".format(it) } ?: " · couldn't decode it in time"
-            val need = if (strict) CONFIRM_STRICT else CONFIRM_MIN
+            val need = if (strict) min(0.99f, CONFIRM_STRICT + 0.01f * this@MediaMatcher.strict) else CONFIRM_MIN + 0.01f * this@MediaMatcher.strict
             if (c1 != null && c1 >= need) {
                 // A close second video gets the same look; the first has to stay clearly ahead.
                 val c2 = next?.takeIf { it.first.score >= top.score - GRID_MARGIN }?.let { (r, band) -> confirm(r, band) }
                 c2?.let { gridNote += " · next video's frames %.2f".format(it) }
-                return tm.takeIf { c2 == null || c2 <= c1 - CONFIRM_MARGIN }
+                return tm.takeIf { c2 == null || c2 <= c1 - CONFIRM_MARGIN - 0.02f * this@MediaMatcher.strict }
             }
             // Not decoded in time: only an unmistakable grid match.
             return tm.takeIf {
-                c1 == null && !strict && top.score >= GRID_ALONE && top.score - (next?.first?.score ?: -1f) >= GRID_MARGIN
+                c1 == null && !strict && top.score >= GRID_ALONE + 0.02f * this@MediaMatcher.strict &&
+                    top.score - (next?.first?.score ?: -1f) >= GRID_MARGIN
             }
         }
         if (video && allowVideos) byGrids(strict = false)?.let { m ->
-            lastNote = "video on screen$gridNote · video grids ${grids.size}/${recentVideos().size} → ${m.name} in " +
-                "${SystemClock.elapsedRealtime() - start} ms"
+            setNote(check, "video on screen$gridNote · video grids ${grids.size}/${recentVideos().size} → ${m.name} in " +
+                "${SystemClock.elapsedRealtime() - start} ms")
             return@withContext Outcome.Found(m)
         }
 
@@ -414,6 +478,7 @@ class MediaMatcher(
         }
         // Chat viewers often hide a playing video's controls, so it may not have looked like one: the newest videos'
         // frames against the screen too.
+        if (found == null && !video) found = byPhotoGrids()
         if (found == null && !video && allowVideos) found = byGrids(strict = true)
         var videoBest: Pair<Media, Int>? = null
         var videoNext = BITS
@@ -438,7 +503,7 @@ class MediaMatcher(
             }
             videoBest?.takeIf { it.second <= (if (hit == null) good else 36) && videoNext - it.second >= MARGIN }?.let { found = it.first }
         }
-        lastNote = buildString {
+        setNote(check, buildString {
             append(if (video) "video on screen" else if (hit != null) "photo on screen" else "nothing photo-like on screen")
             hit?.durationMs?.let { append(", ${it / 1000}s long") } ?: if (video) append(", no length shown") else Unit
             hit?.positionMs?.let { append(" at ${it / 1000}s") }
@@ -452,13 +517,137 @@ class MediaMatcher(
             append(" · index ${indexEntries.size}/${recentVideos().size} videos")
             if (!allowVideos) append(" · videos not searched here")
             indexed?.let { append(" · closest indexed frame ${it.first.name} ${it.second} (next video ${it.third})") }
+            append(photoGridNote)
             append(gridNote)
             if (allowVideos) append(" · video grids ${grids.size}/${recentVideos().size}")
             videoBest?.let { append(" · closest video frame ${it.first.name} ${it.second} (next $videoNext)") }
-            append(" → ${found?.name ?: "no match"} in ${SystemClock.elapsedRealtime() - start} ms (of 256)")
-        }
+            append(" → ${found?.name ?: "no match"} in ${SystemClock.elapsedRealtime() - start} ms")
+        })
         found?.let { Outcome.Found(it) } ?: Outcome.NotFound
         }
+
+    /** A tap's note goes to the Mac's tap log; a self-check's stays with the self-check. */
+    private fun setNote(check: Boolean, note: String) {
+        if (check) checkNote = note else lastNote = note
+    }
+    @Volatile private var checkNote = ""
+
+    // MARK: self-check
+
+    /** What the last self-check found: of [photos] and [videos] shown as if on screen, how many came back right. */
+    data class SelfCheck(val photos: Int, val photosRight: Int, val videos: Int, val videosRight: Int, val wrong: Int, val strict: Int)
+
+    private val settings = ctx.getSharedPreferences("matcher", Context.MODE_PRIVATE)
+    /** How much stricter than the defaults this phone matches (0–3): raised when its self-check finds a wrong match. */
+    @Volatile private var strict = settings.getInt("strict", 0)
+    @Volatile private var checking = false
+
+    fun lastSelfCheck(): SelfCheck? = settings.getString("check", null)?.split(",")?.mapNotNull { it.toIntOrNull() }
+        ?.takeIf { it.size == 6 }?.let { SelfCheck(it[0], it[1], it[2], it[3], it[4], it[5]) }
+
+    /**
+     * Once everything is indexed (and again after a week, when the library has grown a tenth, or after it became
+     * stricter): random photos and videos from this phone's own library, each drawn on a screen-sized picture the
+     * way a gallery shows it (a video at a random moment), go through the same search a tap does. A wrong match
+     * makes this phone's matching stricter. Nothing leaves the phone.
+     */
+    private fun maybeSelfCheck() {
+        if (checking || indexing || gridding || indexingPhotos || !hasAccess()) return
+        val photos = photoIndex.values.count { it.grid?.isNotEmpty() == true }
+        if (photoIndex.isEmpty() || photoIndex.values.any { it.grid == null }) return
+        val library = photos + grids.size
+        val last = settings.getLong("checkAt", 0L)
+        val lastLibrary = settings.getInt("checkLibrary", 0)
+        val due = last == 0L || settings.getBoolean("recheck", false) ||
+            System.currentTimeMillis() - last > 7 * 24 * 3600_000L || abs(library - lastLibrary) > lastLibrary / 10
+        if (!due) return
+        checking = true
+        thread(name = "TapDrop self-check", isDaemon = true, priority = Thread.MIN_PRIORITY) {
+            try {
+                runCatching { selfCheck(library) }.onFailure { Log.w("TapDrop", "self-check stopped", it) }
+            } finally {
+                checking = false
+            }
+        }
+    }
+
+    private fun selfCheck(library: Int) {
+        val bounds = ctx.getSystemService(android.view.WindowManager::class.java).maximumWindowMetrics.bounds
+        val sw = minOf(bounds.width(), bounds.height())
+        val sh = maxOf(bounds.width(), bounds.height())
+        val full = Rect(0, 0, sw, sh)
+        val rnd = java.util.Random()
+        var photosRight = 0
+        var photosShown = 0
+        var videosRight = 0
+        var videosShown = 0
+        val wrong = mutableListOf<String>()
+        fun shown(picture: Bitmap): Bitmap {
+            val screen = Bitmap.createBitmap(sw, sh, Bitmap.Config.ARGB_8888)
+            val a = picture.width.toFloat() / picture.height
+            val (w, h) = if (sw.toFloat() / sh > a) (sh * a).toInt() to sh else sw to (sw / a).toInt()
+            android.graphics.Canvas(screen).drawBitmap(
+                picture, null, Rect((sw - w) / 2, (sh - h) / 2, (sw + w) / 2, (sh + h) / 2), android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG),
+            )
+            return screen
+        }
+        for (e in photoIndex.values.filter { it.grid?.isNotEmpty() == true }.shuffled(rnd).take(CHECK_PHOTOS)) {
+            if (!hasAccess()) return
+            restWhileBusy()
+            val t = thumbnail(e.media, 1080) ?: continue
+            val screen = shown(t)
+            t.recycle()
+            val found = (runBlocking { find(screen, emptyList(), MediaDetector.Hit(MediaDetector.Kind.IMAGE, full, null), gallery = true, check = true) }
+                as? Outcome.Found)?.media
+            screen.recycle()
+            photosShown++
+            when {
+                found == null -> Unit
+                found.uri == e.media.uri || photoIndex[found.uri.toString()]?.grid?.let { g ->
+                    g.isNotEmpty() && VideoGrids.correlation(g, e.grid!!) >= PHOTO_COPY
+                } == true -> photosRight++
+                else -> wrong += "${e.media.name} → ${found.name} ($checkNote)"
+            }
+        }
+        for (m in recentVideos().filter { grids.has(it.uri, key(it)) }.shuffled(rnd).take(CHECK_VIDEOS)) {
+            if (!hasAccess()) return
+            restWhileBusy()
+            val at = (rnd.nextDouble() * m.durationMs).toLong()
+            val frame = MediaMetadataRetriever().let { r ->
+                try {
+                    r.setDataSource(ctx, m.uri)
+                    r.getScaledFrameAtTime(at * 1000, MediaMetadataRetriever.OPTION_CLOSEST, sw, sh)
+                } catch (_: Exception) {
+                    null
+                } finally {
+                    runCatching { r.release() }
+                }
+            } ?: continue
+            val screen = shown(frame)
+            frame.recycle()
+            val found = (runBlocking { find(screen, emptyList(), MediaDetector.Hit(MediaDetector.Kind.VIDEO, full, null), gallery = true, check = true) }
+                as? Outcome.Found)?.media
+            screen.recycle()
+            videosShown++
+            when {
+                found == null -> Unit
+                found.uri == m.uri || (found.isVideo && abs(found.durationMs - m.durationMs) <= 500) -> videosRight++
+                else -> wrong += "${m.name} at ${at / 1000}s → ${found.name} ($checkNote)"
+            }
+        }
+        if (wrong.isNotEmpty() && strict < MAX_STRICT) strict++
+        val result = SelfCheck(photosShown, photosRight, videosShown, videosRight, wrong.size, strict)
+        settings.edit()
+            .putString("check", listOf(result.photos, result.photosRight, result.videos, result.videosRight, result.wrong, result.strict).joinToString(","))
+            .putLong("checkAt", System.currentTimeMillis())
+            .putInt("checkLibrary", library)
+            .putInt("strict", strict)
+            .putBoolean("recheck", wrong.isNotEmpty() && strict < MAX_STRICT)
+            .apply()
+        Log.i("TapDrop", "self-check: $photosRight of $photosShown photos, $videosRight of $videosShown videos, ${wrong.size} wrong (strict $strict)")
+        wrong.forEach { Log.i("TapDrop", "self-check wrong: ${it.take(600)}") }
+        onSelfCheck(result)
+    }
 
     private fun isScreenshot(m: Media) =
         m.name.startsWith("Screenshot", ignoreCase = true) || m.name.startsWith("Screen_Recording", ignoreCase = true)
@@ -690,6 +879,8 @@ class MediaMatcher(
                     }
                     if (videos.size < LIBRARY_LIMIT) grids.keepOnly(videos.map { it.uri.toString() }.toSet())
                     Log.i("TapDrop", "video grids: ${grids.size} videos")
+                    gridding = false
+                    maybeSelfCheck()
                 }.onFailure { Log.w("TapDrop", "video grids stopped", it) }
             } finally {
                 gridding = false
@@ -699,8 +890,11 @@ class MediaMatcher(
 
     // MARK: photo index
 
-    /** One photo's fingerprint (null: too plain to compare), with what's needed to send it. */
-    private class PhotoEntry(val media: Media, val key: String, val print: Print?)
+    /**
+     * One photo's fingerprint (null: too plain to compare) and grid ([VideoGrids]: null not made yet, empty one
+     * shade or unreadable) with its shape, and what's needed to send it.
+     */
+    private class PhotoEntry(val media: Media, val key: String, val print: Print?, val grid: ByteArray? = null, val aspect: Float = Float.NaN)
 
     private val photoIndex = ConcurrentHashMap<String, PhotoEntry>()  // media uri → fingerprint
     private val photoFile = File(ctx.filesDir, "photo-index.bin")
@@ -720,7 +914,8 @@ class MediaMatcher(
               runCatching {
                 loadPhotos()
                 val photos = queryMedia(videosOnly = false, limit = LIBRARY_LIMIT, imagesOnly = true)
-                val todo = photos.filter { photoIndex[it.uri.toString()]?.key != key(it) }
+                // New or changed photos, and those indexed before photos had grids (their fingerprints are kept).
+                val todo = photos.filter { m -> photoIndex[m.uri.toString()].let { it == null || it.key != key(m) || it.grid == null } }
                 var done = photos.size - todo.size
                 onPhotos(done, photos.size)
                 var n = 0
@@ -728,15 +923,18 @@ class MediaMatcher(
                     if (!hasAccess()) break
                     restWhileBusy()
                     // One odd file must never stop the rest (or the app): it's recorded as unmatchable.
-                    val print = limited(10_000) { runCatching {
+                    val old = photoIndex[m.uri.toString()]?.takeIf { it.key == key(m) }
+                    val made = limited(10_000) { runCatching {
                         val t = thumbnail(m, 192) ?: return@runCatching null
                         try {
-                            dHash(t, 0, 0, t.width, t.height)?.let { Print(it, t.width.toFloat() / t.height) }
+                            val print = if (old != null) old.print
+                            else dHash(t, 0, 0, t.width, t.height)?.let { Print(it, t.width.toFloat() / t.height) }
+                            Triple(print, VideoGrids.gridOf(t, VideoGrids.INSET_FULL) ?: ByteArray(0), t.width.toFloat() / t.height)
                         } finally {
                             t.recycle()
                         }
                     }.getOrNull() }
-                    photoIndex[m.uri.toString()] = PhotoEntry(m, key(m), print)
+                    photoIndex[m.uri.toString()] = PhotoEntry(m, key(m), made?.first ?: old?.print, made?.second ?: ByteArray(0), made?.third ?: Float.NaN)
                     if (++n % 50 == 0) {
                         onPhotos(done + n, photos.size)
                         if (n % 500 == 0) savePhotos()
@@ -748,6 +946,8 @@ class MediaMatcher(
                 if (photos.size < LIBRARY_LIMIT) photoIndex.keys.retainAll(photos.map { it.uri.toString() }.toSet())
                 savePhotos()
                 Log.i("TapDrop", "photo index: ${photoIndex.size} photos")
+                indexingPhotos = false
+                maybeSelfCheck()
               }.onFailure { Log.w("TapDrop", "photo index stopped", it) }
             } finally {
                 indexingPhotos = false
@@ -761,14 +961,22 @@ class MediaMatcher(
             if (photosLoaded) return
             runCatching {
                 DataInputStream(photoFile.inputStream().buffered()).use { d ->
-                    if (d.readInt() != PHOTO_INDEX_VERSION) return@use
+                    // Version 1 has no grids: its fingerprints are kept, and the grids made in the background.
+                    val version = d.readInt()
+                    if (version != 1 && version != PHOTO_INDEX_VERSION) return@use
                     repeat(d.readInt()) {
                         val uri = d.readUTF()
                         val m = Media(Uri.parse(uri), d.readUTF(), d.readUTF(), d.readLong(), d.readLong(), d.readLong(), false, 0)
                         val key = d.readUTF()
                         val aspect = d.readFloat()
                         val print = if (aspect.isNaN()) null else Print(LongArray(WORDS) { d.readLong() }, aspect)
-                        photoIndex[uri] = PhotoEntry(m, key, print)
+                        if (version == 1) {
+                            photoIndex[uri] = PhotoEntry(m, key, print)
+                        } else {
+                            val n = d.readShort().toInt()
+                            val grid = if (n < 0) null else ByteArray(n).also { d.readFully(it) }
+                            photoIndex[uri] = PhotoEntry(m, key, print, grid, d.readFloat())
+                        }
                     }
                 }
             }
@@ -793,6 +1001,9 @@ class MediaMatcher(
                     d.writeUTF(e.key)
                     d.writeFloat(e.print?.aspect ?: Float.NaN)
                     e.print?.bits?.forEach { d.writeLong(it) }
+                    d.writeShort(e.grid?.size ?: -1)
+                    e.grid?.let { d.write(it) }
+                    d.writeFloat(e.aspect)
                 }
             }
             tmp.renameTo(photoFile)
@@ -1006,7 +1217,8 @@ class MediaMatcher(
     private companion object {
         /** 2: 256-bit fingerprints (a file from version 1 is rebuilt). */
         const val INDEX_VERSION = 2
-        const val PHOTO_INDEX_VERSION = 1
+        /** 2: with grids (a version-1 file is read as it is, and its grids made). */
+        const val PHOTO_INDEX_VERSION = 2
         /** The whole library (photos and videos each), not just the newest. */
         const val LIBRARY_LIMIT = 100_000
         const val SIDE = 16
@@ -1032,6 +1244,23 @@ class MediaMatcher(
          * time, only a grid match of 0.90 that's 0.08 clear of every other video counts. (From 180 simulated taps on
          * 60 real videos: no wrong video ever passed.)
          */
+        /**
+         * The photo grids: a photo whose layout correlates at least 0.6 with the picture on screen gets a closer look
+         * (48 × 48 against a 512-pixel thumbnail, by brightness and by edges, the lower counting), which must reach
+         * [PHOTO_FINE], and stay 0.03 ahead of the next photo's if that one came within 0.08. Photos whose grids
+         * correlate 0.97 are copies of each other. (Simulated on 395 real photos: none wrong; a real WhatsApp receipt
+         * 0.987 up close, the next photo 0.78.)
+         */
+        const val PHOTO_TRY = 0.6f
+        const val PHOTO_FINE = 0.93f
+        const val PHOTO_MARGIN = 0.08f
+        const val PHOTO_FINE_MARGIN = 0.03f
+        const val PHOTO_COPY = 0.97f
+        const val FINE_GRID = 48
+        /** The self-check: this many random photos and videos, and how much stricter a phone can get (+0.02 a step). */
+        const val CHECK_PHOTOS = 30
+        const val CHECK_VIDEOS = 15
+        const val MAX_STRICT = 3
         const val GRID_TRY = 0.6f
         const val CONFIRM_MIN = 0.95f
         const val CONFIRM_STRICT = 0.97f

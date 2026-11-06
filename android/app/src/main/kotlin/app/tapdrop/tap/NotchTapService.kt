@@ -231,7 +231,9 @@ class NotchTapService : AccessibilityService() {
             busy = { keying || picking || warm() },
             onPhotos = { done, total -> _photoIndex.value = done to total },
             onPaused = { paused -> _indexPaused.value = if (paused) (if (warm()) "warm" else "tap") else null },
+            onSelfCheck = { _selfCheck.value = it },
         )
+        _selfCheck.value = matcher.lastSelfCheck()
         files = FileFinder(this)
         light = LightKey(this)
         registerReceiver(screenReceiver, IntentFilter().apply {
@@ -1303,6 +1305,10 @@ class NotchTapService : AccessibilityService() {
         private val _indexPaused = MutableStateFlow<String?>(null)
         /** Why fingerprinting is waiting right now ("warm": the phone is warm; "tap": a tap is happening), or null. */
         val indexPaused: StateFlow<String?> = _indexPaused.asStateFlow()
+
+        private val _selfCheck = MutableStateFlow<MediaMatcher.SelfCheck?>(null)
+        /** The library self-check: random photos and videos of this phone, found as if on screen (null: not run yet). */
+        val selfCheck: StateFlow<MediaMatcher.SelfCheck?> = _selfCheck.asStateFlow()
 
         private val _photoIndex = MutableStateFlow<Pair<Int, Int>?>(null)
         /** (done, total): how many of the library's photos are fingerprinted, so a tap can send the original photo. */

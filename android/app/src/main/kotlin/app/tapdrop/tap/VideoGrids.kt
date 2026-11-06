@@ -307,6 +307,52 @@ internal class VideoGrids(private val ctx: Context, private val file: File) {
         d.write(e.grids)
     }
 
+    /**
+     * Running sums of brightness (at a quarter of the screen's size), so any region's grid takes 256 lookups
+     * instead of a pass over its pixels: a tap compares the screen with pictures of hundreds of shapes.
+     */
+    class Sums(lum: IntArray, val w: Int, val h: Int) {
+        private val s = LongArray((w + 1) * (h + 1))
+
+        init {
+            for (y in 0 until h) {
+                var row = 0L
+                for (x in 0 until w) {
+                    row += lum[y * w + x]
+                    s[(y + 1) * (w + 1) + x + 1] = s[y * (w + 1) + x + 1] + row
+                }
+            }
+        }
+
+        private fun box(x0: Int, y0: Int, x1: Int, y1: Int) =
+            s[y1 * (w + 1) + x1] - s[y0 * (w + 1) + x1] - s[y1 * (w + 1) + x0] + s[y0 * (w + 1) + x0]
+
+        /** [region]'s grid ([n] × [n]), inset by [inset] of each side, like [gridOf]. */
+        fun grid(region: Rect, inset: Float, n: Int = G): ByteArray? {
+            val r = Rect(region)
+            if (!r.intersect(0, 0, w, h)) return null
+            val ix = (r.width() * inset).toInt()
+            val iy = (r.height() * inset).toInt()
+            val x0 = r.left + ix
+            val y0 = r.top + iy
+            val gw = r.width() - 2 * ix
+            val gh = r.height() - 2 * iy
+            if (gw < n || gh < n) return null
+            val raw = FloatArray(n * n)
+            for (j in 0 until n) {
+                val ya = y0 + j * gh / n
+                val yb = y0 + (j + 1) * gh / n
+                for (i in 0 until n) {
+                    val xa = x0 + i * gw / n
+                    val xb = x0 + (i + 1) * gw / n
+                    val area = (xb - xa) * (yb - ya)
+                    raw[j * n + i] = if (area == 0) 0f else box(xa, ya, xb, yb).toFloat() / area
+                }
+            }
+            return evened(raw)
+        }
+    }
+
     companion object {
         const val G = 16
         const val CELLS = G * G
@@ -321,8 +367,8 @@ internal class VideoGrids(private val ctx: Context, private val file: File) {
         const val SPAN_MS = 700
         const val FILE_VERSION = 2
 
-        /** A screen region's grid, from brightness values ([lum], [w] wide), inset like the frames'. */
-        fun gridOf(lum: IntArray, w: Int, h: Int, region: Rect, inset: Float): ByteArray? {
+        /** A screen region's grid ([n] × [n]), from brightness values ([lum], [w] wide), inset like the frames'. */
+        fun gridOf(lum: IntArray, w: Int, h: Int, region: Rect, inset: Float, n: Int = G): ByteArray? {
             val r = Rect(region)
             if (!r.intersect(0, 0, w, h)) return null
             val ix = (r.width() * inset).toInt()
@@ -331,19 +377,76 @@ internal class VideoGrids(private val ctx: Context, private val file: File) {
             val y0 = r.top + iy
             val gw = r.width() - 2 * ix
             val gh = r.height() - 2 * iy
-            if (gw < G || gh < G) return null
-            val sum = LongArray(CELLS)
-            val count = IntArray(CELLS)
+            if (gw < n || gh < n) return null
+            val sum = LongArray(n * n)
+            val count = IntArray(n * n)
             for (y in 0 until gh) {
                 val row = (y0 + y) * w
-                val gy = y * G / gh
+                val gy = y * n / gh
                 for (x in 0 until gw) {
-                    val c = gy * G + x * G / gw
+                    val c = gy * n + x * n / gw
                     sum[c] += lum[row + x0 + x].toLong()
                     count[c]++
                 }
             }
-            return evened(FloatArray(CELLS) { if (count[it] == 0) 0f else sum[it].toFloat() / count[it] })
+            return evened(FloatArray(n * n) { if (count[it] == 0) 0f else sum[it].toFloat() / count[it] })
+        }
+
+        /** A picture's grid ([n] × [n]) over all of it, inset by [inset] of each side (null: one shade). */
+        fun gridOf(picture: Bitmap, inset: Float, n: Int = G): ByteArray? =
+            region(picture, Rect(0, 0, picture.width, picture.height), inset, n)
+
+        /** The grid of [region] of [bitmap] at full resolution. */
+        fun region(bitmap: Bitmap, region: Rect, inset: Float, n: Int): ByteArray? {
+            val r = Rect(region)
+            if (!r.intersect(0, 0, bitmap.width, bitmap.height) || r.width() < n || r.height() < n) return null
+            val px = IntArray(r.width() * r.height())
+            bitmap.getPixels(px, 0, r.width(), r.left, r.top, r.width(), r.height())
+            for (i in px.indices) {
+                val c = px[i]
+                px[i] = ((c shr 16 and 0xff) * 299 + (c shr 8 and 0xff) * 587 + (c and 0xff) * 114) / 1000
+            }
+            return gridOf(px, r.width(), r.height(), Rect(0, 0, r.width(), r.height()), inset, n)
+        }
+
+        /**
+         * How alike two square grids are by their edges (each cell against its right and lower neighbour): flat areas,
+         * like a viewer's black bars, count for nothing, so a picture's own detail decides.
+         */
+        fun edgeCorrelation(a: ByteArray, b: ByteArray): Float {
+            val n = sqrt(a.size.toFloat()).roundToInt()
+            var s = 0L
+            var na = 0L
+            var nb = 0L
+            for (y in 0 until n) for (x in 0 until n) {
+                val i = y * n + x
+                if (x + 1 < n) {
+                    val p = a[i + 1] - a[i]
+                    val q = b[i + 1] - b[i]
+                    s += p * q; na += p * p; nb += q * q
+                }
+                if (y + 1 < n) {
+                    val p = a[i + n] - a[i]
+                    val q = b[i + n] - b[i]
+                    s += p * q; na += p * p; nb += q * q
+                }
+            }
+            return if (na == 0L || nb == 0L) 0f else (s / sqrt(na.toDouble() * nb.toDouble())).toFloat()
+        }
+
+        /** How alike two grids of the same size are: 1 is the same picture. */
+        fun correlation(a: ByteArray, b: ByteArray): Float {
+            var s = 0
+            var na = 0
+            var nb = 0
+            for (i in a.indices) {
+                val x = a[i].toInt()
+                val y = b[i].toInt()
+                s += x * y
+                na += x * x
+                nb += y * y
+            }
+            return if (na == 0 || nb == 0) 0f else s / sqrt(na.toFloat() * nb.toFloat())
         }
 
         /** The screen's brightness at a quarter of its size, each value the average of 4 × 4 pixels. */

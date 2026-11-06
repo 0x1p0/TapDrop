@@ -39,6 +39,12 @@ object AppRules {
         "com.oneplus.gallery",
         "com.coloros.gallery3d",
         "com.vivo.gallery",
+        "com.huawei.photos",
+        "com.hihonor.photos",
+        "com.motorola.MotGallery2",
+        "com.asus.gallery",
+        "com.sonyericsson.album",
+        "deckers.thibault.aves",
         "org.fossify.gallery",
         "com.simplemobiletools.gallery.pro",
         "com.google.android.apps.nbu.files",
@@ -79,6 +85,7 @@ object AppRules {
         "com.sec.android.app.videoplayer",
         "com.samsung.android.video",
         "com.miui.videoplayer",
+        "com.coloros.video",
         "is.xyz.mpv",
         "com.brouken.player",
     )
@@ -93,6 +100,8 @@ object AppRules {
         "com.facebook.orca",
         "com.google.android.apps.messaging",
         "com.samsung.android.messaging",
+        "com.viber.voip",
+        "jp.naver.line.android",
     )
 
     fun isBrowser(pkg: String) = pkg in URL_BARS
