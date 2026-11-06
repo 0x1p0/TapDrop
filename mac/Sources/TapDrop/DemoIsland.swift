@@ -51,7 +51,7 @@ extension Demo {
     @MainActor private static func stage(_ mode: String, files: [URL]) {
         let a = Activity.shared
         let hud = HUD.shared
-        let photos = files.filter { ["jpg", "jpeg", "png", "heic"].contains($0.pathExtension.lowercased()) }
+        let photos = files.filter { ["jpg", "jpeg", "png", "heic", "mp4", "mov"].contains($0.pathExtension.lowercased()) }
         let pdf = files.first { $0.pathExtension.lowercased() == "pdf" }
         let s = Store.shared
 
@@ -123,8 +123,8 @@ extension Demo {
             a.finish(title: "Screenshot from Android phone", detail: "Copied to clipboard · Downloads",
                      files: Array(photos.dropFirst(1).prefix(1)))
         case "link":
-            a.finish(title: "Opened link from Android phone", detail: "https://www.apple.com/macbook-air/",
-                     link: URL(string: "https://www.apple.com/macbook-air/"))
+            a.finish(title: "Opened link from Android phone", detail: "stories.design",
+                     link: URL(string: "https://stories.design/the-quiet-web"))
         case "text":
             a.finish(title: "Copied text from Android phone",
                      detail: "Gate B32 · boarding at 7:40. Seat 14A, window. Bags go to belt 6.")
@@ -144,12 +144,12 @@ extension Demo {
             ServiceProvider.queue(Array(photos.prefix(2)))
             keep()
         case "code":
-            a.showCode("482915", source: "HDFC Bank", peer: "Android phone")
+            a.showCode("482915", source: "Lumen Bank", peer: "Android phone")
         case "code-long":
             a.showCode("48291537", source: "Google", peer: "Android phone")
         case "code-settled":
             // after a few seconds the confirmation settles into a Copy button
-            a.showCode("482915", source: "HDFC Bank", peer: "Android phone")
+            a.showCode("482915", source: "Lumen Bank", peer: "Android phone")
         case "paired":
             a.notice(.paired, title: "Paired with Android phone", detail: "Share anything to “\(Store.computerName)” from your phone",
                      peer: "Android phone", sound: false, hideAfter: 60)

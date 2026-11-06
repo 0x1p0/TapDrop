@@ -259,7 +259,7 @@ enum Demo {
             a.notice(.queued, title: "Ready to send 2 items", detail: "Touch the top of your phone's screen to the notch", sound: false,
                      hideAfter: 30)
         case "otp":
-            a.showCode("482915", source: "HDFC Bank", peer: "Android phone")
+            a.showCode("482915", source: "Lumen Bank", peer: "Android phone")
         case "failed":
             a.begin(incoming: true, peer: "Android phone", title: "Receiving")
             a.fail("The connection was lost")
