@@ -94,6 +94,8 @@ fun CheckBurst(
     size: Dp = 56.dp,
     color: Color = Td.colors.success,
     fromRing: Boolean = false,
+    /** The check: the accent's ink on the accent (bone in dark mode, ink in light), white on anything else. */
+    mark: Color = if (color == Td.colors.success || color == Td.colors.accent) Td.colors.onAccent else Color.White,
 ) {
     val reduced = Td.reducedMotion
     val disc = remember { Animatable(if (visible) 1f else 0f) }
@@ -157,7 +159,7 @@ fun CheckBurst(
                 val pm = PathMeasure().apply { setPath(path, false) }
                 val seg = Path()
                 pm.getSegment(0f, pm.length * check.value, seg, true)
-                drawPath(seg, Color.White, style = Stroke(r * 0.17f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+                drawPath(seg, mark, style = Stroke(r * 0.17f, cap = StrokeCap.Round, join = StrokeJoin.Round))
             }
         }
     }
