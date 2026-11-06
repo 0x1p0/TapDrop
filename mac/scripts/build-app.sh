@@ -31,6 +31,9 @@ else
   echo "warning: no APK found at $APK — the setup QR page will say so"
 fi
 
+# No debug symbols in the app: they only name the folders it was built in (and make it bigger).
+strip -S "$APP/Contents/MacOS/TapDrop"
+
 # Sign with a stable identity when this Mac has one, so macOS keeps TapDrop's permissions (Local Network,
 # Accessibility) across updates; an ad-hoc signature is a new app to macOS on every build.
 # Releases use TAPDROP_SIGN_ID="TapDrop Release Signing" from TAPDROP_SIGN_KEYCHAIN (see scripts/release.sh).
