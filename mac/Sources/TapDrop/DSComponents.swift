@@ -140,10 +140,7 @@ struct StatusDot: View {
             switch status {
             case .live:
                 if !reduceMotion {
-                    Circle().fill(status.color.opacity(0.55))
-                        .phaseAnimator([false, true]) { v, on in
-                            v.scaleEffect(on ? 2.6 : 1).opacity(on ? 0 : 0.8)
-                        } animation: { on in on ? .easeOut(duration: 1.5) : .linear(duration: 0.01).delay(0.6) }
+                    LivePulse(color: status.color)
                 }
                 Circle().fill(status.color)
                     .shadow(color: status.color.opacity(0.7), radius: 3)
@@ -159,6 +156,79 @@ struct StatusDot: View {
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)
+    }
+}
+
+/// The live dot's pulse: a ring that grows to 2.6× and fades over 1.5 s, then rests 0.6 s. Core Animation runs it in
+/// the render server, so a pulsing dot on screen costs TapDrop nothing per frame. (As a SwiftUI animation it redrew
+/// the whole window it sat in, glass and all, about 60 times a second: around 9 % CPU for one dot.)
+private struct LivePulse: NSViewRepresentable {
+    let color: Color
+
+    func makeNSView(context: Context) -> LivePulseView { LivePulseView() }
+    func updateNSView(_ view: LivePulseView, context: Context) { view.color = NSColor(color) }
+}
+
+private final class LivePulseView: NSView {
+    private let ring = CALayer()
+    var color: NSColor = .white {
+        didSet { if color != oldValue { applyColor() } }
+    }
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        layer?.masksToBounds = false
+        ring.opacity = 0  // only the animation shows it
+        layer?.addSublayer(ring)
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func layout() {
+        super.layout()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        ring.bounds = bounds
+        ring.position = CGPoint(x: bounds.midX, y: bounds.midY)
+        ring.cornerRadius = min(bounds.width, bounds.height) / 2
+        CATransaction.commit()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        applyColor()
+        ring.removeAllAnimations()
+        guard window != nil else { return }
+        let grow = CABasicAnimation(keyPath: "transform.scale")
+        grow.fromValue = 1
+        grow.toValue = 2.6
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 0.8
+        fade.toValue = 0
+        for a in [grow, fade] {
+            a.duration = 1.5
+            a.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        }
+        let pulse = CAAnimationGroup()
+        pulse.animations = [grow, fade]
+        pulse.duration = 2.1
+        pulse.repeatCount = .infinity
+        ring.add(pulse, forKey: "pulse")
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyColor()
+    }
+
+    private func applyColor() {
+        // The status colours follow the appearance: resolve for this view's.
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            ring.backgroundColor = color.withAlphaComponent(0.55).cgColor
+        }
     }
 }
 

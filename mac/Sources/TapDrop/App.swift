@@ -335,6 +335,13 @@ enum Demo {
             break
         }
         status?.openPanel()
+        // QA: TAPDROP_DEMO_CLOSE=1 closes it again once it has opened, to measure what a closed panel costs.
+        if ProcessInfo.processInfo.environment["TAPDROP_DEMO_CLOSE"] == "1" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                state?.demoPinned = false
+                status?.panel.hide()
+            }
+        }
         if mode == "drop" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { withTDAnimation { state?.dropTargeted = true } }
         }
