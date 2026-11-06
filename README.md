@@ -9,14 +9,14 @@
 AirDrop-style sharing between Android and Mac: tap to send, share sheets both ways, a shared clipboard and
 one-time codes. Everything stays on your own Wi-Fi, end-to-end encrypted.
 
-![macOS 15+](https://img.shields.io/badge/macOS-15%2B-000?logo=apple&logoColor=white)
-![Apple silicon](https://img.shields.io/badge/Apple%20silicon-notch%20Macs-555)
-![Android 13+](https://img.shields.io/badge/Android-13%2B-3DDC84?logo=android&logoColor=white)
-![Swift](https://img.shields.io/badge/Swift-SwiftUI-F05138?logo=swift&logoColor=white)
-![Kotlin](https://img.shields.io/badge/Kotlin-Compose-7F52FF?logo=kotlin&logoColor=white)
-![Encrypted](https://img.shields.io/badge/end--to--end-AES--256--GCM-1f6feb)
-![MIT License](https://img.shields.io/badge/license-MIT-2ea44f)
-![Free](https://img.shields.io/badge/price-free-2ea44f)
+![macOS 15+](https://img.shields.io/badge/macOS-15%2B-2a2a2e?logo=apple&logoColor=white&style=flat-square&labelColor=0b0b0d&color=2a2a2e)
+![Apple silicon](https://img.shields.io/badge/Apple%20silicon-notch%20Macs-2a2a2e?style=flat-square&labelColor=0b0b0d&color=2a2a2e)
+![Android 13+](https://img.shields.io/badge/Android-13%2B-2a2a2e?logo=android&logoColor=white&style=flat-square&labelColor=0b0b0d&color=2a2a2e)
+![Swift](https://img.shields.io/badge/Swift-SwiftUI-2a2a2e?logo=swift&logoColor=white&style=flat-square&labelColor=0b0b0d&color=2a2a2e)
+![Kotlin](https://img.shields.io/badge/Kotlin-Compose-2a2a2e?logo=kotlin&logoColor=white&style=flat-square&labelColor=0b0b0d&color=2a2a2e)
+![Encrypted](https://img.shields.io/badge/end--to--end-AES--256--GCM-2a2a2e?style=flat-square&labelColor=0b0b0d&color=2a2a2e)
+![MIT License](https://img.shields.io/badge/license-MIT-2a2a2e?style=flat-square&labelColor=0b0b0d&color=2a2a2e)
+![Free](https://img.shields.io/badge/price-free-2a2a2e?style=flat-square&labelColor=0b0b0d&color=2a2a2e)
 
 **[Website](https://tapdrop.pages.dev)** ·
 **[Download for Mac (.dmg)](https://github.com/0x1p0/TapDrop/releases/latest/download/TapDrop.dmg)** ·
@@ -28,16 +28,16 @@ Free and open source. No accounts, no cloud, no tracking.
 
 <br>
 
-<img src="docs/images/mac-island.png" width="760" alt="The notch island on the Mac: Received 3 photos from Android phone">
+<picture><source media="(prefers-color-scheme: light)" srcset="docs/images/mac-island-light.png"><img src="docs/images/mac-island.png" width="880" alt="The notch island on a Mac: Received 3 photos, from Android phone, in Downloads"></picture>
 
-<br><br>
+<br>
 
 <table>
 <tr>
-<td align="center"><img src="docs/images/mac-panel.png" width="280" alt="Menu bar panel"><br><sub><b>Menu bar panel</b></sub></td>
-<td align="center"><img src="docs/images/android-home.png" width="200" alt="Android home"><br><sub><b>Android home</b></sub></td>
-<td align="center"><img src="docs/images/android-settings.png" width="200" alt="Android settings"><br><sub><b>Settings</b></sub></td>
-<td align="center"><img src="docs/images/android-test-your-tap.png" width="200" alt="Test your tap on Android"><br><sub><b>Test your tap</b></sub></td>
+<td align="center"><picture><source media="(prefers-color-scheme: light)" srcset="docs/images/mac-panel-light.png"><img src="docs/images/mac-panel.png" width="250" alt="The menu bar panel on the Mac"></picture><br><sub><b>Menu bar panel</b></sub></td>
+<td align="center"><picture><source media="(prefers-color-scheme: light)" srcset="docs/images/android-home-light.png"><img src="docs/images/android-home.png" width="190" alt="TapDrop's home screen on Android: Ready to tap"></picture><br><sub><b>Ready to tap</b></sub></td>
+<td align="center"><picture><source media="(prefers-color-scheme: light)" srcset="docs/images/android-settings-light.png"><img src="docs/images/android-settings.png" width="190" alt="TapDrop's settings on Android"></picture><br><sub><b>Settings</b></sub></td>
+<td align="center"><picture><source media="(prefers-color-scheme: light)" srcset="docs/images/android-test-your-tap-light.png"><img src="docs/images/android-test-your-tap.png" width="190" alt="Test your tap on Android: That counted"></picture><br><sub><b>Test your tap</b></sub></td>
 </tr>
 </table>
 
@@ -72,6 +72,7 @@ Free and open source. No accounts, no cloud, no tracking.
 | **Notch island** | Transfers, results and codes animate out of the notch, Dynamic Island style, and never sit under the camera. |
 | **Per-app control** | Choose what each Android app sends: Smart, page link, the photo or video on screen, the latest shot, a screenshot, the text on screen, or nothing. |
 | **Test your tap** | A live graph of what the notch sees, on both the Mac and the phone, with a plain-words verdict for every tap. |
+| **Light and dark** | Both apps follow your system, or pick Light or Dark: on the Mac in **Settings → General → Appearance**, on the phone in **Settings → Appearance**. |
 
 ## Tap to send
 
@@ -82,7 +83,7 @@ Free and open source. No accounts, no cloud, no tracking.
 The phone's screen flashes white, then black, against the notch. The Mac sees it and the content flies over. With
 **Pick before sending** on, you get a moment to tap one photo or drag over some text to send just that part.
 
-<p align="center"><img src="docs/images/mac-tap-to-send.png" width="760" alt="Mac Settings, Tap to Send, with the live Test your tap graph"></p>
+<p align="center"><picture><source media="(prefers-color-scheme: light)" srcset="docs/images/mac-tap-to-send-light.png"><img src="docs/images/mac-tap-to-send.png" width="760" alt="Mac Settings, Tap to Send, with the live Test your tap graph and a tap that counted"></picture></p>
 
 ## What a tap sends
 
@@ -97,6 +98,8 @@ Smart mode decides from what's on screen. You can override it per app.
 | The camera | Your newest shot |
 | Anything else | A screenshot, also copied to the Mac's clipboard |
 
+<p align="center"><picture><source media="(prefers-color-scheme: light)" srcset="docs/images/android-apps-light.png"><img src="docs/images/android-apps.png" width="230" alt="What each app sends, on Android: Smart in every app, or your own choice per app"></picture><br><sub>Per app, in <b>Settings → What each app sends</b> on the phone.</sub></p>
+
 Received files go to your Downloads folder by default, or a folder you choose. Links open in your browser, and text and
 codes go to the clipboard.
 
@@ -105,7 +108,7 @@ codes go to the clipboard.
 > (documents) or by fingerprinting your library in the background (photos and videos): a 256-bit hash of each photo,
 > and of about one frame per second of each video. A match has to be close and clearly better than every other
 > candidate. If it isn't, you get a screenshot, never a guess. Videos are only searched in galleries, chat apps and
-> video players. **Settings → Videos for tap** on the phone (and **Tap to Send → Status** on the Mac) shows how many
+> video players. **Settings → Photos & videos for tap** on the phone (and **Tap to Send → Status** on the Mac) shows how many
 > videos are ready.
 
 ## How TapDrop knows it's the notch
@@ -181,7 +184,7 @@ The [install guide](docs/INSTALL.md) (also on the [website](https://tapdrop.page
    ```
 5. When macOS asks *Allow "TapDrop" to find devices on local networks?*, click **Allow**.
 
-TapDrop lives in the menu bar (**((·))**) and opens at login. A **Set Up a Phone** window opens the first time. You can always get back to it from the menu bar icon → **Settings** → **Phones** → **Set Up a New Phone**.
+TapDrop lives in the menu bar (its icon is a single line that dips like the notch) and opens at login. A **Set Up a Phone** window opens the first time. You can always get back to it from the menu bar icon → **Settings** → **Phones** → **Set Up a New Phone**.
 
 ### 2. Install the Android app
 
@@ -250,7 +253,7 @@ Open **Test your tap** on the phone (Settings) or the Mac (Settings → Tap to S
 <details>
 <summary><b>A tap sent a screenshot instead of the video or file</b></summary>
 
-Allow **Original photos & videos** and **Any file**. Videos are fingerprinted in the background while the phone is unlocked and cool: **Settings → Videos for tap** shows how many are ready. Streaming apps (YouTube, Instagram, Netflix) don't keep videos as files, so they send a screenshot. On an app's own screen (Settings, a chat, a web app), a fresh screenshot is what's sent. The Mac's **Tap Log** (Settings → Tap to Send) says what the phone matched and why.
+Allow **Original photos & videos** and **Any file**. Videos are fingerprinted in the background while the phone is unlocked and cool: **Settings → Photos & videos for tap** shows how many are ready. Streaming apps (YouTube, Instagram, Netflix) don't keep videos as files, so they send a screenshot. On an app's own screen (Settings, a chat, a web app), a fresh screenshot is what's sent. The Mac's **Tap Log** (Settings → Tap to Send) says what the phone matched and why.
 </details>
 
 <details>

@@ -1,63 +1,79 @@
-# TapDrop design system
+# TapDrop design system: Lumen
 
 One product on two platforms. Each app should feel native to its platform and built by the same people.
-The Mac app is native SwiftUI with Liquid Glass. The Android app uses Material 3 Expressive with real glass blur.
+The Mac app is native SwiftUI with Liquid Glass. The Android app is Jetpack Compose on Material 3 Expressive, with
+real glass blur. The website (`site/`) follows the same system; its tokens are in `site/src/styles/tokens.css`.
+
+The tokens live in code: `mac/Sources/TapDrop/DesignSystem.swift` (`TD`, `TDFont`, `TDGlass`) and
+`android/app/src/main/kotlin/app/tapdrop/ui/Theme.kt` (`Brand`, `Td.colors`, `Td.type`, `TdSpace`, `TdRadius`,
+`TdMotion`). This page is the source of truth; change it first.
 
 ## Idea
 
-TapDrop is about light. A tap only counts when the Mac's notch sees the phone's light. The visual language
-follows from that: deep, quiet surfaces, luminous accents, and motion that feels physical (springs, momentum,
-glow). Everything else steps back so the content (photos, links, codes) is the hero.
+**Light, in the dark.** A tap is a phone's screen lighting up against the notch and going dark, so TapDrop is made of
+night and light: near-black, bone white, and one cool glow where they meet. There is no accent hue. Colour comes from
+the person's own photos, links and files, which are always the hero. Semantic colours (danger, warning) appear only
+where something needs fixing.
+
+The mark is the **Notchline**: the notch's outline traced in one line of light. It's the app icon (the lit line on a
+night tile), the Mac's menu bar icon, the horizon on the phone's home screen and the website's logo.
 
 ## Color
 
-Brand ("Aurora"). Keep these exact values; they match the app icon and the demo video.
+Brand:
 
 | Token | Hex | Use |
 |---|---|---|
-| `aurora.blue` | `#409EFF` | gradient start, info |
-| `aurora.violet` | `#8561FF` | primary accent, focus, selection |
-| `aurora.orchid` | `#F26BD9` | gradient end, highlights (sparingly) |
-| `aurora.gradient` | blue → violet (→ orchid for hero glow only) | primary buttons, hero glyphs, progress |
+| `night` | `#08080A` | The dark background; ink in light mode |
+| `graphite` | `#17171A` | Raised dark surfaces |
+| `bone` | `#F4F3EF` | Text in dark mode, the accent fill, light backgrounds |
+| `ink` | `#0B0B0D` | Text and the accent fill in light mode |
+| `light` | `#D6DEFF` | The glow: the cool white of a screen's light. Halos and hero spills only, never a fill |
 
-Neutrals:
+Neutrals, by role:
 
 | Token | Dark | Light |
 |---|---|---|
-| `bg` | `#0A0A0F` | `#F4F4F8` |
-| `surface` (cards) | `#15151C` | `#FFFFFF` |
-| `surfaceRaised` | `#1C1C25` | `#FFFFFF` + shadow |
+| `bg` | `#08080A` | `#EFEDE7` |
+| `surface` (cards) | `#111114` | `#FFFFFF` |
+| `surfaceRaised` | `#17171A` | `#FFFFFF` + shadow |
 | `hairline` | white 8% | black 7% |
-| `text` | `#F5F5FA` | `#111118` |
-| `textSecondary` | `#A0A2B4` | `#5E6173` |
-| `textTertiary` | `#6B6D80` | `#8E90A2` |
+| `text` | `#F4F3EF` | `#0B0B0D` |
+| `textSecondary` | `#A2A2A8` | `#5F5E59` |
+| `textTertiary` | `#6E6E75` | `#8C8A84` |
+| `accent` (primary fills, selection, progress) | bone | ink |
+| `onAccent` | night | bone |
 
-Semantic: `success #2ED17A`, `warning #FFB020`, `danger #FF5A5F`. On the Mac use the system colors
-(`.green`, `.orange`, `.red`) so they adapt to the appearance.
+Semantic: **success is bone or ink with the glow, never green.** Danger `#FF7A72` (dark) / `#D9443C` (light) and
+warning `#F0B45A` / `#C98A1E` on Android; on the Mac use the system `.red` and `.orange` so they adapt.
 
 Rules:
-- Dark mode is the hero, and light mode must be equally finished.
-- The gradient is an accent: at most one gradient element per view, plus the hero glow.
-- Glow is violet at 35–45% alpha, heavily blurred, and goes behind hero elements only.
+- Dark mode is the hero, and light mode must be equally finished. Both follow the system unless the person picks
+  Light or Dark in Settings.
+- Things that are hardware stay hardware in both modes: the notch, the island and the phone are black, and anything
+  drawn inside them uses the dark palette (a tick in the island is ink on a bone disc in either mode).
+- A "display" (the Test your tap scope, a drawn Mac screen) is night in both modes, so its marks are bone.
+- The glow is `light` at 35–55%, heavily blurred, behind hero elements only. In light mode the glow is white on bone.
 
 ## Type
 
-- **Mac:** SF Pro (system).
-  - Titles are semibold with slightly negative tracking: −0.3 at 20pt, −0.5 at 28pt.
-  - Use `.rounded` with `.monospacedDigit()` for numbers, codes and sizes.
-  - Use `.contentTransition(.numericText())` wherever a number changes.
-- **Android:** Geist, bundled in `res/font` (variable font, SIL OFL), for all text. Use Geist Mono for codes.
+| Face | Use |
+|---|---|
+| **Instrument Serif** (regular and italic) | The big moments: hero lines and screen titles. The last word goes italic, with a full stop ("Ready to *tap.*", "Pair with your *Mac.*") |
+| **Geist** (variable) | Everything read: body, rows, buttons, labels |
+| **Geist Mono** | Codes, addresses, readings and eyebrows (small capitals, +12–14% tracking: "RECENT", "112 LUX") |
 
-  | Style | Size / line | Weight | Tracking |
-  |---|---|---|---|
-  | display | 34/40 | Bold | −1% |
-  | headline | 26/32 | SemiBold | −0.5% |
-  | title | 20/26 | SemiBold | |
-  | body | 16/24 | Regular | |
-  | label | 14/20 | Medium | |
-  | caption | 12/16 | Medium | |
-- **Copy:** sentence case, short, concrete, warm. Never technical in the main flow. Numbers and diagnostics
-  go behind "Details".
+All three are SIL OFL and ship with both apps (Mac: `Resources/Fonts`, registered at launch, falling back to SF;
+Android: `res/font`). The wordmark is "Tap" in Geist and "*Drop*" in the serif's italic.
+
+- **Android** (`TdType`): hero 62/60 serif, display 42/44 serif, headline 24/30 Medium, title 19/24 Medium,
+  subtitle 16/22 Medium, body 16/24, label 14/20 Medium, caption 12/16, eyebrow Geist Mono 11/14 +14%, mono 16/24,
+  reading 26/30 Light with tabular figures. Display sizes track −2%.
+- **Mac** (`TDFont`): hero serif 34 (−0.6), title serif 27 (−0.4), then Geist 17 / 15 / 13 / 12 / 11, and Geist Mono 10
+  (+1.2) for badges and eyebrows. Use tabular figures for anything that changes (`.monospacedDigit()`,
+  `.contentTransition(.numericText())`).
+- **Copy:** sentence case, short, concrete, warm. Never technical in the main flow. Numbers and diagnostics go
+  behind "Details".
 
 ## Shape and space
 
@@ -70,68 +86,64 @@ Rules:
   | rows | 12 |
   | cards | 18 |
   | panel | 26 |
-  | island | matches the notch, then a capsule |
+  | island | matches the notch, then grows to its own rounded bottom |
 - **Android:**
-  - Cards: 28 dp.
+  - Cards: 28 dp. Sheets: 32 dp. Fields: 16 dp. Chips: 12 dp.
   - Settings groups are segmented: the outer corners are 24 dp, the inner corners 6 dp, with 2 dp gaps between
     items (Android 16 style).
-  - Buttons are full pills; chips are 12 dp.
-  - Touch targets are at least 48 dp.
+  - Buttons are full pills. Touch targets are at least 48 dp.
 
 ## Materials
 
 - **Mac:**
-  - On macOS 26 and later, use Liquid Glass: `.glassEffect(...)`, `GlassEffectContainer`, `.buttonStyle(.glass)`
-    and `.buttonStyle(.glassProminent)`, and `glassEffectID` morphing where content changes shape.
-  - On macOS 15, fall back to `.ultraThinMaterial` with a 1 px top-edge highlight (white 10%) and a soft shadow.
-  - Wrap this in one modifier (`.tdGlass(...)`) so screens never branch on the OS version themselves.
+  - On macOS 26 and later, Liquid Glass: `.glassEffect(...)`, `GlassEffectContainer`, and `glassEffectID` morphing
+    where content changes shape. On macOS 15, `.ultraThinMaterial` with a 1 px top-edge highlight and a soft shadow.
+  - It's all behind one modifier (`.tdGlass(...)`), so screens never branch on the OS version.
+  - Big surfaces (the menu bar panel, Settings' sidebar) lay a wash under their content (`TD.panelWash`: bone 86% in
+    light, night 80% in dark) so dense text stays legible on any wallpaper. Glass is quiet: no colour tint.
 - **Android:**
-  - Use Haze for real backdrop blur on top app bars, bottom sheets and floating toolbars.
-  - Cards are solid tonal surfaces with a hairline border in dark mode, so lists stay crisp and fast.
+  - Haze for real backdrop blur on top bars, bottom sheets and floating toolbars.
+  - Cards are solid tonal surfaces with a hairline, so lists stay crisp and fast.
+- **Lit controls, never flat white.** The accent button is lit: bone with a soft top-to-bottom falloff, a rim and a
+  faint glow of the notch's light in dark mode; ink with a sheen and a soft shadow in light mode. Neutral buttons are
+  raised: a gentle gradient and a rim that catches the light (Mac: `LitCapsule`; Android: `litFill`, `litHalo`,
+  `raisedFill`).
 
 ## Motion
 
 Motion has to feel physical, never decorative. Everything that changes state animates, and nothing loops forever
 except live indicators.
 
-- **Mac:**
-  - Springs:
+| Spring | Response | Damping | Use |
+|---|---|---|---|
+| standard | 0.38 | 0.86 | Most state changes |
+| emphasized | 0.5 | 0.72 | Arrivals and celebrations |
+| island | 0.42 | 0.78 | The notch island growing and shrinking (Mac) |
+| snappy | | 0.62 | Presses and toggles (Android) |
+| gentle | | 1.0 | Ambient changes: glows, backdrops, no overshoot |
 
-    | Spring | Response | Damping |
-    |---|---|---|
-    | standard | 0.38 | 0.86 |
-    | emphasized | 0.5 | 0.72 |
-    | island | 0.42 | 0.78 |
-  - SF Symbol effects: bounce on success, pulse for live, iterative `variableColor` while searching, and
-    `.replace` transitions between symbols.
-- **Android:**
-  - `MotionScheme.expressive()`, with spring specs throughout.
-  - Shape morphing (`MaterialShapes` with graphics-shapes) for the hero status shape.
-  - The expressive `LoadingIndicator` while searching.
-  - Shared-element transitions between home and detail pages, and predictive back.
-- **Haptics:**
-  - Mac: `NSHapticFeedbackManager` on accept and confirm.
-  - Android: `Haptics.kt` on every meaningful state change.
-- **Reduced motion:** honour it everywhere by swapping springs for quick fades.
+- The Notchline blooms when a tap counts, and live dots breathe. Light arrives and leaves; it never blinks.
+- **Haptics:** Mac `NSHapticFeedbackManager` on accept and confirm; Android `Haptics.kt` on every meaningful change.
+- **Reduced motion:** honour it everywhere by swapping springs for quick fades (Mac 0.2 s, Android 140 ms).
 
 ## Iconography
 
-- Mac: SF Symbols with hierarchical rendering, medium weight.
-- Android: `Icons.Rounded.*` throughout. Don't mix in other styles.
-- Icon chips are a 28–36 pt rounded square or a Material shape, holding a tinted or gradient symbol.
+- Mac: SF Symbols, hierarchical rendering, medium weight. Android: `Icons.Rounded.*` throughout; don't mix styles.
+- Icons are monochrome (text colour on a quiet well). The only coloured things on screen are the person's content.
+- The Notchline is the brand mark: always one line, never filled, never with a second colour.
 
 ## Components (same names on both platforms)
 
 | Component | What it is |
 |---|---|
-| `AuroraBackdrop` | A slow, low-contrast animated mesh gradient (Mac: `MeshGradient`; Android: drifting radial blobs). Hero areas only. |
+| `Notchline` | The mark: lit (core line over a blurred halo) on dark, ink with a white halo on bone. |
 | `GlassCard` | The standard container (glass on Mac, tonal card on Android). |
-| `StatusPill` | A live dot plus a label. Live = green with a soft pulse; searching = amber with an animated arc; offline = gray; error = red. |
-| `DeviceHero` | An illustration of the other device (phone or MacBook with its notch), with the link state drawn as light between them. |
-| `ActionTile` | An icon chip, a title and a subtitle. Press scale 0.97, with haptics. |
-| `SettingsGroup` / `SettingsRow` | An icon chip, title, optional subtitle, and a trailing control or chevron. |
-| `PrimaryButton` | Gradient fill (Android) or `glassProminent` tinted violet (Mac). `SecondaryButton` is glass (Mac) or tonal (Android). |
-| `ProgressRing`, `CheckBurst` | Transfer progress, and success: the ring morphs to a check that draws itself, with a short glow burst. |
+| `StatusPill` | A live dot plus a label. Live: a bone (or ink) dot with the light's halo and a soft pulse; searching: an orbiting arc; offline: grey; error: the danger colour. |
+| `DeviceHero` | An illustration of the other device (a phone or a MacBook with its notch), with the link drawn as light between them. |
+| `ActionTile` | An icon well, a title and a subtitle. Press scale 0.97, with haptics. |
+| `SettingsGroup` / `SettingsRow` | An icon well, title, optional subtitle, and a trailing control or chevron. |
+| `PrimaryButton` / `SecondaryButton` | Lit accent (bone in dark, ink in light) / raised neutral. Both are pills. |
+| `ProgressRing`, `CheckBurst` | Transfer progress, and success: the ring becomes a check that draws itself, in `onAccent` on the accent. |
 | `Island` (Mac notch HUD) and `Pill` (Android overlay) | The same anatomy: leading visual (thumbnail, icon or ring), title, subtitle, trailing action. They grow out of the notch or camera hole as pure black so they look like hardware. |
 
 ## The tap, in words

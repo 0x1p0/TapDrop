@@ -67,7 +67,7 @@ reach each other over your Wi‑Fi.
 
 ### 4. Find it in the menu bar
 
-TapDrop lives in the menu bar, at the top right of your screen: the **((·))** icon. Click it to open the panel.
+TapDrop lives in the menu bar, at the top right of your screen: its icon is a single line that dips like the notch. Click it to open the panel.
 
 - It isn't in the Dock or ⌘‑Tab unless one of its windows (Settings, Set Up a Phone) is open. Closing the window
   keeps TapDrop running in the menu bar.
@@ -287,7 +287,7 @@ off and on in **Settings → Accessibility**. Then do [Let it run in the backgro
 ### A tap sent a screenshot instead of the photo, video or file
 
 - Allow **Original photos & videos** and **Any file** (Part 5).
-- Videos are fingerprinted in the background while the phone is unlocked and cool. **Settings → Videos for tap** on
+- Videos are fingerprinted in the background while the phone is unlocked and cool. **Settings → Photos & videos for tap** on
   the phone shows how many are ready.
 - Streaming apps (YouTube, Instagram, Netflix) don't keep videos as files, so they always send a screenshot.
 
