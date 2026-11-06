@@ -117,27 +117,30 @@ internal class OverlayKit(val ctx: Context) {
 }
 
 /**
- * Colors for overlay drawing. Brand hues come straight from [Brand]. The island and the picker's controls are
- * pure black "like hardware" in both appearances (DESIGN.md: they grow out of the camera hole as pure black),
- * so text on them uses DESIGN.md's dark neutrals.
+ * Colors for overlay drawing (Lumen). The island and the picker's controls are pure black "like hardware" in both
+ * appearances, so their accents are bone white and the light's cool white, and marks drawn on bone are night.
+ * (The old hue names stay so the overlays read the same; they're all bone or light now.)
  */
 internal object Ink {
-    val blue = Brand.Blue.toArgb()
-    val violet = Brand.Violet.toArgb()
-    val orchid = Brand.Orchid.toArgb()
-    val success = Brand.Success.toArgb()
+    val bone = Brand.Bone.toArgb()
+    val light = Brand.Light.toArgb()
+    val blue = bone
+    val violet = bone
+    val orchid = light
+    val success = bone
     val warning = Brand.Warning.toArgb()
     val danger = Brand.Danger.toArgb()
-    val teal = Brand.Teal.toArgb()
-    val sky = Brand.Sky.toArgb()
+    val teal = light
+    val sky = light
 
     const val island = 0xFF000000.toInt()
-    const val text = 0xFFF5F5FA.toInt()
-    const val textSecondary = 0xFFA0A2B4.toInt()
-    const val textTertiary = 0xFF6B6D80.toInt()
+    const val night = 0xFF08080A.toInt()
+    const val text = 0xFFF4F3EF.toInt()
+    const val textSecondary = 0xFFA2A2A8.toInt()
+    const val textTertiary = 0xFF6E6E75.toInt()
 
-    /** The brand sweep used by progress rings (blue → violet → orchid → blue), as in ProgressRing. */
-    val ring = intArrayOf(blue, violet, orchid, blue)
+    /** Progress rings: bone, brightening to the light and back. */
+    val ring = intArrayOf(bone, light, bone)
 
     fun alpha(color: Int, a: Float): Int = (color and 0x00FFFFFF) or ((((color ushr 24) * a.coerceIn(0f, 1f)).toInt()) shl 24)
 

@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -104,14 +106,16 @@ fun TdIconSwitch(
             { Icon(Icons.Rounded.Check, null, Modifier.size(SwitchDefaults.IconSize)) }
         } else null,
         colors = SwitchDefaults.colors(
-            checkedThumbColor = Color.White,
+            // Lumen: the track is the one solid (bone in dark, ink in light); the thumb is its opposite, so the
+            // knob and its check always stand out.
+            checkedThumbColor = c.onAccent,
             checkedTrackColor = c.accent,
             checkedBorderColor = Color.Transparent,
             checkedIconColor = c.accent,
             uncheckedThumbColor = if (c.isDark) c.textSecondary else Color.White,
             uncheckedTrackColor = c.surfaceSunken,
             uncheckedBorderColor = if (c.isDark) c.hairline else Color.Black.copy(alpha = 0.10f),
-            disabledCheckedThumbColor = Color.White.copy(alpha = 0.9f),
+            disabledCheckedThumbColor = c.onAccent.copy(alpha = 0.9f),
             disabledCheckedTrackColor = c.accent.copy(alpha = 0.35f),
             disabledCheckedIconColor = c.accent.copy(alpha = 0.5f),
             disabledUncheckedThumbColor = c.textTertiary.copy(alpha = 0.5f),
@@ -459,6 +463,47 @@ fun SkeletonRow(shape: Shape, modifier: Modifier = Modifier, chip: Dp = 40.dp, t
         Column(Modifier.weight(1f).padding(start = 14.dp)) {
             Box(Modifier.fillMaxWidth(titleWidth).height(14.dp).background(bar, RoundedCornerShape(7.dp)))
             Box(Modifier.padding(top = 8.dp).fillMaxWidth(titleWidth * 0.62f).height(11.dp).background(bar, RoundedCornerShape(6.dp)))
+        }
+    }
+}
+
+/**
+ * A row of equal choices in a sunken track; the chosen one rises as a raised pill. For two to four short options
+ * (System / Light / Dark).
+ */
+@Composable
+fun SegmentedChoice(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+    val c = Td.colors
+    val haptics = rememberHaptics()
+    Row(
+        modifier
+            .fillMaxWidth()
+            .height(44.dp)
+            .background(c.surfaceSunken, RoundedCornerShape(22.dp))
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        options.forEachIndexed { i, label ->
+            val on = i == selected
+            val fill by animateColorAsState(
+                if (on) (if (c.isDark) Color.White.copy(alpha = 0.12f) else Color.White) else Color.Transparent,
+                TdMotion.standard(), label = "segFill",
+            )
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .pressable(RoundedCornerShape(18.dp), pressedScale = 0.97f, haptic = false, role = Role.RadioButton) {
+                        if (!on) haptics.tick()
+                        onSelect(i)
+                    }
+                    .semantics { this.selected = on }
+                    .background(fill, RoundedCornerShape(18.dp))
+                    .then(if (on) Modifier.border(1.dp, c.hairline, RoundedCornerShape(18.dp)) else Modifier),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(label, style = TdType.label, color = if (on) c.text else c.textSecondary, maxLines = 1)
+            }
         }
     }
 }

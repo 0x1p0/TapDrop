@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathMeasure
@@ -54,7 +55,7 @@ fun ProgressRing(
     modifier: Modifier = Modifier,
     stroke: Dp = 4.dp,
     track: Color = Td.colors.text.copy(alpha = if (Td.colors.isDark) 0.10f else 0.07f),
-    brush: Brush = Brush.sweepGradient(listOf(Brand.Blue, Brand.Violet, Brand.Orchid, Brand.Blue)),
+    brush: Brush = SolidColor(Td.colors.accent),
 ) {
     val animated by animateFloatAsState(
         (progress ?: 0f).coerceIn(0f, 1f),

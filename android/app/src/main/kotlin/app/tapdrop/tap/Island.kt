@@ -127,7 +127,7 @@ internal class Island(private val kit: OverlayKit, hole: Hole, screenW: Int) {
     private val subPaint = kit.text(TdType.bodySmall, Ink.textSecondary)
     private val codePaint = kit.text(TdType.mono, Ink.text, size = 30f, mono = true).apply { letterSpacing = 0.06f }
     private val rightPaint = kit.text(TdType.label, Ink.textSecondary, tabular = true)
-    private val buttonPaint = kit.text(TdType.label, Color.WHITE)
+    private val buttonPaint = kit.text(TdType.label, Ink.night)
 
     private val lead = LeadSlot()
     private val title = TextSlot()
@@ -554,7 +554,7 @@ internal class Island(private val kit: OverlayKit, hole: Hole, screenW: Int) {
         private val cut = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Ink.island }
         private val badgeFill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Ink.success }
         private val badgeMark = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND; color = Color.WHITE
+            style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND; color = Ink.night
         }
         private val badgePath = Path()
         private val m = Matrix()
@@ -833,7 +833,7 @@ internal class Island(private val kit: OverlayKit, hole: Hole, screenW: Int) {
         private val burst = Paint(Paint.ANTI_ALIAS_FLAG)
         private val btn = Paint(Paint.ANTI_ALIAS_FLAG)
         private val btnGlow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Ink.violet
+            color = Ink.light
             maskFilter = BlurMaskFilter(kit.dp(10f), BlurMaskFilter.Blur.NORMAL)
         }
         private val markPath = Path()
@@ -1014,6 +1014,8 @@ internal class Island(private val kit: OverlayKit, hole: Hole, screenW: Int) {
                     markPath.lineTo(-rr * 0.32f, rr * 0.32f)
                 }
                 mark.strokeWidth = rr * 0.17f
+                // Night on the bone disc (it worked), white on red (it didn't).
+                mark.color = if (success) Ink.night else Color.WHITE
                 mark.alpha = (255 * a).toInt()
                 seg.reset()
                 pm.setPath(markPath, false)
@@ -1037,12 +1039,13 @@ internal class Island(private val kit: OverlayKit, hole: Hole, screenW: Int) {
             val w = buttonW
             val h = kit.dp(34f)
             tmp.set(x - w / 2, y - h / 2, x + w / 2, y + h / 2)
-            // A soft violet glow under it, like the Mac island's Open button.
-            btnGlow.alpha = (110 * a).toInt()
+            // A soft glow of light under it, like the Mac island's Open button.
+            btnGlow.alpha = (70 * a).toInt()
             tmp.offset(0f, kit.dp(3f))
             c.drawRoundRect(tmp, h / 2, h / 2, btnGlow)
             tmp.offset(0f, -kit.dp(3f))
-            btn.shader = LinearGradient(tmp.left, 0f, tmp.right, 0f, Ink.blue, Ink.violet, Shader.TileMode.CLAMP)
+            btn.shader = null
+            btn.color = Ink.bone
             btn.alpha = (255 * a).toInt()
             c.drawRoundRect(tmp, h / 2, h / 2, btn)
             buttonText.alpha = (255 * a).toInt()

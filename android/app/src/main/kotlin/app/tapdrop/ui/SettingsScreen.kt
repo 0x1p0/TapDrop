@@ -91,6 +91,7 @@ import app.tapdrop.ui.design.LargeTitleScaffold
 import app.tapdrop.ui.design.MainSwitchRow
 import app.tapdrop.ui.design.RowAllowed
 import app.tapdrop.ui.design.RowChevron
+import app.tapdrop.ui.design.SegmentedChoice
 import app.tapdrop.ui.design.SettingsGroup
 import app.tapdrop.ui.design.SettingsRow
 import app.tapdrop.ui.design.SmallButton
@@ -140,6 +141,7 @@ fun SettingsScreen(
         ?.let { l -> l.sumOf { it.first } to l.sumOf { it.second } }
     val modes by app.prefs.appModes.collectAsStateWithLifecycle()
     val pickOn by app.prefs.pickFirst.collectAsStateWithLifecycle()
+    val appearance by app.prefs.appearance.collectAsStateWithLifecycle()
     val otpOn by app.prefs.smartOtp.collectAsStateWithLifecycle()
     val copyOnPhone by app.prefs.otpCopyOnPhone.collectAsStateWithLifecycle()
     val tapAction by app.prefs.tapAction.collectAsStateWithLifecycle()
@@ -227,7 +229,7 @@ fun SettingsScreen(
                         shape = shape,
                         leading = {
                             IconChip(
-                                Icons.Rounded.Flare, Brand.Blue, size = 36.dp, iconSize = 20.dp,
+                                Icons.Rounded.Flare, Td.colors.text, size = 36.dp, iconSize = 20.dp,
                                 modifier = Modifier.tdSharedBounds(TAP_TEST_CHIP_KEY),
                             )
                         },
@@ -251,7 +253,7 @@ fun SettingsScreen(
                                 else -> "Getting ready · $done of $total · keeps going while unlocked"
                             },
                             shape = shape,
-                            leading = { IconChip(Icons.Rounded.VideoLibrary, Brand.Orchid, size = 36.dp, iconSize = 20.dp) },
+                            leading = { IconChip(Icons.Rounded.VideoLibrary, Td.colors.text, size = 36.dp, iconSize = 20.dp) },
                             trailing = {
                                 if (done >= total) {
                                     androidx.compose.material3.Icon(
@@ -263,7 +265,7 @@ fun SettingsScreen(
                                         progress = { done / total.toFloat() },
                                         modifier = Modifier.size(22.dp),
                                         strokeWidth = 2.5.dp,
-                                        color = Brand.Orchid,
+                                        color = Td.colors.accent,
                                     )
                                 }
                             },
@@ -281,7 +283,7 @@ fun SettingsScreen(
                         shape = shape,
                         leading = {
                             IconChip(
-                                Icons.Rounded.AutoAwesome, Brand.Violet, size = 36.dp, iconSize = 20.dp,
+                                Icons.Rounded.AutoAwesome, Td.colors.text, size = 36.dp, iconSize = 20.dp,
                                 modifier = Modifier.tdSharedBounds(APP_RULES_CHIP_KEY),
                             )
                         },
@@ -297,8 +299,23 @@ fun SettingsScreen(
                         shape = shape,
                         subtitle = if (pickOn) "A moment to pick part of the screen" else "Taps send everything right away",
                         icon = Icons.Rounded.TouchApp,
-                        accent = Brand.Orchid,
+                        accent = Brand.Bone,
                     )
+                }
+            }
+        }
+
+        item("appearance") {
+            SettingsGroup(title = "Appearance") {
+                item { shape ->
+                    Box(Modifier.fillMaxWidth().background(Td.colors.surface, shape).padding(10.dp)) {
+                        val values = listOf("system", "light", "dark")
+                        SegmentedChoice(
+                            options = listOf("System", "Light", "Dark"),
+                            selected = values.indexOf(appearance).coerceAtLeast(0),
+                            onSelect = { app.prefs.setAppearance(values[it]) },
+                        )
+                    }
                 }
             }
         }
@@ -328,7 +345,7 @@ fun SettingsScreen(
                         shape = shape,
                         subtitle = "So you can paste them here as well",
                         icon = Icons.Rounded.ContentCopy,
-                        accent = Brand.Teal,
+                        accent = Brand.Bone,
                         enabled = otpOn,
                     )
                 }
@@ -339,13 +356,13 @@ fun SettingsScreen(
             SettingsGroup(title = "Permissions", footer = "TapDrop only looks at your screen at the moment you tap.") {
                 item { shape ->
                     PermissionRow(
-                        Icons.Rounded.SettingsAccessibility, Brand.Violet, "Accessibility", "For tap to send",
+                        Icons.Rounded.SettingsAccessibility, Td.colors.text, "Accessibility", "For tap to send",
                         ok = tap.accessibility, action = "Open", shape = shape,
                     ) { DeviceSupport.openAccessibility(ctx) }
                 }
                 item { shape ->
                     PermissionRow(
-                        Icons.Rounded.PhotoLibrary, Brand.Orchid, "Photos & videos",
+                        Icons.Rounded.PhotoLibrary, Td.colors.text, "Photos & videos",
                         when {
                             perms.media -> "Originals are sent, not screenshots"
                             perms.partial -> "Only some allowed · allow all so originals are found"
@@ -356,7 +373,7 @@ fun SettingsScreen(
                 }
                 item { shape ->
                     PermissionRow(
-                        Icons.Rounded.Folder, Brand.Blue, "All files", "Optional · tap a document anywhere to send it",
+                        Icons.Rounded.Folder, Td.colors.text, "All files", "Optional · tap a document anywhere to send it",
                         ok = perms.files, action = "Allow", shape = shape,
                     ) {
                         runCatching {
@@ -369,14 +386,14 @@ fun SettingsScreen(
                 }
                 item { shape ->
                     PermissionRow(
-                        Icons.Rounded.Sms, Brand.Success, "Text messages", "Optional · for codes sent by text",
+                        Icons.Rounded.Sms, Td.colors.text, "Text messages", "Optional · for codes sent by text",
                         ok = perms.sms, action = "Allow", shape = shape,
                     ) { perms.askSms() }
                 }
                 if (keepAlive != null) {
                     item { shape ->
                         PermissionRow(
-                            Icons.Rounded.BatteryChargingFull, Brand.Success, "Run in the background",
+                            Icons.Rounded.BatteryChargingFull, Td.colors.text, "Run in the background",
                             "${keepAlive.brand} phones stop apps to save battery",
                             ok = perms.battery, action = "Allow", shape = shape,
                         ) { DeviceSupport.requestUnrestricted(ctx) }
@@ -394,7 +411,7 @@ fun SettingsScreen(
                         subtitle = macs.firstOrNull { it.id == sticker }?.let { "Linked to ${it.name} · tap to rewrite" }
                             ?: "Stick one on your Mac, then tap it with your phone",
                         icon = Icons.Rounded.Nfc,
-                        accent = Brand.Violet,
+                        accent = Brand.Bone,
                         onClick = onSticker,
                         trailing = { RowChevron() },
                     )
@@ -402,7 +419,7 @@ fun SettingsScreen(
                         "When you tap the sticker",
                         subtitle = tapAction.label,
                         icon = Icons.Rounded.Contactless,
-                        accent = Brand.Sky,
+                        accent = Brand.Bone,
                         onClick = { actionSheet = true },
                         trailing = { RowChevron() },
                     )
@@ -421,7 +438,7 @@ fun SettingsScreen(
                         shape = shape,
                         leading = {
                             IconChip(
-                                Icons.Rounded.Devices, Brand.Teal, size = 36.dp, iconSize = 20.dp,
+                                Icons.Rounded.Devices, Td.colors.text, size = 36.dp, iconSize = 20.dp,
                                 modifier = Modifier.tdSharedBounds(COMPAT_CHIP_KEY),
                             )
                         },
@@ -441,7 +458,7 @@ fun SettingsScreen(
                     "Private by design",
                     subtitle = "End-to-end encrypted. Stays on your Wi‑Fi, only to Macs you paired.",
                     icon = Icons.Rounded.Shield,
-                    accent = Brand.Success,
+                    accent = Brand.Bone,
                 )
             }
         }
@@ -514,7 +531,7 @@ private fun MacRow(mac: SavedMac, live: Boolean, shape: Shape, onClick: () -> Un
         shape = shape,
         leading = {
             Box {
-                IconChip(Icons.Rounded.LaptopMac, Brand.Blue, size = 36.dp, iconSize = 20.dp)
+                IconChip(Icons.Rounded.LaptopMac, Td.colors.text, size = 36.dp, iconSize = 20.dp)
                 if (live) {
                     Box(
                         Modifier
@@ -539,7 +556,7 @@ private fun MacSheet(mac: SavedMac, live: Boolean, stickerHere: Boolean, onForge
     var confirming by remember { mutableStateOf(false) }
     val haptics = rememberHaptics()
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        IconChip(Icons.Rounded.LaptopMac, Brand.Blue, size = 72.dp, shape = TdShapes.Cookie9, iconSize = 34.dp, modifier = Modifier.padding(top = 8.dp))
+        IconChip(Icons.Rounded.LaptopMac, Td.colors.text, size = 72.dp, shape = TdShapes.Cookie9, iconSize = 34.dp, modifier = Modifier.padding(top = 8.dp))
         Text(mac.name, style = TdType.title, color = c.text, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 14.dp))
         StatusPill(
             if (live) "Ready to tap" else "Paired",
@@ -716,10 +733,10 @@ private val TapAction.icon: ImageVector
 
 private val TapAction.hue: Color
     get() = when (this) {
-        TapAction.ASK -> Brand.Blue
-        TapAction.LATEST_PHOTO -> Brand.Orchid
-        TapAction.CLIPBOARD -> Brand.Violet
-        TapAction.MAC_CLIPBOARD -> Brand.Teal
+        TapAction.ASK -> Brand.Bone
+        TapAction.LATEST_PHOTO -> Brand.Bone
+        TapAction.CLIPBOARD -> Brand.Bone
+        TapAction.MAC_CLIPBOARD -> Brand.Bone
     }
 
 @Composable

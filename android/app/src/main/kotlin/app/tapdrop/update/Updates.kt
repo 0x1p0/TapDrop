@@ -355,7 +355,7 @@ object Updates {
         val flags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         val n = NotificationCompat.Builder(ctx, CHANNEL)
             .setSmallIcon(R.drawable.ic_tile)
-            .setColor(Brand.Violet.toArgb())
+            .setColor(0xFF5F5E59.toInt())
             .setContentTitle(title)
             .setContentText(text)
             .setAutoCancel(true)

@@ -247,7 +247,7 @@ fun TapSetupScreen(onClose: () -> Unit, onTest: () -> Unit = {}) {
                 modifier = Modifier.padding(top = 12.dp),
                 leading = {
                     IconChip(
-                        Icons.Rounded.Flare, Brand.Blue, size = 36.dp, iconSize = 20.dp,
+                        Icons.Rounded.Flare, Td.colors.text, size = 36.dp, iconSize = 20.dp,
                         modifier = Modifier.tdSharedBounds(TAP_TEST_CHIP_KEY),
                     )
                 },
@@ -260,7 +260,7 @@ fun TapSetupScreen(onClose: () -> Unit, onTest: () -> Unit = {}) {
                 SectionHeader("Why it's safe")
                 GlassCard(padding = PaddingValues(18.dp)) {
                     Row(verticalAlignment = Alignment.Top) {
-                        IconChip(Icons.Rounded.Shield, Brand.Success, size = 40.dp, shape = TdShapes.Cookie6, iconSize = 20.dp)
+                        IconChip(Icons.Rounded.Shield, Td.colors.text, size = 40.dp, shape = TdShapes.Cookie6, iconSize = 20.dp)
                         Column(Modifier.padding(start = 14.dp)) {
                             Text("Only your phone's screen can send", style = TdType.body.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), color = Td.colors.text)
                             Text(TapCopy.SAFE, style = TdType.bodySmall, color = Td.colors.textSecondary, modifier = Modifier.padding(top = 4.dp))
@@ -268,7 +268,7 @@ fun TapSetupScreen(onClose: () -> Unit, onTest: () -> Unit = {}) {
                     }
                     Spacer(Modifier.height(16.dp))
                     Row(verticalAlignment = Alignment.Top) {
-                        IconChip(Icons.Rounded.Lock, Brand.Blue, size = 40.dp, shape = TdShapes.Cookie6, iconSize = 20.dp)
+                        IconChip(Icons.Rounded.Lock, Td.colors.text, size = 40.dp, shape = TdShapes.Cookie6, iconSize = 20.dp)
                         Column(Modifier.padding(start = 14.dp)) {
                             Text("Private", style = TdType.body.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), color = Td.colors.text)
                             Text(
@@ -442,7 +442,7 @@ fun TapStalledCard(modifier: Modifier = Modifier) {
         title = "Tap to send stopped",
         subtitle = "Android stopped it in the background. Turn TapDrop off and on in Accessibility.",
         modifier = modifier,
-        leading = { IconChip(Icons.Rounded.WarningAmber, Brand.Warning, size = 40.dp, shape = TdShapes.Cookie6, iconSize = 20.dp) },
+        leading = { IconChip(Icons.Rounded.WarningAmber, Td.colors.text, size = 40.dp, shape = TdShapes.Cookie6, iconSize = 20.dp) },
         trailing = { SmallButton("Open", { DeviceSupport.openAccessibility(ctx) }, prominent = true) },
     )
 }
@@ -528,7 +528,7 @@ fun ExtrasChecklist(modifier: Modifier = Modifier) {
             if (open) {
                 item { shape ->
                     ExtraRow(
-                        Icons.Rounded.PhotoLibrary, Brand.Orchid, "Original photos & videos",
+                        Icons.Rounded.PhotoLibrary, Td.colors.text, "Original photos & videos",
                         when {
                             e.media -> "The photo you're viewing is sent as the original"
                             e.partial -> "Only some photos allowed: allow all so originals can be found"
@@ -548,7 +548,7 @@ fun ExtrasChecklist(modifier: Modifier = Modifier) {
                 }
                 item { shape ->
                     ExtraRow(
-                        Icons.Rounded.Folder, Brand.Blue, "Any file",
+                        Icons.Rounded.Folder, Td.colors.text, "Any file",
                         if (e.files) "Tap a document anywhere to send it" else "Optional: tap a PDF or ZIP in Files or a chat to send it",
                         e.files, "Allow", shape,
                     ) {
@@ -563,7 +563,7 @@ fun ExtrasChecklist(modifier: Modifier = Modifier) {
                 if (notifyOk != null) {
                     item { shape ->
                         ExtraRow(
-                            Icons.Rounded.NotificationsActive, Brand.Violet, "Update notifications",
+                            Icons.Rounded.NotificationsActive, Td.colors.text, "Update notifications",
                             if (notifyOk) "You'll hear when a new version of TapDrop is out" else "So you hear when a new version of TapDrop is out",
                             notifyOk, "Allow", shape, notify.ask,
                         )
@@ -572,7 +572,7 @@ fun ExtrasChecklist(modifier: Modifier = Modifier) {
                 if (e.battery != null) {
                     item { shape ->
                         ExtraRow(
-                            Icons.Rounded.BatteryChargingFull, Brand.Success, "Run in the background",
+                            Icons.Rounded.BatteryChargingFull, Td.colors.text, "Run in the background",
                             if (e.battery) "TapDrop won't be stopped to save battery"
                             else "${DeviceSupport.keepAlive?.brand} phones stop apps in the background: allow TapDrop",
                             e.battery, "Allow", shape,

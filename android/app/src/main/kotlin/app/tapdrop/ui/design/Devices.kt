@@ -96,17 +96,17 @@ private data class MacPalette(
 private fun macPalette(): MacPalette {
     val dark = Td.colors.isDark
     return if (dark) MacPalette(
-        lidTop = Color(0xFF34363F), lidBottom = Color(0xFF23242B), lidEdge = Color.White.copy(alpha = 0.16f),
-        baseTop = Color(0xFF4A4C57), baseBottom = Color(0xFF1E1F25), scoop = Color(0xFF15161B),
-        wallTop = Color(0xFF0C0C18), wallBottom = Color(0xFF181238),
-        phoneBody = Color(0xFF26272E), phoneEdge = Color.White.copy(alpha = 0.18f),
+        lidTop = Color(0xFF34353A), lidBottom = Color(0xFF232327), lidEdge = Color.White.copy(alpha = 0.16f),
+        baseTop = Color(0xFF4A4B51), baseBottom = Color(0xFF1E1E22), scoop = Color(0xFF151518),
+        wallTop = Color(0xFF0B0B0E), wallBottom = Color(0xFF16161A),
+        phoneBody = Color(0xFF26262B), phoneEdge = Color.White.copy(alpha = 0.18f),
         shadow = Color.Black.copy(alpha = 0.55f),
     ) else MacPalette(
-        lidTop = Color(0xFFE9EAEF), lidBottom = Color(0xFFCDCFD7), lidEdge = Color.White,
-        baseTop = Color(0xFFF4F5F8), baseBottom = Color(0xFFBEC1CA), scoop = Color(0xFFA9ACB6),
-        wallTop = Color(0xFF14142A), wallBottom = Color(0xFF261A55),
-        phoneBody = Color(0xFF2A2B33), phoneEdge = Color.White.copy(alpha = 0.35f),
-        shadow = Color(0xFF1A1440).copy(alpha = 0.22f),
+        lidTop = Color(0xFFEAE9E5), lidBottom = Color(0xFFD0CEC8), lidEdge = Color.White,
+        baseTop = Color(0xFFF5F4F0), baseBottom = Color(0xFFC1BFB9), scoop = Color(0xFFACAAA4),
+        wallTop = Color(0xFF111114), wallBottom = Color(0xFF1C1C21),
+        phoneBody = Color(0xFF2A2A2F), phoneEdge = Color.White.copy(alpha = 0.35f),
+        shadow = Color(0xFF1A1814).copy(alpha = 0.22f),
     )
 }
 
@@ -155,7 +155,7 @@ fun DeviceHero(
         },
         TdMotion.standard(), label = "thread",
     )
-    val threadColor by animateColorAsState(if (state == LinkState.Failed) c.danger else Brand.Violet, TdMotion.standard(), label = "threadColor")
+    val threadColor by animateColorAsState(if (state == LinkState.Failed) c.danger else Brand.Light, TdMotion.standard(), label = "threadColor")
     val fill by animateFloatAsState(
         when (state) {
             LinkState.Sending, LinkState.Receiving -> (progress ?: 0f).coerceIn(0f, 1f)
@@ -203,7 +203,7 @@ fun DeviceHero(
                 y = wDp * phone.center.y - wDp * 0.05f,
             ),
         ) {
-            TdLoadingIndicator(Modifier.size(wDp * 0.1f), color = Brand.Violet.copy(alpha = 0.95f).let { lighten(it, 0.25f) })
+            TdLoadingIndicator(Modifier.size(wDp * 0.1f), color = Brand.Light.copy(alpha = 0.95f).let { lighten(it, 0.25f) })
         }
         CheckBurst(
             visible = state == LinkState.Received,
@@ -296,9 +296,9 @@ private fun DrawScope.drawMacBook(g: HeroGeometry, pal: MacPalette, notchGlow: F
             val gr = g.display.width * 0.55f
             drawCircle(
                 Brush.radialGradient(
-                    0f to Brand.Violet.copy(alpha = 0.78f * notchGlow),
-                    0.3f to Brand.Violet.copy(alpha = 0.34f * notchGlow),
-                    0.65f to Brand.Blue.copy(alpha = 0.10f * notchGlow),
+                    0f to Brand.Light.copy(alpha = 0.78f * notchGlow),
+                    0.3f to Brand.Light.copy(alpha = 0.34f * notchGlow),
+                    0.65f to Brand.Light.copy(alpha = 0.10f * notchGlow),
                     1f to Color.Transparent,
                     center = gc, radius = gr,
                 ),
@@ -394,9 +394,9 @@ private fun DrawScope.drawWallpaper(r: Rect, pal: MacPalette, dim: Float) {
         )
     }
     // Light pools low on the screen, so the top (and the notch's own light) stays dark and clear.
-    glow(Brand.Blue, 0.16f, 1.0f, 0.62f, 0.50f)
-    glow(Brand.Violet, 0.64f, 0.92f, 0.66f, 0.52f)
-    glow(Brand.Orchid, 0.98f, 0.55f, 0.42f, 0.26f)
+    glow(Brand.Light, 0.16f, 1.0f, 0.62f, 0.50f)
+    glow(Brand.Light, 0.64f, 0.92f, 0.66f, 0.52f)
+    glow(Brand.Light, 0.98f, 0.55f, 0.42f, 0.26f)
     if (dim > 0f) drawRect(Color(0xFF0E0E12).copy(alpha = 0.55f * dim), r.topLeft, r.size)
 }
 
@@ -410,10 +410,10 @@ private fun DrawScope.drawPhone(g: HeroGeometry, pal: MacPalette, dim: Float, li
     val sr = r - inset * 0.8f
     val screen = Path().apply { addRoundRect(RoundRect(s, CornerRadius(sr))) }
     clipPath(screen) {
-        drawRect(Brush.verticalGradient(listOf(Color(0xFF101020), Color(0xFF1C1440)), s.top, s.bottom), s.topLeft, s.size)
+        drawRect(Brush.verticalGradient(listOf(Color(0xFF0E0E11), Color(0xFF17171B)), s.top, s.bottom), s.topLeft, s.size)
         val gc = s.center
         drawCircle(
-            Brush.radialGradient(listOf(Brand.Violet.copy(alpha = 0.45f * (0.5f + 0.5f * lit) * (1f - dim * 0.7f)), Color.Transparent), center = gc, radius = s.width * 0.9f),
+            Brush.radialGradient(listOf(Brand.Light.copy(alpha = 0.45f * (0.5f + 0.5f * lit) * (1f - dim * 0.7f)), Color.Transparent), center = gc, radius = s.width * 0.9f),
             radius = s.width * 0.9f, center = gc,
         )
         if (glyph > 0.01f) drawBrandGlyph(gc, s.width * 0.42f, Color.White.copy(alpha = (0.92f - dim * 0.5f) * glyph))
@@ -449,7 +449,7 @@ private fun DrawScope.drawThread(
         return
     }
     if (alpha <= 0.01f) return
-    val gradient = Brush.linearGradient(listOf(Brand.Blue, color), start = g.threadStart, end = g.threadEnd)
+    val gradient = Brush.linearGradient(listOf(Brand.Light, color), start = g.threadStart, end = g.threadEnd)
     when (state) {
         LinkState.Searching -> {
             val dash = PathEffect.dashPathEffect(floatArrayOf(core * 2.2f, core * 2.4f), phase = -loop * core * 4.6f * 6f)
@@ -469,11 +469,11 @@ private fun DrawScope.drawThread(
             if (b > a) {
                 val seg = Path()
                 pm.getSegment(len * a, len * b, seg, true)
-                glowPath(seg, Brand.Violet.copy(alpha = 0.75f), core * 2.2f, core * 3.2f)
+                glowPath(seg, Brand.Light.copy(alpha = 0.75f), core * 2.2f, core * 3.2f)
                 drawPath(seg, gradient, style = Stroke(core * 1.3f, cap = StrokeCap.Round))
                 val headPos = pm.getPosition(len * (if (outgoing) b else a))
                 drawCircle(
-                    Brush.radialGradient(listOf(Color.White, Brand.Violet.copy(alpha = 0.6f), Color.Transparent), center = headPos, radius = core * 5f),
+                    Brush.radialGradient(listOf(Color.White, Brand.Light.copy(alpha = 0.6f), Color.Transparent), center = headPos, radius = core * 5f),
                     radius = core * 5f, center = headPos,
                 )
             }
@@ -489,7 +489,7 @@ private fun DrawScope.drawThread(
                     val pos = pm.getPosition(pm.length * t)
                     val fade = sin(t * PI.toFloat())
                     drawCircle(
-                        Brush.radialGradient(listOf(Color.White.copy(alpha = fade), Brand.Violet.copy(alpha = 0.5f * fade), Color.Transparent), center = pos, radius = core * 4.5f),
+                        Brush.radialGradient(listOf(Color.White.copy(alpha = fade), Brand.Light.copy(alpha = 0.5f * fade), Color.Transparent), center = pos, radius = core * 4.5f),
                         radius = core * 4.5f, center = pos,
                     )
                 }
@@ -509,34 +509,6 @@ private fun DrawScope.glowPath(path: Path, color: Color, width: Float, blur: Flo
             maskFilter = android.graphics.BlurMaskFilter(blur.coerceAtLeast(1f), android.graphics.BlurMaskFilter.Blur.NORMAL)
         }
         canvas.nativeCanvas.drawPath(path.asAndroidPath(), paint)
-    }
-}
-
-/** The TapDrop glyph (a dot radiating two arcs each side) centered at [c], [s] wide. */
-fun DrawScope.drawBrandGlyph(c: Offset, s: Float, color: Color) {
-    val k = s / 57f
-    val stroke = 5f * k
-    drawCircle(color, 6.5f * k, c)
-    for (r in listOf(15f, 26f)) {
-        val rr = r * k
-        val tl = Offset(c.x - rr, c.y - rr)
-        val sz = Size(rr * 2, rr * 2)
-        drawArc(color, 135f, 90f, false, tl, sz, style = Stroke(stroke, cap = StrokeCap.Round))
-        drawArc(color, -45f, 90f, false, tl, sz, style = Stroke(stroke, cap = StrokeCap.Round))
-    }
-}
-
-/** The app mark: the glyph on a gradient squircle, as on the launcher icon. */
-@Composable
-fun BrandMark(modifier: Modifier = Modifier, size: Dp = 32.dp) {
-    Canvas(modifier.size(size)) {
-        val r = this.size.minDimension * 0.3f
-        drawRoundRect(Brand.gradient, cornerRadius = CornerRadius(r))
-        drawRoundRect(
-            Brush.verticalGradient(0f to Color.White.copy(alpha = 0.25f), 0.5f to Color.Transparent),
-            cornerRadius = CornerRadius(r),
-        )
-        drawBrandGlyph(center, this.size.minDimension * 0.62f, Color.White)
     }
 }
 
@@ -640,7 +612,7 @@ private fun DrawScope.drawTapCloseup(k: TapKeyFrame, pal: MacPalette, back: Colo
     val bloom = 0.62f * w
     drawCircle(
         Brush.radialGradient(
-            0f to Brand.Violet.copy(alpha = 0.30f), 0.5f to Brand.Blue.copy(alpha = 0.08f), 1f to Color.Transparent,
+            0f to Brand.Light.copy(alpha = 0.30f), 0.5f to Brand.Light.copy(alpha = 0.08f), 1f to Color.Transparent,
             center = Offset(cx, 0.1f * h), radius = bloom,
         ),
         radius = bloom, center = Offset(cx, 0.1f * h),
@@ -669,7 +641,7 @@ private fun DrawScope.drawTapCloseup(k: TapKeyFrame, pal: MacPalette, back: Colo
                 Brush.radialGradient(
                     0f to Color.White.copy(alpha = 0.92f * glow),
                     0.22f to Color(0xFFE9E2FF).copy(alpha = 0.62f * glow),
-                    0.55f to Brand.Violet.copy(alpha = 0.30f * glow),
+                    0.55f to Brand.Light.copy(alpha = 0.30f * glow),
                     1f to Color.Transparent,
                     center = gc, radius = gr,
                 ),
@@ -764,7 +736,7 @@ private fun DrawScope.drawTapCloseup(k: TapKeyFrame, pal: MacPalette, back: Colo
     listOf(0.24f, 0.42f).forEach { fx ->
         val lc = Offset(pRect.left + pw * fx, barTop + barH / 2)
         drawCircle(Color(0xFF050608), lensR * 1.25f, lc)
-        drawCircle(Brush.radialGradient(listOf(Color(0xFF2E3A58), Color(0xFF07080B)), center = lc, radius = lensR), lensR, lc)
+        drawCircle(Brush.radialGradient(listOf(Color(0xFF34343A), Color(0xFF07080B)), center = lc, radius = lensR), lensR, lc)
         drawCircle(Color.White.copy(alpha = 0.4f), lensR * 0.2f, Offset(lc.x - lensR * 0.3f, lc.y - lensR * 0.3f))
     }
     drawCircle(Color(0xFFFFF4D6).copy(alpha = 0.75f), lensR * 0.32f, Offset(pRect.left + pw * 0.6f, barTop + barH / 2))

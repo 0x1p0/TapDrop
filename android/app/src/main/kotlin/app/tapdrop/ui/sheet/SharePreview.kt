@@ -239,7 +239,7 @@ fun LinkCard(url: String, title: String?, modifier: Modifier = Modifier, platter
 @Composable
 private fun Monogram(domain: String) {
     val c = Td.colors
-    val hues = listOf(Brand.Blue, Brand.Violet, Brand.Orchid, Brand.Teal, Brand.Sky)
+    val hues = listOf(Color(0xFF3A3A40), Color(0xFF2E2E33), Color(0xFF45454B), Color(0xFF26262B), Color(0xFF505057))
     val hue = hues[(domain.hashCode() and 0x7fffffff) % hues.size]
     val letter = domain.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "#"
     Box(

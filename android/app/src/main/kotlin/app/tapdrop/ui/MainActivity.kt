@@ -256,7 +256,7 @@ private fun StickerSheet(mac: SavedMac, close: () -> Unit) {
             when (phase) {
                 is StickerPhase.Done -> CheckBurst(visible = true, size = 72.dp)
                 is StickerPhase.Writing -> TdLoadingIndicator(Modifier.size(72.dp))
-                else -> IconChip(Icons.Rounded.Nfc, Brand.Violet, size = 84.dp, shape = TdShapes.Cookie12, iconSize = 38.dp)
+                else -> IconChip(Icons.Rounded.Nfc, Td.colors.text, size = 84.dp, shape = TdShapes.Cookie12, iconSize = 38.dp)
             }
         }
         Text(

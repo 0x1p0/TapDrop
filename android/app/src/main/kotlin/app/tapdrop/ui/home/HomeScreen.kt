@@ -1,5 +1,35 @@
 package app.tapdrop.ui.home
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.foundation.border
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.outlined.ContentPaste
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.Laptop
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.sp
+import app.tapdrop.ui.design.LightSpill
+import app.tapdrop.ui.design.LiveDot
+import app.tapdrop.ui.design.NotchlineHero
+import app.tapdrop.ui.design.Wordmark
 import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
@@ -237,22 +267,15 @@ fun HomeScreen(
                 scrolled = { scrolled },
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        BrandMark(size = 30.dp)
-                        Text("TapDrop", style = TdType.subtitle, color = Td.colors.text, modifier = Modifier.padding(start = 10.dp))
+                        BrandMark(size = 28.dp)
+                        Wordmark(Modifier.padding(start = 10.dp))
                     }
                 },
-                actions = { GlassIconButton(Icons.Rounded.Settings, "Settings", onOpenSettings) },
+                actions = { GlassIconButton(Icons.Rounded.Tune, "Settings", onOpenSettings) },
             )
         },
     ) {
-        AuroraBackdrop(
-            Modifier.fillMaxWidth().height(620.dp),
-            mood = when (link) {
-                LinkState.Offline -> AuroraMood.Quiet
-                LinkState.Live, LinkState.Sent, LinkState.Received -> AuroraMood.Live
-                else -> AuroraMood.Brand
-            },
-        )
+        LightSpill(Modifier.fillMaxWidth().height(420.dp), strength = if (link == LinkState.Offline) 0.45f else 1f)
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
@@ -290,7 +313,6 @@ fun HomeScreen(
                 }
             }
             item("update") { UpdateCard(Modifier.entrance(1, enabled = intro)) }
-            item("sendHeader") { SectionHeader("Send", Modifier.entrance(2, enabled = intro)) }
             item("send") {
                 QuickActions(
                     enabled = online != false,
@@ -306,11 +328,11 @@ fun HomeScreen(
                         }
                     },
                     onMacClipboard = { app.transfers.pullClipboard(mac) },
-                    modifier = Modifier.entrance(3, enabled = intro),
+                    modifier = Modifier.padding(top = 30.dp).entrance(2, enabled = intro),
                 )
             }
             item("extras") { ExtrasChecklist(Modifier.padding(top = 24.dp).entrance(4, enabled = intro)) }
-            item("recentHeader") { SectionHeader("Recent", Modifier.entrance(5, enabled = intro)) }
+            item("recentHeader") { SectionHeader("Recent", Modifier.padding(top = 10.dp).entrance(5, enabled = intro)) }
             if (history.isEmpty()) {
                 item("recentEmpty") {
                     EmptyState(
@@ -322,10 +344,22 @@ fun HomeScreen(
                 }
             } else {
                 item("recent") {
-                    SettingsGroup(Modifier.entrance(6, enabled = intro)) {
-                        history.take(6).forEach { h -> item { shape -> HistoryRow(h, shape) } }
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(end = Td.space.gutter),
+                        modifier = Modifier.layout { m, k ->
+                            // Run to the screen's right edge (past the list's gutter), so cards peek in.
+                            val extra = Td.space.gutter.roundToPx()
+                            val p = m.measure(k.copy(maxWidth = k.maxWidth + extra))
+                            layout(k.maxWidth, p.height) { p.place(0, 0) }
+                        }.entrance(6, enabled = intro),
+                    ) {
+                        items(history.take(12), key = { "${it.time}${it.title}" }) { h -> RecentCard(h) }
                     }
                 }
+            }
+            item("originals") {
+                OriginalsPill(onOpenSettings, Modifier.padding(top = 28.dp).entrance(7, enabled = intro))
             }
         }
     }
@@ -354,24 +388,51 @@ private fun Hero(
     modifier: Modifier = Modifier,
 ) {
     val ctx = LocalContext.current
-    Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        DeviceHero(
-            state = link,
-            progress = (shown as? TState.Working)?.progress,
-            contentDescription = "${mac.name}: $pillText",
-            modifier = Modifier
-                .widthIn(max = 340.dp),
-        )
-        Text(
-            mac.name,
-            style = TdType.headline,
-            color = Td.colors.text,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 4.dp, start = 12.dp, end = 12.dp),
-        )
-        StatusPill(pillText, pillTone, Modifier.padding(top = 10.dp))
+    val c = Td.colors
+    // The line of light: steady when ready, breathing while it looks, dim when the Mac is away, blooming when
+    // something lands.
+    val searching = link == LinkState.Searching
+    val breathe = if (searching && !Td.reducedMotion) {
+        rememberInfiniteTransition(label = "heroBreathe")
+            .animateFloat(0.35f, 0.85f, infiniteRepeatable(tween(1400), RepeatMode.Reverse), label = "breathe").value
+    } else 1f
+    val glow by animateFloatAsState(
+        when (link) {
+            LinkState.Offline -> 0.15f
+            LinkState.Sent, LinkState.Received -> 1.35f
+            LinkState.Searching -> breathe
+            else -> 1f
+        },
+        Td.spring(emphasized = true), label = "heroGlow",
+    )
+    Column(
+        modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = "${mac.name}: $pillText" },
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        NotchlineHero(Modifier.fillMaxWidth().height(70.dp).padding(top = 6.dp), glow = glow)
+        Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            LiveDot(lit = online != false)
+            Text(
+                "${mac.name} · ${pillText}".uppercase(),
+                style = TdType.eyebrow, color = c.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+        }
+        val (plain, lit) = when {
+            online == null -> "Looking for your " to "Mac."
+            online == false -> "Your Mac is " to "away."
+            live -> "Ready to " to "tap."
+            else -> "Connected, " to "ready."
+        }
+        AnimatedContent(plain + lit, transitionSpec = { fadeIn(tween(260)) togetherWith fadeOut(tween(160)) }, label = "heroTitle") { _ ->
+            Text(
+                buildAnnotatedString {
+                    append(plain)
+                    withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { append(lit) }
+                },
+                style = TdType.hero, color = c.text, textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 10.dp, start = 8.dp, end = 8.dp),
+            )
+        }
         AnimatedContent(
             targetState = shown,
             contentKey = { s -> s::class.simpleName + (if (s is TState.Idle) "$online$wifi$live$tapReady" else "") },
@@ -459,93 +520,125 @@ private fun QuickActions(
     onMacClipboard: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ActionTile(
-                Icons.Rounded.PhotoLibrary, "Photos", "Photos & videos", Brand.Orchid, onPhotos,
-                Modifier.weight(1f).fillMaxHeight(), shape = TdShapes.Cookie9, enabled = enabled,
-            )
-            ActionTile(
-                Icons.Rounded.Folder, "Files", "Any document", Brand.Blue, onFiles,
-                Modifier.weight(1f).fillMaxHeight(), shape = TdShapes.Cookie6, enabled = enabled,
-            )
-        }
-        Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ActionTile(
-                Icons.Rounded.ContentPaste, "Clipboard", "Send what you copied", Brand.Violet, onClipboard,
-                Modifier.weight(1f).fillMaxHeight(), shape = TdShapes.Clover4, enabled = enabled,
-            )
-            ActionTile(
-                Icons.Rounded.ContentPasteGo, "Mac clipboard", "Paste it here", Brand.Teal, onMacClipboard,
-                Modifier.weight(1f).fillMaxHeight(), shape = TdShapes.Sunny, enabled = enabled,
-            )
-        }
+    Row(modifier.fillMaxWidth().semantics { contentDescription = "Send to your Mac" }, horizontalArrangement = Arrangement.SpaceBetween) {
+        RoundAction(Icons.Outlined.Image, "Photos", onPhotos, enabled, Modifier.weight(1f))
+        RoundAction(Icons.Outlined.Description, "Files", onFiles, enabled, Modifier.weight(1f))
+        RoundAction(Icons.Outlined.ContentPaste, "Clipboard", onClipboard, enabled, Modifier.weight(1f))
+        RoundAction(Icons.Outlined.Laptop, "From Mac", onMacClipboard, enabled, Modifier.weight(1f))
     }
 }
 
+/** A round glass button with its label below: the home screen's send actions. */
 @Composable
-private fun HistoryRow(h: HistoryEntry, shape: Shape) {
+private fun RoundAction(icon: ImageVector, label: String, onClick: () -> Unit, enabled: Boolean, modifier: Modifier = Modifier) {
+    val c = Td.colors
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            Modifier
+                .size(64.dp)
+                .then(
+                    if (c.isDark) Modifier
+                    else Modifier.shadow(10.dp, CircleShape, ambientColor = c.shadow.copy(alpha = 0.10f), spotColor = c.shadow.copy(alpha = 0.10f))
+                )
+                .pressable(CircleShape, enabled = enabled, pressedScale = 0.92f, onClick = onClick)
+                .background(if (c.isDark) Color.White.copy(alpha = 0.055f) else Color.White, CircleShape)
+                .border(1.dp, c.hairline, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, label, tint = if (enabled) c.text else c.textTertiary, modifier = Modifier.size(24.dp))
+        }
+        Text(label, style = TdType.caption.copy(fontSize = 12.5.sp), color = c.textSecondary, modifier = Modifier.padding(top = 9.dp))
+    }
+}
+
+/** One recent transfer as a card: the photo itself for pictures, a quiet card for links, text and files. */
+@Composable
+private fun RecentCard(h: HistoryEntry) {
     val ctx = LocalContext.current
     val c = Td.colors
     val uri = h.uri?.let(Uri::parse)
     val isLink = h.uri == null && (h.mime == "text/x-link" || h.title == "link" || h.title.startsWith("http"))
     val openable = uri != null && uri.scheme != "file"
-    // Files by kind (a video's frame, a PDF's mark); text and links have no file.
     val mime = h.mime.orEmpty()
     val kind = fileKind(h.title, mime)
-    val visual = mime.startsWith("image/") || mime.startsWith("video/")
-    Row(
+    val visual = uri != null && (mime.startsWith("image/") || mime.startsWith("video/"))
+    val shape = RoundedCornerShape(22.dp)
+    val title = if (h.title in KIND_LABELS) h.title.replaceFirstChar { it.uppercase() } else h.title
+    val sub = when {
+        visual && !h.outgoing -> "The original · ${relativeTime(h.time)}"
+        h.outgoing -> "To ${h.mac} · ${relativeTime(h.time)}"
+        else -> "From ${h.mac} · ${relativeTime(h.time)}"
+    }
+    Box(
         Modifier
-            .fillMaxWidth()
-            .heightIn(min = 68.dp)
-            .then(if (openable) Modifier.pressable(shape, pressedScale = 0.985f) { openUri(ctx, uri, h.mime) } else Modifier)
-            .background(c.surface, shape)
-            .padding(start = 12.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .size(width = 168.dp, height = 196.dp)
+            .then(if (!c.isDark && visual) Modifier.shadow(14.dp, shape, ambientColor = c.shadow.copy(alpha = 0.12f), spotColor = c.shadow.copy(alpha = 0.12f)) else Modifier)
+            .clip(shape)
+            .then(if (openable) Modifier.pressable(shape, pressedScale = 0.97f) { openUri(ctx, uri, h.mime) } else Modifier)
+            .background(c.surface)
+            .border(1.dp, c.hairline, shape),
     ) {
-        Box {
-            MediaThumb(
-                uri,
-                Modifier.size(46.dp).clip(RoundedCornerShape(14.dp)),
-                fallback = when {
-                    isLink -> Icons.Rounded.Link
-                    uri == null -> Icons.AutoMirrored.Rounded.Notes
-                    else -> kind.icon
-                },
-                mime = h.mime?.takeIf { uri != null },
-                accent = kind.accent.takeIf { uri != null && !visual },
-            ) { loaded ->
-                if (loaded && mime.startsWith("video/")) PlayBadge(Modifier.align(Alignment.Center), size = 20.dp)
+        if (visual) {
+            MediaThumb(uri, Modifier.fillMaxSize(), fallback = kind.icon, mime = h.mime) { loaded ->
+                if (loaded && mime.startsWith("video/")) PlayBadge(Modifier.align(Alignment.Center), size = 28.dp)
             }
-            Box(
+            Column(
                 Modifier
-                    .align(Alignment.BottomEnd)
-                    .offset(x = 5.dp, y = 5.dp)
-                    .size(20.dp)
-                    .background(c.surface, CircleShape)
-                    .padding(2.dp)
-                    .background(if (h.outgoing) c.accent else c.success, CircleShape),
-                contentAlignment = Alignment.Center,
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xC708080A))))
+                    .padding(start = 14.dp, end = 14.dp, top = 36.dp, bottom = 13.dp),
             ) {
+                Text(title, style = TdType.label, color = Brand.Bone, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(sub, style = TdType.caption, color = Color(0xFFD4D3CE), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        } else {
+            Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
                 Icon(
-                    if (h.outgoing) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward,
-                    if (h.outgoing) "Sent" else "Received",
-                    tint = androidx.compose.ui.graphics.Color.White,
-                    modifier = Modifier.size(11.dp),
+                    when {
+                        isLink -> Icons.Outlined.Language
+                        uri == null -> Icons.AutoMirrored.Rounded.Notes
+                        else -> kind.icon
+                    },
+                    null, tint = c.text, modifier = Modifier.size(26.dp),
                 )
+                Column {
+                    Text(title, style = TdType.label, color = c.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(sub, style = TdType.caption, color = c.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
         }
-        Column(Modifier.weight(1f).padding(start = 16.dp)) {
-            Text(
-                // Sends of text are recorded by kind ("text", "link"), which reads as a sentence fragment here.
-                if (h.title in KIND_LABELS) h.title.replaceFirstChar { it.uppercase() } else h.title,
-                style = TdType.body.copy(fontWeight = FontWeight.Medium), color = c.text,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                "${if (h.outgoing) "To" else "From"} ${h.mac} · ${relativeTime(h.time)}",
-                style = TdType.bodySmall, color = c.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
+    }
+}
+
+/** How ready originals are: every photo and video fingerprinted on this phone, so a tap sends the file itself. */
+@Composable
+private fun OriginalsPill(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val c = Td.colors
+    val videos by NotchTapService.videoIndex.collectAsStateWithLifecycle()
+    val photos by NotchTapService.photoIndex.collectAsStateWithLifecycle()
+    val parts = listOfNotNull(photos, videos)
+    if (parts.isEmpty()) return
+    val done = parts.sumOf { it.first }
+    val total = parts.sumOf { it.second }
+    val ready = done >= total
+    val text = if (ready) {
+        "Originals ready · ${"%,d".format(photos?.second ?: 0)} photos · ${"%,d".format(videos?.second ?: 0)} videos"
+    } else {
+        "Getting originals ready · ${"%,d".format(done)} of ${"%,d".format(total)}"
+    }
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Row(
+            modifier
+                .height(38.dp)
+                .pressable(CircleShape, pressedScale = 0.97f, onClick = onClick)
+                .background(if (c.isDark) Color.White.copy(alpha = 0.05f) else Color.White, CircleShape)
+                .border(1.dp, c.hairline, CircleShape)
+                .padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            LiveDot(size = 6.dp, lit = ready)
+            Text(text, style = TdType.caption.copy(fontSize = 13.sp), color = c.textSecondary, maxLines = 1)
         }
     }
 }

@@ -85,9 +85,9 @@ fun WelcomeScreen(onPair: () -> Unit) {
                 Modifier.widthIn(max = 400.dp).fillMaxWidth().entrance(3),
                 verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
-                Feature(Icons.Rounded.TouchApp, Brand.Violet, TdShapes.Cookie9, "Tap to send", "${TapCopy.PRIMARY} ${TapCopy.HOLD}")
-                Feature(Icons.Rounded.IosShare, Brand.Blue, TdShapes.Cookie6, "Share from any app", "Photos, links and files, right from the share sheet.")
-                Feature(Icons.Rounded.Lock, Brand.Success, TdShapes.Clover4, "Private by design", "End‑to‑end encrypted, over your own Wi‑Fi.")
+                Feature(Icons.Rounded.TouchApp, Td.colors.text, TdShapes.Cookie9, "Tap to send", "${TapCopy.PRIMARY} ${TapCopy.HOLD}")
+                Feature(Icons.Rounded.IosShare, Td.colors.text, TdShapes.Cookie6, "Share from any app", "Photos, links and files, right from the share sheet.")
+                Feature(Icons.Rounded.Lock, Td.colors.text, TdShapes.Clover4, "Private by design", "End‑to‑end encrypted, over your own Wi‑Fi.")
             }
             Spacer(Modifier.height(32.dp))
             PrimaryButton("Pair with your Mac", onPair, Modifier.widthIn(max = 400.dp).fillMaxWidth().entrance(4))

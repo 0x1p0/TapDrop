@@ -57,13 +57,13 @@ internal class FrozenScreen(private val kit: OverlayKit, val shot: Bitmap, val w
     private val vm = Matrix()
     private val gm = Matrix()
 
-    /** Where the light comes from: the camera. A soft violet glow sits behind the island and the card's top. */
+    /** Where the light comes from: the camera. A soft cool glow sits behind the island and the card's top. */
     var glowX = width / 2f
     var glowY = 0f
     private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val glow = RadialGradient(
         0f, 0f, 1f,
-        intArrayOf(Ink.alpha(Ink.violet, if (kit.dark) 0.42f else 0.26f), Ink.alpha(Ink.violet, if (kit.dark) 0.16f else 0.1f), Ink.alpha(Ink.blue, 0f)),
+        intArrayOf(Ink.alpha(Ink.light, if (kit.dark) 0.30f else 0.5f), Ink.alpha(Ink.light, if (kit.dark) 0.10f else 0.18f), Ink.alpha(Ink.light, 0f)),
         floatArrayOf(0f, 0.42f, 1f),
         Shader.TileMode.CLAMP,
     )

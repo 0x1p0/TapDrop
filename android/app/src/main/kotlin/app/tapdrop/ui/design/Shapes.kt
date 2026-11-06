@@ -108,31 +108,15 @@ fun IconChip(
     iconSize: Dp = size * 0.5f,
     contentDescription: String? = null,
 ) {
-    val dark = Td.colors.isDark
-    val fill = if (filled) accent else accent.copy(alpha = if (dark) 0.22f else 0.13f)
-    val tint = when {
-        filled -> Color.White
-        dark -> lighten(accent, 0.18f)
-        else -> darken(accent, 0.12f)
-    }
-    val base = shape ?: TdShapes.Square
-    val morph = remember(base, morphTo) { Morph(base, morphTo ?: base) }
-    val progress by animateFloatAsState(if (pressed && morphTo != null) 1f else 0f, TdMotion.snappy(), label = "chipMorph")
-    val path = remember { Path() }
+    // Lumen: a plain glyph in the text colour in a quiet round well; [filled] is the one solid (bone or ink).
+    // [accent], [shape] and [morphTo] are kept for callers but no longer tint or shape it: no rainbow, no blobs.
+    val c = Td.colors
+    val fill = if (filled) c.accent else c.accentSoft
+    val tint = if (filled) c.onAccent else c.text
     Box(
         modifier
             .size(size)
-            .drawBehind {
-                if (shape == null) {
-                    val r = this.size.minDimension * 0.3f
-                    drawRoundRect(
-                        brush = Brush.verticalGradient(listOf(fill, fill)),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(r, r),
-                    )
-                } else {
-                    drawMorphPath(morph, progress, Brush.verticalGradient(listOf(fill, fill)), path)
-                }
-            },
+            .drawBehind { drawCircle(fill) },
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription, tint = tint, modifier = Modifier.size(iconSize))

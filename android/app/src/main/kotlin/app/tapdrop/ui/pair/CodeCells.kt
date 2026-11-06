@@ -115,7 +115,7 @@ private fun CodeCell(digit: Char?, index: Int, code: String?, confirmed: Boolean
                 drawContent()
                 val outline = shape.createOutline(size, layoutDirection, this)
                 drawOutline(outline, edge, style = Stroke(1.dp.toPx()))
-                if (ring > 0f) drawOutline(outline, Brand.gradient, alpha = ring, style = Stroke(2.5.dp.toPx()))
+                if (ring > 0f) drawOutline(outline, c.accent, alpha = ring, style = Stroke(2.5.dp.toPx()))
             },
         contentAlignment = Alignment.Center,
     ) {

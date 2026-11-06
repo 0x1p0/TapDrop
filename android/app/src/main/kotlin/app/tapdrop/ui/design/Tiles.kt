@@ -47,7 +47,7 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier, action: (@Compos
             .padding(start = 6.dp, end = 2.dp, top = 22.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(title, style = sectionLabel, modifier = Modifier.weight(1f).semantics { heading() })
+        Text(title.uppercase(), style = sectionLabel, modifier = Modifier.weight(1f).semantics { heading() })
         action?.invoke()
     }
 }

@@ -378,7 +378,7 @@ private fun LightCard(
         ) {
             Box {
                 IconChip(
-                    Icons.Rounded.Flare, Brand.Blue, size = 44.dp, iconSize = 24.dp,
+                    Icons.Rounded.Flare, Td.colors.text, size = 44.dp, iconSize = 24.dp,
                     modifier = Modifier.tdSharedBounds(TAP_TEST_CHIP_KEY),
                 )
                 Box(Modifier.align(Alignment.BottomEnd).offset(x = 3.dp, y = 3.dp).size(16.dp).background(c.surface, CircleShape), contentAlignment = Alignment.Center) {
@@ -445,7 +445,7 @@ private fun NotchScope(
     val marks = tries.map { it.trace.at to explain(it.trace).outcome }
     val success = c.success
     val danger = c.danger
-    val neutral = Brand.Sky
+    val neutral = Color(0xFFA2A2A8)
     Canvas(
         modifier
             .aspectRatio(aspect)
@@ -487,14 +487,14 @@ private fun DrawScope.drawIdle(area: Rect, dim: Float, sweep: Float?) {
     val tail = area.width * 0.28f
     drawLine(
         Brush.horizontalGradient(
-            0f to Color.Transparent, 0.8f to Brand.Violet.copy(alpha = 0.55f * a), 1f to Color.White.copy(alpha = 0.95f * a),
+            0f to Color.Transparent, 0.8f to Brand.Light.copy(alpha = 0.55f * a), 1f to Color.White.copy(alpha = 0.95f * a),
             startX = head - tail, endX = head,
         ),
         Offset(head - tail, y), Offset(head, y),
         strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round,
     )
     drawCircle(
-        Brush.radialGradient(listOf(Color.White.copy(alpha = 0.9f * a), Brand.Violet.copy(alpha = 0.4f * a), Color.Transparent), center = Offset(head, y), radius = 10.dp.toPx()),
+        Brush.radialGradient(listOf(Color.White.copy(alpha = 0.9f * a), Brand.Light.copy(alpha = 0.4f * a), Color.Transparent), center = Offset(head, y), radius = 10.dp.toPx()),
         10.dp.toPx(), Offset(head, y),
     )
 }
@@ -502,16 +502,14 @@ private fun DrawScope.drawIdle(area: Rect, dim: Float, sweep: Float?) {
 private fun DrawScope.drawDisplay(dim: Float) {
     val w = size.width
     val h = size.height
-    drawRect(Brush.verticalGradient(listOf(Color(0xFF0B0B16), Color(0xFF171233)), 0f, h))
+    drawRect(Brush.verticalGradient(listOf(Color(0xFF0B0B0E), Color(0xFF151519)), 0f, h))
     val k = 1f - dim * 0.7f
     fun glow(color: Color, fx: Float, fy: Float, fr: Float, a: Float) {
         val center = Offset(w * fx, h * fy)
         val r = w * fr
         drawCircle(Brush.radialGradient(listOf(color.copy(alpha = a * k), Color.Transparent), center = center, radius = r), r, center)
     }
-    glow(Brand.Blue, 0.08f, 1.05f, 0.62f, 0.30f)
-    glow(Brand.Violet, 0.7f, 1.0f, 0.66f, 0.30f)
-    glow(Brand.Orchid, 1.02f, 0.62f, 0.38f, 0.14f)
+    glow(Brand.Light, 0.5f, 0.0f, 0.7f, 0.14f)
 }
 
 private fun DrawScope.drawNotch(glow: Float, shade: Float, dim: Float) {
@@ -520,16 +518,16 @@ private fun DrawScope.drawNotch(glow: Float, shade: Float, dim: Float) {
     val notchH = 0.085f * w
     val cx = w / 2
     val center = Offset(cx, notchH * 0.62f)
-    // The light reaching the sensor: a soft violet glow for a room, white heat for a phone's light up close.
+    // The light reaching the sensor: a soft cool glow for a room, white heat for a phone's light up close.
     if (glow > 0.01f) {
         val hot = smoothStep((glow - 0.74f) / 0.2f)
         val keep = 1f - shade * 0.85f
         val r = w * (0.26f + 0.36f * glow + 0.16f * hot)
         drawCircle(
             Brush.radialGradient(
-                0f to androidx.compose.ui.graphics.lerp(Color(0xFFB9A6FF), Color.White, hot).copy(alpha = (0.16f + 0.30f * glow + 0.50f * hot) * keep),
-                0.28f to Brand.Violet.copy(alpha = (0.08f + 0.24f * glow + 0.22f * hot) * keep),
-                0.62f to Brand.Blue.copy(alpha = (0.03f + 0.08f * glow) * keep),
+                0f to androidx.compose.ui.graphics.lerp(Brand.Light, Color.White, hot).copy(alpha = (0.16f + 0.30f * glow + 0.50f * hot) * keep),
+                0.28f to Brand.Light.copy(alpha = (0.08f + 0.24f * glow + 0.22f * hot) * keep),
+                0.62f to Brand.Light.copy(alpha = (0.03f + 0.08f * glow) * keep),
                 1f to Color.Transparent,
                 center = center, radius = r,
             ),
@@ -559,7 +557,7 @@ private fun DrawScope.drawNotch(glow: Float, shade: Float, dim: Float) {
     drawCircle(Color(0xFF3A4A6E).copy(alpha = 0.6f), notchH * 0.05f, Offset(cam.x - notchH * 0.04f, cam.y - notchH * 0.04f))
     val sensor = Offset(cx + notchW * 0.2f, cam.y)
     val eye = (0.25f + 0.75f * glow) * (1f - dim * 0.8f)
-    drawCircle(Brand.Violet.copy(alpha = 0.55f * eye), notchH * 0.16f, sensor)
+    drawCircle(Brand.Light.copy(alpha = 0.55f * eye), notchH * 0.16f, sensor)
     drawCircle(Color(0xFFD9CCFF).copy(alpha = eye), notchH * 0.065f, sensor)
 }
 
@@ -628,7 +626,7 @@ private fun DrawScope.drawTrace(
         close()
     }
     clipRect(area.left - 2f, 0f, area.right, size.height) {
-        drawPath(fill, Brush.verticalGradient(listOf(Brand.Violet.copy(alpha = 0.24f * alpha), Brand.Violet.copy(alpha = 0f)), area.top, area.bottom))
+        drawPath(fill, Brush.verticalGradient(listOf(Brand.Light.copy(alpha = 0.24f * alpha), Brand.Light.copy(alpha = 0f)), area.top, area.bottom))
     }
     // (Stops kept in order even when the trace has only just begun near the right edge.)
     val inEnd = kotlin.math.min(fadeTo, area.right - area.width * 0.08f - 1f).coerceAtLeast(fadeFrom + 0.5f)
@@ -654,7 +652,7 @@ private fun DrawScope.drawTrace(
             if (mx < area.left - 4f || mx > area.right + 4f) return@forEach
             val color = when (outcome) {
                 Outcome.Counted -> success
-                Outcome.Calibrating -> Brand.Violet
+                Outcome.Calibrating -> Brand.Light
                 Outcome.Ignored -> neutral
                 Outcome.Failed -> danger
             }
@@ -667,10 +665,10 @@ private fun DrawScope.drawTrace(
             drawCircle(color.copy(alpha = alpha), 4.dp.toPx(), Offset(mx, top))
         }
         // The line itself, glowing.
-        glowStroke(path, Brand.Violet.copy(alpha = 0.7f * alpha), 3.dp.toPx(), 6.dp.toPx())
+        glowStroke(path, Brand.Light.copy(alpha = 0.7f * alpha), 3.dp.toPx(), 6.dp.toPx())
         drawPath(
             path,
-            Brush.horizontalGradient(listOf(Brand.Blue.copy(alpha = alpha), Color(0xFFC9B8FF).copy(alpha = alpha)), area.left, area.right),
+            Brush.horizontalGradient(listOf(Brand.Light.copy(alpha = alpha), Color.White.copy(alpha = alpha)), area.left, area.right),
             style = Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
         )
     }
@@ -681,7 +679,7 @@ private fun DrawScope.drawTrace(
     drawIntoCanvas { it.restore() }
     // Now: a bead of light at the end of the line.
     drawCircle(
-        Brush.radialGradient(listOf(Color.White.copy(alpha = alpha), Brand.Violet.copy(alpha = 0.5f * alpha), Color.Transparent), center = head, radius = 9.dp.toPx()),
+        Brush.radialGradient(listOf(Color.White.copy(alpha = alpha), Brand.Light.copy(alpha = 0.5f * alpha), Color.Transparent), center = head, radius = 9.dp.toPx()),
         9.dp.toPx(), head,
     )
     drawCircle(Color.White.copy(alpha = alpha), 2.6.dp.toPx(), head)
@@ -786,7 +784,7 @@ private fun TapOutcome(t: TapTrace) {
                 Outcome.Counted -> CheckBurst(visible = true, size = 38.dp)
                 Outcome.Failed -> FailMark()
                 Outcome.Calibrating -> IconChip(Icons.Rounded.Tune, c.accent, size = 44.dp, shape = TdShapes.Cookie9, iconSize = 22.dp)
-                Outcome.Ignored -> IconChip(Icons.Rounded.Shield, Brand.Sky, size = 44.dp, shape = TdShapes.Cookie6, iconSize = 22.dp)
+                Outcome.Ignored -> IconChip(Icons.Rounded.Shield, Td.colors.text, size = 44.dp, shape = TdShapes.Cookie6, iconSize = 22.dp)
             }
         }
         Column(
@@ -851,7 +849,7 @@ private fun TriesStrip(tries: List<Try>, modifier: Modifier = Modifier) {
             val color = when (explain(t.trace).outcome) {
                 Outcome.Counted -> c.success
                 Outcome.Calibrating -> c.accent
-                Outcome.Ignored -> Brand.Sky
+                Outcome.Ignored -> Color(0xFFA2A2A8)
                 Outcome.Failed -> c.danger
             }
             val newest = i == shown.lastIndex

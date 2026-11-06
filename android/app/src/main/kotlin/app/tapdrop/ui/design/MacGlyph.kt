@@ -117,7 +117,7 @@ private fun DrawScope.drawMacGlyph(dark: Boolean, glow: Float, dim: Float) {
     }
     clipPath(displayPath) {
         drawRect(
-            Brush.verticalGradient(listOf(Color(0xFF0C0C18), Color(0xFF1B1440)), display.top, display.bottom),
+            Brush.verticalGradient(listOf(Color(0xFF0B0B0E), Color(0xFF17171B)), display.top, display.bottom),
             display.topLeft, display.size,
         )
         val k = 1f - dim * 0.8f
@@ -126,9 +126,7 @@ private fun DrawScope.drawMacGlyph(dark: Boolean, glow: Float, dim: Float) {
             val r = display.width * fr
             drawCircle(Brush.radialGradient(listOf(color.copy(alpha = a * k), Color.Transparent), c, r), r, c)
         }
-        pool(Brand.Blue, 0.14f, 1.0f, 0.70f, 0.62f)
-        pool(Brand.Violet, 0.66f, 0.95f, 0.72f, 0.66f)
-        pool(Brand.Orchid, 1.0f, 0.5f, 0.45f, 0.34f)
+        pool(Brand.Light, 0.5f, 0.0f, 0.75f, 0.22f)
 
         val notchW = display.width * 0.19f
         val notchH = display.width * 0.075f
@@ -137,8 +135,8 @@ private fun DrawScope.drawMacGlyph(dark: Boolean, glow: Float, dim: Float) {
             val gr = display.width * 0.6f
             drawCircle(
                 Brush.radialGradient(
-                    0f to Brand.Violet.copy(alpha = 0.85f * glow),
-                    0.35f to Brand.Violet.copy(alpha = 0.32f * glow),
+                    0f to Brand.Light.copy(alpha = 0.75f * glow),
+                    0.35f to Brand.Light.copy(alpha = 0.25f * glow),
                     1f to Color.Transparent,
                     center = nc, radius = gr,
                 ),

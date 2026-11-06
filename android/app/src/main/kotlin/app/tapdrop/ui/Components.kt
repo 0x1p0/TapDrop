@@ -160,16 +160,16 @@ fun DeviceOrb(
     )
     val c1 by animateColorAsState(
         when (state) {
-            OrbState.Done -> Brand.Success
+            OrbState.Done -> Color(0xFF3A3A40)
             OrbState.Failed -> Brand.Danger
-            else -> Brand.Blue
+            else -> Color(0xFF2A2A30)
         }, tween(450), label = "c1",
     )
     val c2 by animateColorAsState(
         when (state) {
-            OrbState.Done -> Brand.GreenDeep
+            OrbState.Done -> Color(0xFF1E1E22)
             OrbState.Failed -> Color(0xFFD63A4A)
-            else -> Brand.Violet
+            else -> Color(0xFF151518)
         }, tween(450), label = "c2",
     )
     val glow by animateFloatAsState(if (state == OrbState.Working || pulsing) 1f else 0.5f, tween(600), label = "glow")
@@ -301,14 +301,14 @@ fun TapBurst(trigger: Int, modifier: Modifier = Modifier.fillMaxSize()) {
             val c = Offset(size.width / 2, size.height * 0.08f)
             val maxR = hypot(size.width, size.height)
             drawCircle(
-                Brush.radialGradient(listOf(Brand.Violet.copy(alpha = 0.35f * (1 - a.value)), Color.Transparent), c, maxR * a.value + 1f),
+                Brush.radialGradient(listOf(Brand.Light.copy(alpha = 0.30f * (1 - a.value)), Color.Transparent), c, maxR * a.value + 1f),
                 radius = maxR * a.value + 1f, center = c,
             )
             for (i in 0..2) {
                 val f = (a.value * 1.35f - i * 0.17f).coerceIn(0f, 1f)
                 if (f in 0.001f..0.999f) {
                     drawCircle(
-                        Brand.Blue.copy(alpha = (1 - f) * 0.7f), radius = maxR * f, center = c,
+                        Brand.Light.copy(alpha = (1 - f) * 0.55f), radius = maxR * f, center = c,
                         style = Stroke((10.dp.toPx() * (1 - f)).coerceAtLeast(1f)),
                     )
                 }

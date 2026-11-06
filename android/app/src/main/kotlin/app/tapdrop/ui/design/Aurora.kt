@@ -54,17 +54,18 @@ fun AuroraBackdrop(
         drift.animateTo(1f, tween(9000, easing = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1f)))
     }
     val k by animateFloatAsState(
-        (if (c.isDark) 0.40f else 0.22f) * intensity * (if (mood == AuroraMood.Quiet) 0.55f else 1f),
+        (if (c.isDark) 0.16f else 0.5f) * intensity * (if (mood == AuroraMood.Quiet) 0.55f else 1f),
         TdMotion.gentle(),
         label = "auroraK",
     )
-    val first by animateColorAsState(if (mood == AuroraMood.Quiet) Color(0xFF6E7387) else Brand.Blue, TdMotion.gentle(), label = "a1")
-    val second by animateColorAsState(if (mood == AuroraMood.Quiet) Color(0xFF5B5F73) else Brand.Violet, TdMotion.gentle(), label = "a2")
+    // Lumen: one cool light, no hues. Quiet dims it.
+    val first by animateColorAsState(if (mood == AuroraMood.Quiet) Color(0xFF6E6E75) else Brand.Light, TdMotion.gentle(), label = "a1")
+    val second by animateColorAsState(if (mood == AuroraMood.Quiet) Color(0xFF55555B) else Color.White, TdMotion.gentle(), label = "a2")
     val third by animateColorAsState(
         when (mood) {
-            AuroraMood.Live -> Brand.Success
+            AuroraMood.Live -> Brand.Light
             AuroraMood.Quiet -> Color(0xFF4A4D5E)
-            AuroraMood.Brand -> Brand.Orchid
+            AuroraMood.Brand -> Brand.Light
         },
         TdMotion.gentle(), label = "a3",
     )

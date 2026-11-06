@@ -115,7 +115,7 @@ private fun ThisPhoneCard() {
     GlassCard(Modifier.fillMaxWidth(), padding = PaddingValues(start = 18.dp, end = 18.dp, top = 18.dp, bottom = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconChip(
-                Icons.Rounded.Devices, Brand.Teal, size = 52.dp, iconSize = 26.dp,
+                Icons.Rounded.Devices, Td.colors.text, size = 52.dp, iconSize = 26.dp,
                 modifier = Modifier.tdSharedBounds(COMPAT_CHIP_KEY),
             )
             // The model name gets the whole width (some are one long word); the verdict sits under it.
@@ -196,8 +196,8 @@ private fun MacKindRow(m: Compatibility.MacGroup, shape: Shape) {
             },
             when {
                 !m.runs -> c.textTertiary
-                m.tap -> Brand.Blue
-                else -> Brand.Sky
+                m.tap -> c.text
+                else -> c.textSecondary
             },
             size = 36.dp, iconSize = 20.dp,
         )
@@ -211,7 +211,7 @@ private fun MacKindRow(m: Compatibility.MacGroup, shape: Shape) {
             Box(Modifier.padding(top = 10.dp)) {
                 when {
                     m.tap -> TdBadge(m.can, c.success, icon = Icons.Rounded.CheckCircle, ink = c.successText)
-                    m.runs -> TdBadge(m.can, Brand.Sky, ink = c.textSecondary)
+                    m.runs -> TdBadge(m.can, c.textTertiary, ink = c.textSecondary)
                     else -> TdBadge(m.can, c.textTertiary, icon = Icons.Rounded.RemoveCircleOutline, ink = c.textSecondary)
                 }
             }

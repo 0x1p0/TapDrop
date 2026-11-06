@@ -251,12 +251,12 @@ fun PairContent(
                                 exit = fadeOut() + shrinkVertically(Td.motion.standard()),
                             ) {
                                 SettingsGroup(title = "Can't see your Mac?") {
-                                    row("Open TapDrop on your Mac", "It lives in the menu bar.", Icons.Rounded.LaptopMac, Brand.Violet)
-                                    row("Use the same Wi‑Fi", "Phone and Mac on one network.", Icons.Rounded.Wifi, Brand.Blue)
+                                    row("Open TapDrop on your Mac", "It lives in the menu bar.", Icons.Rounded.LaptopMac, Brand.Bone)
+                                    row("Use the same Wi‑Fi", "Phone and Mac on one network.", Icons.Rounded.Wifi, Brand.Bone)
                                     row(
                                         "Enter its address",
                                         "Shown on your Mac in Set Up a Phone.",
-                                        Icons.Rounded.Keyboard, Brand.Teal,
+                                        Icons.Rounded.Keyboard, Brand.Bone,
                                         onClick = onManual,
                                         trailing = { RowChevron() },
                                     )
@@ -354,7 +354,7 @@ private fun PairPill(prominent: Boolean) {
     Box(
         Modifier
             .height(36.dp)
-            .then(if (prominent) Modifier.background(Brand.gradient, CircleShape) else Modifier.background(c.accentSoft, CircleShape))
+            .then(if (prominent) Modifier.background(c.accent, CircleShape) else Modifier.background(c.accentSoft, CircleShape))
             .padding(horizontal = 18.dp),
         contentAlignment = Alignment.Center,
     ) {

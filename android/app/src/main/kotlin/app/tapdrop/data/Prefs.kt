@@ -75,6 +75,15 @@ class Prefs(ctx: Context) {
         sp.edit { putBoolean("pickFirst", on) }
     }
 
+    private val _appearance = MutableStateFlow(sp.getString("appearance", "system") ?: "system")
+    /** "system", "light" or "dark": the app's look. */
+    val appearance: StateFlow<String> = _appearance.asStateFlow()
+
+    fun setAppearance(value: String) {
+        _appearance.value = value
+        sp.edit { putString("appearance", value) }
+    }
+
     private val _otpCopyOnPhone = MutableStateFlow(sp.getBoolean("otpCopyOnPhone", true))
     val otpCopyOnPhone: StateFlow<Boolean> = _otpCopyOnPhone.asStateFlow()
 

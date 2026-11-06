@@ -2,6 +2,17 @@ package app.tapdrop.ui.design
 
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.background
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedVisibilityScope
@@ -125,14 +136,24 @@ fun <T : Any> NavHost(
             events.collect { }
             return@PredictiveBackHandler
         }
-        gesture = true
+        // A swipe scrubs the page with the thumb; the back key (or 3-button navigation) sends no progress, and gets
+        // the ordinary slide instead of a card shrinking with no thumb to follow.
+        var moved = false
         try {
-            events.collect { e -> seek.seekTo(e.progress, prev) }
-            // Released: finish the scrubbed transition, then commit.
-            seek.animateTo(prev)
+            events.collect { e ->
+                if (!moved && e.progress > 0f) {
+                    moved = true
+                    gesture = true
+                }
+                if (moved) seek.seekTo(e.progress, prev)
+            }
+            if (moved) {
+                // Released: finish from wherever the thumb let go on a soft spring, then commit.
+                seek.animateTo(prev, spring(dampingRatio = 1f, stiffness = 380f))
+            }
             stack.pop()
         } catch (e: CancellationException) {
-            seek.animateTo(stack.current)
+            if (moved) seek.animateTo(stack.current, spring(dampingRatio = 1f, stiffness = 500f))
         } finally {
             gesture = false
         }
@@ -142,30 +163,49 @@ fun <T : Any> NavHost(
     SharedTransitionLayout(modifier) {
         CompositionLocalProvider(LocalSharedTransitionScope provides this, LocalNavBackGesture provides gesture) {
             transition.AnimatedContent(
-                transitionSpec = { navTransform(back = stack.popping || gesture, reduced = reduced) },
+                transitionSpec = { navTransform(back = stack.popping || gesture, gesture = gesture, reduced = reduced) },
                 contentKey = { it },
             ) { dest ->
-                CompositionLocalProvider(LocalNavAnimatedScope provides this) { content(dest) }
+                // Each page is a solid sheet with a soft shadow on its edges: it only shows while a page slides
+                // over another (at rest the edges are off screen).
+                androidx.compose.foundation.layout.Box(
+                    Modifier
+                        .fillMaxSize()
+                        .shadow(18.dp, androidx.compose.ui.graphics.RectangleShape, clip = false, ambientColor = Color.Black.copy(alpha = 0.35f), spotColor = Color.Black.copy(alpha = 0.35f))
+                        .background(app.tapdrop.ui.Td.colors.bg),
+                ) {
+                    CompositionLocalProvider(LocalNavAnimatedScope provides this@AnimatedContent) { content(dest) }
+                }
             }
         }
     }
 }
 
-private fun <T> AnimatedContentTransitionScope<T>.navTransform(back: Boolean, reduced: Boolean): ContentTransform {
+private fun <T> AnimatedContentTransitionScope<T>.navTransform(back: Boolean, gesture: Boolean, reduced: Boolean): ContentTransform {
     if (reduced) return (fadeIn(tween(140)) togetherWith fadeOut(tween(140))).using(SizeTransform(clip = false))
-    val ease = FastOutSlowInEasing
-    return if (!back) {
-        // Material shared axis X: the new page slides in a little and fades through.
-        (slideInHorizontally(tween(340, easing = ease)) { it / 8 } + fadeIn(tween(220, 90))) togetherWith
-            (slideOutHorizontally(tween(340, easing = ease)) { -it / 12 } + fadeOut(tween(110)))
-    } else {
-        // Predictive back: the top page stays solid and shrinks toward your thumb, the page below brightens
-        // from under it; the top page only fades in the last moment, once you've let go.
-        (fadeIn(tween(300), initialAlpha = 0.45f) togetherWith
-            (slideOutHorizontally(tween(300, easing = ease)) { it / 6 } +
-                scaleOut(tween(300, easing = ease), targetScale = 0.88f) +
-                fadeOut(tween(70, delayMillis = 230))))
-            .apply { targetContentZIndex = -1f }
+    // Critically damped springs: they start fast and settle without a bump, and a page interrupted mid-flight
+    // carries its momentum instead of restarting (no stiff curves).
+    val glide = spring<IntOffset>(dampingRatio = 1f, stiffness = 480f)
+    return when {
+        // Swiping back: the page follows your thumb as one solid card, shrinking a little and moving right; the
+        // page below rises from just behind it. Linear in the gesture (the thumb is the easing); it never pops.
+        gesture -> (
+            (fadeIn(tween(320, easing = LinearEasing), initialAlpha = 0.7f) +
+                scaleIn(tween(320, easing = LinearEasing), initialScale = 0.97f)) togetherWith
+                (scaleOut(tween(320, easing = LinearEasing), targetScale = 0.9f) +
+                    slideOutHorizontally(tween(320, easing = LinearEasing)) { it / 10 } +
+                    fadeOut(tween(90, delayMillis = 230, easing = LinearEasing)))
+            ).apply { targetContentZIndex = -1f }
+        // Back by a tap: the page slides off to the right as one solid sheet (no cross-fade, so two pages never
+        // show through each other), and the page below glides in from a little to the left, out of a slight dim.
+        back -> (
+            (slideInHorizontally(glide) { -it / 4 } + fadeIn(tween(260, easing = LinearOutSlowInEasing), initialAlpha = 0.55f)) togetherWith
+                slideOutHorizontally(glide) { it }
+            ).apply { targetContentZIndex = -1f }
+        // Forward: the new page slides in from the right edge over the one it leaves, which drifts left and dims.
+        else ->
+            slideInHorizontally(glide) { it } togetherWith
+                (slideOutHorizontally(glide) { -it / 4 } + fadeOut(tween(260, easing = FastOutLinearInEasing), targetAlpha = 0.55f))
     }.using(SizeTransform(clip = false))
 }
 

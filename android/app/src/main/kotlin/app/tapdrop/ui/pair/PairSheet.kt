@@ -268,7 +268,7 @@ private fun AddressStep(
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        StepVisual { IconChip(Icons.Rounded.Lan, Brand.Blue, size = 72.dp, shape = TdShapes.Cookie9, iconSize = 32.dp) }
+        StepVisual { IconChip(Icons.Rounded.Lan, Td.colors.text, size = 72.dp, shape = TdShapes.Cookie9, iconSize = 32.dp) }
         StepTitle("Connect by address")
         StepBody("Type the address TapDrop shows on your Mac, under Set Up a Phone.")
         Spacer(Modifier.height(22.dp))

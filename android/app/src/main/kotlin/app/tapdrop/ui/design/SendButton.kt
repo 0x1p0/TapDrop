@@ -148,7 +148,7 @@ fun SendButton(
     }
 
     val tappable = enabled && (kind == 0 || kind == 4)
-    val track = if (c.isDark) Brand.Violet.copy(alpha = 0.20f) else Brand.Violet.copy(alpha = 0.12f)
+    val track = c.accentSoft
     val neutral = if (c.isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f)
     val danger = c.danger.copy(alpha = if (c.isDark) 0.16f else 0.11f)
 
@@ -174,7 +174,7 @@ fun SendButton(
             .drawBehind {
                 val w = size.width
                 val h = size.height
-                if (ready > 0f) drawRect(if (enabled) Brand.gradient else SolidColor(neutral), alpha = ready)
+                if (ready > 0f) drawRect(if (enabled) c.accent else neutral, alpha = ready)
                 if (work > 0f) {
                     drawRect(track, alpha = work)
                     if (indeterminate) {
@@ -182,25 +182,19 @@ fun SendButton(
                         val x = -band + (w + band) * sweep
                         drawRect(
                             Brush.horizontalGradient(
-                                0f to Color.Transparent, 0.45f to Brand.Blue.copy(alpha = 0.55f),
-                                0.75f to Brand.Violet.copy(alpha = 0.75f), 1f to Color.Transparent,
+                                0f to Color.Transparent, 0.45f to c.accent.copy(alpha = 0.30f),
+                                0.75f to c.accent.copy(alpha = 0.55f), 1f to Color.Transparent,
                                 startX = x, endX = x + band,
                             ),
                             alpha = work,
                         )
                     } else if (fill > 0f) {
-                        drawRect(Brand.gradient, size = Size(w * fill, h), alpha = work)
+                        drawRect(c.accent, size = Size(w * fill, h), alpha = work)
                     }
                 }
-                if (done > 0f) drawRect(Brand.successGradient, alpha = done)
+                if (done > 0f) drawRect(c.accent, alpha = done)
                 if (notice > 0f) drawRect(neutral, alpha = notice)
                 if (fail > 0f) drawRect(danger, alpha = fail)
-                // A soft sheen on top and a touch of depth below, on the solid states (as PrimaryButton).
-                val sheen = ((if (enabled) ready else 0f) + done + work * fill).coerceAtMost(1f)
-                if (sheen > 0f) {
-                    drawRect(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.18f), 0.5f to Color.Transparent), alpha = sheen)
-                    drawRect(Brush.verticalGradient(0.55f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.10f)), alpha = sheen)
-                }
             }
             .then(if (fail > 0.01f) Modifier.border(1.dp, c.danger.copy(alpha = 0.32f * fail), CircleShape) else Modifier),
         contentAlignment = Alignment.Center,
@@ -217,9 +211,9 @@ fun SendButton(
             label = "sendLabel",
         ) { k ->
             when (k) {
-                0 -> PillLabel(text, icon, if (enabled) Color.White else c.textTertiary)
+                0 -> PillLabel(text, icon, if (enabled) c.onAccent else c.textTertiary)
                 1 -> WorkingLabel(lastWork.label, fill, partial = !indeterminate)
-                2 -> PillLabel((state as? SendButtonState.Done)?.label ?: "Done", null, Color.White, check = true)
+                2 -> PillLabel((state as? SendButtonState.Done)?.label ?: "Done", null, c.onAccent, check = true)
                 3 -> PillLabel((state as? SendButtonState.Notice)?.label.orEmpty(), null, c.textSecondary)
                 else -> PillLabel((state as? SendButtonState.Failed)?.label ?: "Try again", Icons.Rounded.Refresh, c.dangerText)
             }
@@ -249,7 +243,7 @@ private fun PillLabel(text: String, icon: ImageVector?, color: Color, check: Boo
 }
 
 /**
- * The label while working: violet over the track, white where the light has already filled the pill,
+ * The label while working: in the text colour over the track, inverted where the fill has already reached,
  * split exactly at the fill edge.
  */
 @Composable
@@ -268,7 +262,7 @@ private fun WorkingLabel(text: String, fill: Float, partial: Boolean) {
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text, style = pillText, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    text, style = pillText, color = c.onAccent, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 14.dp),
                 )
             }

@@ -52,17 +52,10 @@ fun PrimaryButton(
             .heightIn(min = 56.dp)
             .pressable(CircleShape, enabled = active, onClick = onClick)
             .then(
-                if (enabled) Modifier.background(Brand.gradient)
+                // Bone in dark mode, ink in light: the one solid fill on a screen.
+                if (enabled) Modifier.background(c.accent)
                 else Modifier.background(c.surfaceSunken)
             )
-            .drawWithContent {
-                drawContent()
-                if (enabled) {
-                    // A soft sheen on top and a touch of depth at the bottom: glassy, not flat.
-                    drawRect(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.18f), 0.5f to Color.Transparent))
-                    drawRect(Brush.verticalGradient(0.55f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.10f)))
-                }
-            }
             .padding(horizontal = 24.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -72,9 +65,9 @@ fun PrimaryButton(
             label = "primaryLoading",
         ) { busy ->
             if (busy) {
-                TdLoadingIndicator(Modifier.size(32.dp), color = Color.White)
+                TdLoadingIndicator(Modifier.size(32.dp), color = c.onAccent)
             } else {
-                ButtonLabel(text, icon, if (enabled) Color.White else c.textTertiary)
+                ButtonLabel(text, icon, if (enabled) c.onAccent else c.textTertiary)
             }
         }
     }
@@ -96,7 +89,7 @@ fun SecondaryButton(
     val bg = when {
         accent -> c.accentSoft
         c.isDark -> Color.White.copy(alpha = 0.07f)
-        else -> Color.Black.copy(alpha = 0.05f)
+        else -> Color.White
     }
     val ink = when {
         !enabled -> c.textTertiary
@@ -160,7 +153,7 @@ fun SmallButton(
             Modifier
                 .height(36.dp)
                 .pressable(CircleShape, enabled = enabled, pressedScale = 0.94f, onClick = onClick)
-                .then(if (prominent && enabled) Modifier.background(Brand.gradient) else Modifier.background(c.accentSoft))
+                .then(if (prominent && enabled) Modifier.background(c.accent) else Modifier.background(c.accentSoft))
                 .padding(horizontal = 16.dp),
             contentAlignment = Alignment.Center,
         ) {
@@ -169,7 +162,7 @@ fun SmallButton(
                 style = TdType.label.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
                 color = when {
                     !enabled -> c.textTertiary
-                    prominent -> Color.White
+                    prominent -> c.onAccent
                     else -> c.accentText
                 },
                 maxLines = 1,

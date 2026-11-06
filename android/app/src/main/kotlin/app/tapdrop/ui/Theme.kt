@@ -20,6 +20,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -27,6 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
@@ -43,42 +46,31 @@ import app.tapdrop.R
 
 // MARK: - brand
 
-/** The "Aurora" brand colors. Exact values: they match the app icon and the demo video. */
+/**
+ * "Lumen": light, in the dark. A tap is the phone's screen lighting the notch and going dark, so TapDrop is made of
+ * night and light: near-black, bone white, and a cool glow where they meet. There is no accent hue; colour comes from
+ * the user's own photos. Semantic colours (danger, warning) appear only where something needs fixing.
+ */
 object Brand {
-    val Blue = Color(0xFF409EFF)
-    val Violet = Color(0xFF8561FF)
-    val Orchid = Color(0xFFF26BD9)
+    /** Near-black: the dark background, ink in light mode. */
+    val Night = Color(0xFF08080A)
+    /** Raised dark surfaces. */
+    val Graphite = Color(0xFF17171A)
+    /** Bone white: text in dark mode, primary fills, light backgrounds. */
+    val Bone = Color(0xFFF4F3EF)
+    /** Ink for light mode text and fills. */
+    val Ink = Color(0xFF0B0B0D)
+    /** The glow: the cool white of a screen's light. */
+    val Light = Color(0xFFD6DEFF)
 
-    val Success = Color(0xFF2ED17A)
-    val Warning = Color(0xFFFFB020)
-    val Danger = Color(0xFFFF5A5F)
-
-    /** Extra hues for icon chips only (never for text or status). */
-    val Teal = Color(0xFF22C6B0)
-    val Sky = Color(0xFF5AC8FA)
-
-    /** The one gradient element per view: primary buttons, hero glyphs, progress. */
-    val gradient: Brush get() = Brush.linearGradient(listOf(Blue, Violet))
-
-    /** Blue → violet → orchid, for the hero glow only. */
-    val heroGradient: Brush get() = Brush.linearGradient(listOf(Blue, Violet, Orchid))
-
-    val successGradient: Brush get() = Brush.linearGradient(listOf(Success, Color(0xFF17B863)))
-
-    // Legacy names, still used by screens that haven't moved to the design system yet.
-    val A = Blue
-    val B = Violet
-    val C = Orchid
-    val Green = Success
-    val GreenDeep = Color(0xFF17B863)
-    val Red = Danger
+    val Danger = Color(0xFFFF7A72)
+    val Warning = Color(0xFFF0B45A)
 }
 
 // MARK: - color tokens
 
 /**
  * Semantic colors for the current appearance. Read them with `Td.colors`.
- * Neutrals follow DESIGN.md; the `*Text` variants are the same hue tuned to stay legible as text.
  */
 @Immutable
 data class TdColors(
@@ -96,12 +88,15 @@ data class TdColors(
     val text: Color,
     val textSecondary: Color,
     val textTertiary: Color,
-    /** Brand violet for fills (selection, focus, accents). */
+    /** The primary fill: bone in dark mode, ink in light (primary buttons, selection, progress). */
     val accent: Color,
-    /** Violet that reads as text on [bg]/[surface]. */
+    /** Text and icons on [accent]. */
+    val onAccent: Color,
+    /** Emphasis that reads as text on [bg]/[surface] (links, selected labels). */
     val accentText: Color,
-    /** Tonal violet container (icon chips, secondary buttons, selected rows). */
+    /** A quiet tonal fill (secondary buttons, selected rows, icon wells). */
     val accentSoft: Color,
+    /** "It worked": marks, ticks and live dots. Bone/ink with the glow, never green. */
     val success: Color,
     val successText: Color,
     val warning: Color,
@@ -113,139 +108,141 @@ data class TdColors(
     /** The 1 px top-edge highlight on glass. */
     val glassEdge: Color,
     val scrim: Color,
-    /** Violet hero glow (35–45 % alpha). */
+    /** The light: the halo around live dots, the spill under the notch line. */
     val glow: Color,
     val shadow: Color,
 )
 
 private val DarkTokens = TdColors(
     isDark = true,
-    bg = Color(0xFF0A0A0F),
-    surface = Color(0xFF15151C),
-    surfaceRaised = Color(0xFF1C1C25),
-    surfaceSunken = Color(0xFF101016),
+    bg = Brand.Night,
+    surface = Color(0xFF111114),
+    surfaceRaised = Brand.Graphite,
+    surfaceSunken = Color(0xFF0D0D10),
     hairline = Color.White.copy(alpha = 0.08f),
-    text = Color(0xFFF5F5FA),
-    textSecondary = Color(0xFFA0A2B4),
-    textTertiary = Color(0xFF6B6D80),
-    accent = Brand.Violet,
-    accentText = Color(0xFFA690FF),
-    accentSoft = Brand.Violet.copy(alpha = 0.16f),
-    success = Brand.Success,
-    successText = Color(0xFF4BE095),
+    text = Brand.Bone,
+    textSecondary = Color(0xFFA2A2A8),
+    textTertiary = Color(0xFF6E6E75),
+    accent = Brand.Bone,
+    onAccent = Brand.Night,
+    accentText = Brand.Bone,
+    accentSoft = Color.White.copy(alpha = 0.07f),
+    success = Brand.Bone,
+    successText = Brand.Bone,
     warning = Brand.Warning,
-    warningText = Color(0xFFFFC24F),
+    warningText = Color(0xFFF5C77E),
     danger = Brand.Danger,
-    dangerText = Color(0xFFFF7E82),
-    glass = Color(0xFF14141B).copy(alpha = 0.72f),
+    dangerText = Color(0xFFFF9A93),
+    glass = Color(0xFF121216).copy(alpha = 0.72f),
     glassEdge = Color.White.copy(alpha = 0.10f),
-    scrim = Color.Black.copy(alpha = 0.55f),
-    glow = Brand.Violet.copy(alpha = 0.42f),
+    scrim = Color.Black.copy(alpha = 0.6f),
+    glow = Brand.Light.copy(alpha = 0.55f),
     shadow = Color.Black,
 )
 
 private val LightTokens = TdColors(
     isDark = false,
-    bg = Color(0xFFF4F4F8),
+    bg = Color(0xFFEFEDE7),
     surface = Color(0xFFFFFFFF),
     surfaceRaised = Color(0xFFFFFFFF),
-    surfaceSunken = Color(0xFFEAEAF0),
+    surfaceSunken = Color(0xFFE6E3DB),
     hairline = Color.Black.copy(alpha = 0.07f),
-    text = Color(0xFF111118),
-    textSecondary = Color(0xFF5E6173),
-    textTertiary = Color(0xFF8E90A2),
-    accent = Brand.Violet,
-    accentText = Color(0xFF6A45F0),
-    accentSoft = Brand.Violet.copy(alpha = 0.11f),
-    success = Brand.Success,
-    successText = Color(0xFF138A4B),
-    warning = Brand.Warning,
-    warningText = Color(0xFF9A6200),
-    danger = Brand.Danger,
-    dangerText = Color(0xFFD5353B),
-    glass = Color(0xFFF7F7FA).copy(alpha = 0.80f),
-    glassEdge = Color.White.copy(alpha = 0.70f),
+    text = Brand.Ink,
+    textSecondary = Color(0xFF5F5E59),
+    textTertiary = Color(0xFF8C8A84),
+    accent = Brand.Ink,
+    onAccent = Brand.Bone,
+    accentText = Brand.Ink,
+    accentSoft = Color.Black.copy(alpha = 0.055f),
+    success = Brand.Ink,
+    successText = Brand.Ink,
+    warning = Color(0xFFC98A1E),
+    warningText = Color(0xFF8A5A00),
+    danger = Color(0xFFD9443C),
+    dangerText = Color(0xFFB8322B),
+    glass = Color(0xFFF7F6F2).copy(alpha = 0.82f),
+    glassEdge = Color.White.copy(alpha = 0.75f),
     scrim = Color.Black.copy(alpha = 0.32f),
-    glow = Brand.Violet.copy(alpha = 0.30f),
-    shadow = Color(0xFF1A1440),
+    glow = Color.White.copy(alpha = 0.95f),
+    shadow = Color(0xFF1A1814),
 )
 
 private val DarkScheme: ColorScheme = darkColorScheme(
-    primary = Color(0xFF9479FF),
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFF2B2257),
-    onPrimaryContainer = Color(0xFFE5DEFF),
-    inversePrimary = Color(0xFF6A45F0),
-    secondary = Brand.Blue,
-    onSecondary = Color(0xFF001A33),
-    secondaryContainer = Color(0xFF22202F),
-    onSecondaryContainer = Color(0xFFE6E1FF),
-    tertiary = Brand.Orchid,
-    onTertiary = Color(0xFF3A0031),
-    tertiaryContainer = Color(0xFF4A1A43),
-    onTertiaryContainer = Color(0xFFFFD8F3),
+    primary = Brand.Bone,
+    onPrimary = Brand.Night,
+    primaryContainer = Color(0xFF26262B),
+    onPrimaryContainer = Brand.Bone,
+    inversePrimary = Brand.Ink,
+    secondary = Color(0xFFC9C8C2),
+    onSecondary = Brand.Night,
+    secondaryContainer = Color(0xFF1E1E22),
+    onSecondaryContainer = Brand.Bone,
+    tertiary = Brand.Light,
+    onTertiary = Brand.Night,
+    tertiaryContainer = Color(0xFF22242C),
+    onTertiaryContainer = Brand.Light,
     background = DarkTokens.bg,
     onBackground = DarkTokens.text,
     surface = DarkTokens.bg,
     onSurface = DarkTokens.text,
     surfaceVariant = DarkTokens.surfaceRaised,
     onSurfaceVariant = DarkTokens.textSecondary,
-    surfaceTint = Brand.Violet,
+    surfaceTint = Color.Transparent,
     inverseSurface = DarkTokens.text,
     inverseOnSurface = DarkTokens.surface,
     error = DarkTokens.dangerText,
     onError = Color(0xFF2D0003),
-    errorContainer = Color(0xFF3A1215),
-    onErrorContainer = Color(0xFFFFD9DA),
+    errorContainer = Color(0xFF3A1513),
+    onErrorContainer = Color(0xFFFFDAD6),
     outline = DarkTokens.textTertiary,
-    outlineVariant = Color(0xFF26262F),
+    outlineVariant = Color(0xFF26262B),
     scrim = Color.Black,
-    surfaceBright = Color(0xFF2A2A35),
+    surfaceBright = Color(0xFF2A2A2F),
     surfaceDim = DarkTokens.bg,
-    surfaceContainerLowest = Color(0xFF08080C),
+    surfaceContainerLowest = Color(0xFF050506),
     surfaceContainerLow = DarkTokens.surface,
-    surfaceContainer = Color(0xFF18181F),
+    surfaceContainer = Color(0xFF141417),
     surfaceContainerHigh = DarkTokens.surfaceRaised,
-    surfaceContainerHighest = Color(0xFF24242E),
+    surfaceContainerHighest = Color(0xFF212125),
 )
 
 private val LightScheme: ColorScheme = lightColorScheme(
-    primary = Color(0xFF6A45F0),
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFECE6FF),
-    onPrimaryContainer = Color(0xFF26135F),
-    inversePrimary = Color(0xFFA690FF),
-    secondary = Color(0xFF1F7FE6),
-    onSecondary = Color.White,
-    secondaryContainer = Color(0xFFECE8FB),
-    onSecondaryContainer = Color(0xFF1F1A3A),
-    tertiary = Color(0xFFC93DAE),
-    onTertiary = Color.White,
-    tertiaryContainer = Color(0xFFFFE0F6),
-    onTertiaryContainer = Color(0xFF3D0032),
+    primary = Brand.Ink,
+    onPrimary = Brand.Bone,
+    primaryContainer = Color(0xFFE2DFD7),
+    onPrimaryContainer = Brand.Ink,
+    inversePrimary = Brand.Bone,
+    secondary = Color(0xFF3E3D39),
+    onSecondary = Brand.Bone,
+    secondaryContainer = Color(0xFFE6E3DB),
+    onSecondaryContainer = Brand.Ink,
+    tertiary = Color(0xFF3B4466),
+    onTertiary = Brand.Bone,
+    tertiaryContainer = Color(0xFFE3E6F0),
+    onTertiaryContainer = Color(0xFF1B2035),
     background = LightTokens.bg,
     onBackground = LightTokens.text,
     surface = LightTokens.bg,
     onSurface = LightTokens.text,
-    surfaceVariant = Color(0xFFE6E6EE),
+    surfaceVariant = Color(0xFFE6E3DB),
     onSurfaceVariant = LightTokens.textSecondary,
-    surfaceTint = Brand.Violet,
-    inverseSurface = Color(0xFF1C1C25),
-    inverseOnSurface = Color(0xFFF5F5FA),
+    surfaceTint = Color.Transparent,
+    inverseSurface = Color(0xFF1C1C1F),
+    inverseOnSurface = Brand.Bone,
     error = LightTokens.dangerText,
     onError = Color.White,
-    errorContainer = Color(0xFFFFE1E2),
-    onErrorContainer = Color(0xFF5A0A0E),
+    errorContainer = Color(0xFFFDE2DF),
+    onErrorContainer = Color(0xFF5A0E0A),
     outline = LightTokens.textTertiary,
-    outlineVariant = Color(0xFFDDDDE6),
+    outlineVariant = Color(0xFFDCD9D1),
     scrim = Color.Black,
     surfaceBright = Color.White,
-    surfaceDim = Color(0xFFDCDCE4),
+    surfaceDim = Color(0xFFDDDAD2),
     surfaceContainerLowest = Color.White,
     surfaceContainerLow = LightTokens.surface,
-    surfaceContainer = Color(0xFFEFEFF5),
-    surfaceContainerHigh = Color(0xFFE9E9F0),
-    surfaceContainerHighest = Color(0xFFE2E2EA),
+    surfaceContainer = Color(0xFFF4F2EC),
+    surfaceContainerHigh = Color(0xFFEDEAE3),
+    surfaceContainerHighest = Color(0xFFE6E3DB),
 )
 
 // MARK: - type
@@ -263,10 +260,16 @@ private fun geistMono(weight: Int) = Font(
 )
 
 /** Geist (variable, SIL OFL; license in assets/licenses). Used for all text. */
-val GeistFamily = FontFamily(geist(400), geist(500), geist(600), geist(700))
+val GeistFamily = FontFamily(geist(300), geist(400), geist(500), geist(600), geist(700))
 
 /** Geist Mono, for codes and numbers that must line up. */
 val GeistMonoFamily = FontFamily(geistMono(400), geistMono(500), geistMono(600))
+
+/** Instrument Serif (SIL OFL; license in assets/licenses), regular and italic: the display face for the big moments. */
+val SerifFamily = FontFamily(
+    Font(R.font.instrument_serif, FontWeight.Normal, FontStyle.Normal),
+    Font(R.font.instrument_serif_italic, FontWeight.Normal, FontStyle.Italic),
+)
 
 private val Trimless = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
 
@@ -279,41 +282,47 @@ private fun style(size: Int, line: Int, weight: FontWeight, tracking: TextUnit =
     lineHeightStyle = Trimless,
 )
 
-/** The DESIGN.md type scale. Read with `Td.type`; Material components get the same scale via `MaterialTheme.typography`. */
+/** The type scale. Read with `Td.type`; Material components get the same scale via `MaterialTheme.typography`. */
 @Immutable
 object TdType {
-    /** 34/40 Bold, −1 %: screen titles on hero screens. */
-    val display = style(34, 40, FontWeight.Bold, (-0.01).em)
-    /** 26/32 SemiBold, −0.5 %: large titles, device names. */
-    val headline = style(26, 32, FontWeight.SemiBold, (-0.005).em)
-    /** 20/26 SemiBold: sheet titles, section heroes. */
-    val title = style(20, 26, FontWeight.SemiBold, (-0.002).em)
-    /** 17/22 SemiBold: row and tile titles. */
-    val subtitle = style(17, 22, FontWeight.SemiBold)
-    /** 16/24 Regular: running text. */
+    /** Instrument Serif 62/60, −2 %: the one big line on a hero screen ("Ready to tap."). */
+    val hero = style(62, 60, FontWeight.Normal, (-0.02).em, SerifFamily)
+    /** Instrument Serif 42/44, −2 %: screen titles. */
+    val display = style(42, 44, FontWeight.Normal, (-0.02).em, SerifFamily)
+    /** Geist 24/30 Medium, −2 %: device names, section heroes. */
+    val headline = style(24, 30, FontWeight.Medium, (-0.02).em)
+    /** Geist 19/24 Medium, −1 %: sheet titles. */
+    val title = style(19, 24, FontWeight.Medium, (-0.01).em)
+    /** Geist 16/22 Medium: row and tile titles. */
+    val subtitle = style(16, 22, FontWeight.Medium, (-0.005).em)
+    /** Geist 16/24 Regular: running text. */
     val body = style(16, 24, FontWeight.Normal)
-    /** 14/20 Regular: secondary lines under titles. */
+    /** Geist 14/20 Regular: secondary lines under titles. */
     val bodySmall = style(14, 20, FontWeight.Normal)
-    /** 14/20 Medium: buttons, pills, labels. */
+    /** Geist 14/20 Medium: buttons, pills, labels. */
     val label = style(14, 20, FontWeight.Medium)
-    /** 12/16 Medium: captions, footnotes, section headers. */
-    val caption = style(12, 16, FontWeight.Medium, 0.01.em)
+    /** Geist 12/16 Regular: captions and footnotes. */
+    val caption = style(12, 16, FontWeight.Normal, 0.005.em)
+    /** Geist Mono 11/14, +14 %, set in capitals: section headers and readings ("RECENT", "112 LX"). */
+    val eyebrow = style(11, 14, FontWeight.Normal, 0.14.em, GeistMonoFamily)
     /** Geist Mono 16/24 Medium: codes, addresses. Tabular figures. */
     val mono = style(16, 24, FontWeight.Medium, 0.sp, GeistMonoFamily)
     /** Geist with tabular figures, for numbers that change (percentages, sizes). */
     val numeric = style(14, 20, FontWeight.Medium).copy(fontFeatureSettings = "tnum")
+    /** Geist Light 26/30, −2 %, tabular: big readings (lux, counts). */
+    val reading = style(26, 30, FontWeight.Light, (-0.02).em).copy(fontFeatureSettings = "tnum")
 }
 
 private val TdTypography = Typography(
-    displayLarge = style(44, 52, FontWeight.Bold, (-0.012).em),
-    displayMedium = style(38, 44, FontWeight.Bold, (-0.011).em),
+    displayLarge = TdType.hero,
+    displayMedium = style(50, 52, FontWeight.Normal, (-0.02).em, SerifFamily),
     displaySmall = TdType.display,
-    headlineLarge = style(30, 36, FontWeight.SemiBold, (-0.007).em),
+    headlineLarge = style(30, 36, FontWeight.Medium, (-0.02).em),
     headlineMedium = TdType.headline,
-    headlineSmall = style(22, 28, FontWeight.SemiBold, (-0.004).em),
+    headlineSmall = style(21, 26, FontWeight.Medium, (-0.015).em),
     titleLarge = TdType.title,
     titleMedium = TdType.subtitle,
-    titleSmall = style(15, 20, FontWeight.SemiBold),
+    titleSmall = style(15, 20, FontWeight.Medium),
     bodyLarge = TdType.body,
     bodyMedium = TdType.bodySmall,
     bodySmall = style(13, 18, FontWeight.Normal),
@@ -413,15 +422,35 @@ object Td {
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun TapDropTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
+fun TapDropTheme(darkTheme: Boolean? = null, content: @Composable () -> Unit) {
     val ctx = LocalContext.current
+    // System, unless Settings → Appearance says Light or Dark.
+    val appearance by app.tapdrop.TapDropApp.instance.prefs.appearance.collectAsState()
+    val systemDark = isSystemInDarkTheme()
+    val dark = darkTheme ?: when (appearance) {
+        "light" -> false
+        "dark" -> true
+        else -> systemDark
+    }
     val reduced = remember(ctx) {
         runCatching { Settings.Global.getFloat(ctx.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }
             .getOrDefault(false)
     }
-    val tokens = if (darkTheme) DarkTokens else LightTokens
+    val tokens = if (dark) DarkTokens else LightTokens
+    // The status and navigation bars follow the app's look, not only the system's (Settings → Appearance).
+    val view = androidx.compose.ui.platform.LocalView.current
+    if (!view.isInEditMode) {
+        androidx.compose.runtime.SideEffect {
+            (view.context as? android.app.Activity)?.window?.let { w ->
+                androidx.core.view.WindowCompat.getInsetsController(w, view).apply {
+                    isAppearanceLightStatusBars = !dark
+                    isAppearanceLightNavigationBars = !dark
+                }
+            }
+        }
+    }
     MaterialExpressiveTheme(
-        colorScheme = if (darkTheme) DarkScheme else LightScheme,
+        colorScheme = if (dark) DarkScheme else LightScheme,
         motionScheme = if (reduced) MotionScheme.standard() else MotionScheme.expressive(),
         shapes = TdShapes,
         typography = TdTypography,
@@ -436,10 +465,6 @@ fun TapDropTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composabl
     }
 }
 
-/** Section header style ("Send", "Recent"). Prefer the `SectionHeader` component. */
+/** Section header style ("SEND", "RECENT"): Geist Mono capitals. Prefer the `SectionHeader` component. */
 val sectionLabel: TextStyle
-    @Composable get() = TdType.caption.copy(
-        color = Td.colors.textSecondary,
-        fontSize = 13.sp,
-        letterSpacing = 0.02.em,
-    )
+    @Composable get() = TdType.eyebrow.copy(color = Td.colors.textSecondary)

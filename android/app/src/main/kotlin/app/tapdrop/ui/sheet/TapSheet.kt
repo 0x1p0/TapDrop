@@ -191,7 +191,7 @@ fun TapSheetBody(
                     subtitle = "Let TapDrop see your photos",
                     shape = segmentShape(0, 3),
                     enabled = true,
-                    leading = { IconChip(Icons.Rounded.Image, Brand.Orchid, size = 44.dp, shape = TdShapes.Cookie9, iconSize = 22.dp) },
+                    leading = { IconChip(Icons.Rounded.Image, Td.colors.text, size = 44.dp, shape = TdShapes.Cookie9, iconSize = 22.dp) },
                     trailing = { SmallButton("Allow", onAllowPhotos) },
                     onClick = onAllowPhotos,
                 )
@@ -205,7 +205,7 @@ fun TapSheetBody(
                 leading = {
                     IconChip(
                         if (clip?.isLink == true) Icons.Rounded.Link else Icons.Rounded.ContentPaste,
-                        Brand.Violet, size = 44.dp, shape = TdShapes.Clover4, iconSize = 22.dp,
+                        Td.colors.text, size = 44.dp, shape = TdShapes.Clover4, iconSize = 22.dp,
                     )
                 },
                 onClick = onSendClipboard,
@@ -216,7 +216,7 @@ fun TapSheetBody(
                 shape = segmentShape(2, 3),
                 enabled = canAct,
                 incoming = true,
-                leading = { IconChip(Icons.Rounded.ContentPasteGo, Brand.Teal, size = 44.dp, shape = TdShapes.Sunny, iconSize = 22.dp) },
+                leading = { IconChip(Icons.Rounded.ContentPasteGo, Td.colors.text, size = 44.dp, shape = TdShapes.Sunny, iconSize = 22.dp) },
                 onClick = onGetMacClipboard,
             )
         }

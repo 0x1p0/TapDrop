@@ -128,7 +128,7 @@ private fun UpdateSheet(close: () -> Unit) {
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         IconChip(
             if (isNew) Icons.Rounded.SystemUpdate else Icons.Rounded.TaskAlt,
-            if (isNew) Brand.Violet else Brand.Success,
+            Td.colors.text,
             size = 64.dp, shape = TdShapes.Cookie9, iconSize = 30.dp,
             modifier = Modifier.padding(top = 4.dp),
         )
@@ -311,7 +311,7 @@ fun UpdateCard(modifier: Modifier = Modifier) {
             if (offered != null) {
                 GlassCard(Modifier.fillMaxWidth(), padding = PaddingValues(start = 18.dp, end = 10.dp, top = 18.dp, bottom = 6.dp), onClick = { Updates.openSheet() }) {
                     Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(end = 8.dp)) {
-                        IconChip(Icons.Rounded.SystemUpdate, Brand.Violet, size = 44.dp, shape = TdShapes.Cookie9, iconSize = 22.dp)
+                        IconChip(Icons.Rounded.SystemUpdate, Td.colors.text, size = 44.dp, shape = TdShapes.Cookie9, iconSize = 22.dp)
                         Column(Modifier.weight(1f).padding(start = 14.dp)) {
                             Text("TapDrop ${offered.version} is available", style = TdType.subtitle, color = c.text)
                             val line = when (val p = phase) {
@@ -335,7 +335,7 @@ fun UpdateCard(modifier: Modifier = Modifier) {
             } else if (just != null) {
                 GlassCard(Modifier.fillMaxWidth(), padding = PaddingValues(start = 18.dp, end = 10.dp, top = 18.dp, bottom = 6.dp)) {
                     Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(end = 8.dp)) {
-                        IconChip(Icons.Rounded.TaskAlt, Brand.Success, size = 44.dp, shape = TdShapes.Cookie9, iconSize = 22.dp)
+                        IconChip(Icons.Rounded.TaskAlt, Td.colors.text, size = 44.dp, shape = TdShapes.Cookie9, iconSize = 22.dp)
                         Column(Modifier.weight(1f).padding(start = 14.dp)) {
                             Text("Updated to TapDrop $just", style = TdType.subtitle, color = c.text)
                             Text(
@@ -387,7 +387,7 @@ fun UpdatesSettingsGroup(modifier: Modifier = Modifier) {
                     else -> "${r.version} is available"
                 },
                 icon = Icons.Rounded.SystemUpdate,
-                accent = Brand.Violet,
+                accent = Td.colors.accent,
                 shape = shape,
                 onClick = if (r != null) ({ Updates.openSheet() }) else null,
                 trailing = if (r != null) {
@@ -409,7 +409,7 @@ fun UpdatesSettingsGroup(modifier: Modifier = Modifier) {
                     else -> lastText?.let { "Last checked $it" } ?: "Not checked yet"
                 },
                 icon = Icons.Rounded.Refresh,
-                accent = Brand.Blue,
+                accent = Td.colors.accent,
                 shape = shape,
                 onClick = { Updates.check(manual = true) },
                 enabled = !checking,
@@ -429,7 +429,7 @@ fun UpdatesSettingsGroup(modifier: Modifier = Modifier) {
                 shape = shape,
                 subtitle = if (auto) "Once a day, with a notification when there's a new version" else "Only when you check",
                 icon = Icons.Rounded.Autorenew,
-                accent = Brand.Teal,
+                accent = Td.colors.accent,
             )
         }
         if (auto && !notify.allowed) {

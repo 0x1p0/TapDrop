@@ -127,16 +127,9 @@ fun SendMode.icon(): ImageVector = when (this) {
     SendMode.OFF -> Icons.Rounded.Block
 }
 
-/** Each mode's chip hue (the brand family; Off is a neutral gray). */
-fun SendMode.hue(): Color = when (this) {
-    SendMode.SMART -> Brand.Violet
-    SendMode.LINK -> Brand.Blue
-    SendMode.MEDIA -> Brand.Orchid
-    SendMode.LATEST_MEDIA -> Brand.Warning
-    SendMode.SCREENSHOT -> Brand.Teal
-    SendMode.TEXT -> Brand.Sky
-    SendMode.OFF -> Color(0xFF8E90A2)
-}
+/** Each mode's chip colour: Lumen has no hues, so every mode is the text colour; Off is quieter. */
+@Composable
+fun SendMode.hue(): Color = if (this == SendMode.OFF) Td.colors.textTertiary else Td.colors.text
 
 private fun loadApps(ctx: Context): List<AppEntry> {
     val pm = ctx.packageManager
@@ -245,7 +238,7 @@ fun AppRulesScreen(onClose: () -> Unit) {
                             icon = Icons.Rounded.SearchOff,
                             title = "No apps match “$q”",
                             body = "Check the spelling, or search for part of the name.",
-                            accent = Brand.Blue,
+                            accent = Td.colors.accent,
                             shape = TdShapes.Cookie9,
                         )
                     }
@@ -273,7 +266,7 @@ private fun SmartCard(changed: Int) {
     GlassCard(Modifier.fillMaxWidth(), padding = PaddingValues(18.dp)) {
         Row(verticalAlignment = Alignment.Top) {
             IconChip(
-                Icons.Rounded.AutoAwesome, Brand.Violet, size = 48.dp, iconSize = 24.dp,
+                Icons.Rounded.AutoAwesome, Td.colors.text, size = 48.dp, iconSize = 24.dp,
                 modifier = Modifier.tdSharedBounds(APP_RULES_CHIP_KEY),
             )
             Column(Modifier.padding(start = 14.dp)) {
@@ -351,8 +344,7 @@ private val SendMode.short: String
 @Composable
 private fun SendMode.ink(): Color {
     val c = Td.colors
-    return if (this == SendMode.OFF) c.textSecondary
-    else lerp(hue(), if (c.isDark) Color.White else Color.Black, if (c.isDark) 0.12f else 0.32f)
+    return if (this == SendMode.OFF) c.textSecondary else c.text
 }
 
 /**

@@ -77,22 +77,22 @@ data class FileKind(val icon: ImageVector, val accent: Color, val label: String)
 fun fileKind(name: String, mime: String): FileKind {
     val ext = name.substringAfterLast('.', "").lowercase()
     return when {
-        mime.startsWith("image/") -> FileKind(Icons.Rounded.Image, Brand.Orchid, ext.uppercase().ifEmpty { "Image" })
-        mime.startsWith("video/") -> FileKind(Icons.Rounded.VideoFile, Brand.Violet, ext.uppercase().ifEmpty { "Video" })
-        mime.startsWith("audio/") -> FileKind(Icons.Rounded.AudioFile, Brand.Warning, ext.uppercase().ifEmpty { "Audio" })
-        mime == "application/pdf" || ext == "pdf" -> FileKind(Icons.Rounded.PictureAsPdf, Brand.Danger, "PDF")
+        mime.startsWith("image/") -> FileKind(Icons.Rounded.Image, Brand.Bone, ext.uppercase().ifEmpty { "Image" })
+        mime.startsWith("video/") -> FileKind(Icons.Rounded.VideoFile, Brand.Bone, ext.uppercase().ifEmpty { "Video" })
+        mime.startsWith("audio/") -> FileKind(Icons.Rounded.AudioFile, Brand.Bone, ext.uppercase().ifEmpty { "Audio" })
+        mime == "application/pdf" || ext == "pdf" -> FileKind(Icons.Rounded.PictureAsPdf, Brand.Bone, "PDF")
         ext in setOf("zip", "rar", "7z", "gz", "tgz", "tar", "xz") || mime.contains("zip") ->
-            FileKind(Icons.Rounded.FolderZip, Color(0xFF8A8FA3), ext.uppercase().ifEmpty { "Archive" })
-        ext == "apk" || mime == "application/vnd.android.package-archive" -> FileKind(Icons.Rounded.Android, Brand.Success, "APK")
+            FileKind(Icons.Rounded.FolderZip, Brand.Bone, ext.uppercase().ifEmpty { "Archive" })
+        ext == "apk" || mime == "application/vnd.android.package-archive" -> FileKind(Icons.Rounded.Android, Brand.Bone, "APK")
         ext in setOf("xls", "xlsx", "csv", "numbers", "ods") || mime.contains("spreadsheet") ->
-            FileKind(Icons.Rounded.TableChart, Brand.Success, ext.uppercase())
+            FileKind(Icons.Rounded.TableChart, Brand.Bone, ext.uppercase())
         ext in setOf("ppt", "pptx", "key", "odp") || mime.contains("presentation") ->
-            FileKind(Icons.Rounded.Slideshow, Brand.Warning, ext.uppercase())
+            FileKind(Icons.Rounded.Slideshow, Brand.Bone, ext.uppercase())
         ext in setOf("doc", "docx", "pages", "odt", "rtf") || mime.contains("word") ->
-            FileKind(Icons.Rounded.Description, Brand.Blue, ext.uppercase())
+            FileKind(Icons.Rounded.Description, Brand.Bone, ext.uppercase())
         mime.startsWith("text/") || ext in setOf("txt", "md", "json", "csv", "log") ->
-            FileKind(Icons.AutoMirrored.Rounded.TextSnippet, Brand.Teal, ext.uppercase().ifEmpty { "Text" })
-        else -> FileKind(Icons.AutoMirrored.Rounded.InsertDriveFile, Brand.Blue, ext.uppercase().ifEmpty { "File" })
+            FileKind(Icons.AutoMirrored.Rounded.TextSnippet, Brand.Bone, ext.uppercase().ifEmpty { "Text" })
+        else -> FileKind(Icons.AutoMirrored.Rounded.InsertDriveFile, Brand.Bone, ext.uppercase().ifEmpty { "File" })
     }
 }
 
