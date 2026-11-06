@@ -4,7 +4,7 @@
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { onPage, prefersReducedMotion, ease } from '../engine';
-import { lux, ROOM, closedClip } from './notch';
+import { lux, ROOM, closedClip, openClip } from './notch';
 import { idle } from './idle';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -112,8 +112,9 @@ export function startHero() {
     tl.to(fl, { r: () => Math.hypot(innerWidth, innerHeight) * 1.04, duration: 2.2, ease: 'sine.in', onUpdate: applyFlood }, 1.4)
       .to(white, { opacity: 1, duration: 1.3 }, 1.4)
       .to([glow, spill], { opacity: 0, duration: 1.1 }, 2.1)
-      .to(aside, { autoAlpha: 0, y: -16, duration: 0.8 }, 2.4)
-      .to(steps, { autoAlpha: 1, y: 0, duration: 0.9, ease: 'power2.out' }, 2.7)
+      // The words hand over: the lede and buttons leave before the readings arrive in their place.
+      .to(aside, { autoAlpha: 0, y: -16, duration: 0.7 }, 2.3)
+      .to(steps, { autoAlpha: 1, y: 0, duration: 0.9, ease: 'power2.out' }, 3.0)
       // 4.4 → 5.4 black: everything goes dark on cue (the white has held for a beat).
       .to(dark, { opacity: 1, duration: 1.0 }, 4.4)
       .to(white, { opacity: 0, duration: 0.9 }, 4.5)
@@ -121,14 +122,15 @@ export function startHero() {
       // 5.6 → 6.6 buzz.
       .to(phoneIdle, { keyframes: { x: [0, -6, 6, -5, 5, -3, 3, -1, 0] }, duration: 1, ease: 'none' }, 5.6)
       .to(buzz, { keyframes: { autoAlpha: [0, 1, 1, 0] }, duration: 1, ease: 'none' }, 5.6)
-      // In the bone theme the room comes back after the black frame (the lift layer only shows there).
-      .to(lift, { opacity: 1, duration: 1.0, ease: 'power1.inOut' }, 6.5)
+      // In the bone theme the room comes back after the black frame (the lift layer only shows there), once the
+      // phone has gone: a dark phone fading over a lightening page reads as a grey ghost.
+      .to(lift, { opacity: 1, duration: 0.8, ease: 'power2.inOut' }, 7.4)
       // 6.4 → 7.8 lift it off: a short drop that fades, not a throw.
       .to(phone, { y: () => innerHeight * 0.4, rotation: 5, autoAlpha: 0, duration: 1.4, ease: 'sine.inOut' }, 6.4)
       // 6.9 → 8.6 the notch grows into the island, then its content comes up.
       .to(isl, { autoAlpha: 1, duration: 0.6, ease: 'power1.inOut' }, 6.8)
       .fromTo(islClip, { clipPath: () => closedClip(isl.offsetWidth, isl.offsetHeight || isl.offsetWidth * 0.25) },
-        { clipPath: 'inset(0px 0px 0px 0px round 0px 0px 0px 0px)', duration: 1.3, ease: 'power3.inOut', immediateRender: false }, 7.0)
+        { clipPath: () => openClip(isl.offsetWidth), duration: 1.3, ease: 'power3.inOut', immediateRender: false }, 7.0)
       .to(veil, { autoAlpha: 0, duration: 1.0 }, 7.6)
       .to(steps, { autoAlpha: 0, y: 12, duration: 0.9 }, 7.4)
       // 8.4 → 10.4 the photo drops out of the island and lands.
@@ -148,7 +150,7 @@ export function startHero() {
       if (isWhite !== white_) { white_ = isWhite; html.classList.toggle('is-white', isWhite); }
       // The black frame: words read bone on it (in the bone theme, until the room comes back).
       const light = html.dataset.theme === 'light';
-      const isBlack = p > 0.4 && p < 1 && (!light || p < 0.6);
+      const isBlack = p > 0.4 && p < 1 && (!light || p < 0.65);
       if (isBlack !== black_) { black_ = isBlack; html.classList.toggle('is-black', isBlack); }
       const s = stepAt(p);
       if (s !== lastStep) { lastStep = s; stepEls.forEach((el, i) => el.classList.toggle('is-on', i === s)); }

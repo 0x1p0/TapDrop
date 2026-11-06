@@ -152,7 +152,7 @@
     --line: rgb(11 11 13 / 0.1);
     --line-strong: rgb(11 11 13 / 0.2);
     --well: rgb(11 11 13 / 0.05);
-    --bar-bg: rgb(239 237 231 / 0.92);
+    --bar-bg: rgb(239 237 231);
     --glow: rgb(255 255 255 / 1);
     --focus: var(--ink-black);
     color-scheme: light;
@@ -173,7 +173,7 @@
     --line: rgb(11 11 13 / 0.1);
     --line-strong: rgb(11 11 13 / 0.2);
     --well: rgb(11 11 13 / 0.05);
-    --bar-bg: rgb(239 237 231 / 0.92);
+    --bar-bg: rgb(239 237 231);
     --glow: rgb(255 255 255 / 1);
     --focus: var(--ink-black);
     color-scheme: light;
@@ -209,6 +209,22 @@ html.is-black .hero, html.is-black .sends {
   --muted: #a2a2a8;
   --faint: #85858c;
   --line: rgb(244 243 239 / 0.1);
+}
+/* In the bone theme the menu bar goes dark with the black frame, as it goes white with the white one in night. */
+:root[data-theme='light'].is-black .bar {
+  --ink-light: var(--bone);
+  --muted-light: #a2a2a8;
+  --faint: #85858c;
+  --accent: var(--bone);
+  --on-accent: var(--night);
+  --ink: var(--bone);
+  --muted: #a2a2a8;
+  --line: rgb(244 243 239 / 0.1);
+  --line-strong: rgb(244 243 239 / 0.18);
+  --well: rgb(244 243 239 / 0.06);
+  --focus: var(--light);
+  --bar-bg: rgb(0 0 0);
+  color-scheme: dark;
 }
 
 html.is-white, html.is-white .night {

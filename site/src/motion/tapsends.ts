@@ -3,7 +3,7 @@
 // stage is near the screen, so any scroll speed, direction or jump lands in exactly one consistent state.
 import { gsap } from 'gsap';
 import { onPage, scrollToTarget, prefersReducedMotion } from '../engine';
-import { lux, ROOM } from './notch';
+import { lux, ROOM, islandRadius } from './notch';
 
 const clamp = (v: number, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
 const seg = (t: number, a: number, b: number) => clamp((t - a) / (b - a));
@@ -148,7 +148,8 @@ export function startTapSends() {
       const w = ss(t, B.whiteIn[0], B.whiteIn[1]) * (1 - ss(t, B.whiteOut[0], B.whiteOut[1]));
       const b = ss(t, B.blackIn[0], B.blackIn[1]) * (1 - ss(t, B.blackOut[0], B.blackOut[1]));
       flash.style.opacity = (w * 0.78).toFixed(3);
-      dark.style.opacity = (b * 0.85).toFixed(3);
+      // On night a touch of the room stays; on bone the frame has to be truly black to read as black.
+      dark.style.opacity = (b * (html.dataset.theme === 'light' ? 1 : 0.85)).toFixed(3);
       white.style.opacity = w.toFixed(3);
       const ty = `translate3d(0, ${y.toFixed(1)}px, 0)`;
       glow.style.transform = ty;
@@ -172,7 +173,7 @@ export function startTapSends() {
         const { W, H } = g.islands[j];
         const side = (1 - open) * Math.max(0, (W - g.notchW) / 2);
         const bottom = (1 - open) * Math.max(0, H - g.notchH);
-        const rr = 12 * (1 - open);
+        const rr = lerp(12, islandRadius(W), open); // the notch's corners growing into the island's own
         (el.firstElementChild as HTMLElement).style.clipPath = `inset(0px ${side.toFixed(1)}px ${bottom.toFixed(1)}px ${side.toFixed(1)}px round 0px 0px ${rr.toFixed(1)}px ${rr.toFixed(1)}px)`;
         (el.querySelector('.ts__iveil') as HTMLElement).style.opacity = veil.toFixed(3);
       });

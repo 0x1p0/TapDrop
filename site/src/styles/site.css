@@ -262,7 +262,7 @@ html.is-white .notch__trace { --trace: var(--ink-black); }
 .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 4px rgb(214 222 255 / 0.12), 0 0 14px 2px rgb(214 222 255 / 0.55); flex: none; }
 .hero__flood, .hero__dark { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
 .hero__flood { background: #fff; z-index: 1; }
-.hero { background: var(--ground); }
+.hero { background: var(--ground); color: var(--ink); } /* its own ink, so the black frame can turn the words bone */
 /* Bone theme: after the black frame the room comes back, and the photo lands on bone. */
 .hero__lift { position: absolute; inset: 0; z-index: 2; background: var(--ground); opacity: 0; pointer-events: none; display: none; }
 :root[data-theme='light'] .hero__lift { display: block; }

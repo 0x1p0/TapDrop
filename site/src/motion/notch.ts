@@ -98,6 +98,13 @@ export const closedClip = (W: number, H: number) => {
   const side = Math.max(0, (W - notchW()) / 2);
   return `inset(0px ${side}px ${Math.max(0, H - notchH())}px ${side}px round 0px 0px 12px 12px)`;
 };
+/** The island captures' own bottom corners, as a share of their width (58 px on an 886 px capture, a hair under). */
+export const islandRadius = (W: number) => W * 0.062;
+/** Fully open, still rounded like the island, so the shape keeps its corners all the way out of the notch. */
+export const openClip = (W: number) => {
+  const r = islandRadius(W).toFixed(1);
+  return `inset(0px 0px 0px 0px round 0px 0px ${r}px ${r}px)`;
+};
 
 function els() {
   const root = document.querySelector<HTMLElement>('[data-island]');

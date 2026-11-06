@@ -1,6 +1,6 @@
 /* ───────── What a tap sends: the pinned five-tap stage ───────── */
 
-.sends { position: relative; background: var(--ground); }
+.sends { position: relative; background: var(--ground); color: var(--ink); }
 .ts { position: relative; }
 .motion .ts { height: calc(var(--n) * 175svh + 100svh); }
 .ts__stage { position: relative; }
