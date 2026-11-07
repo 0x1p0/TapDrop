@@ -335,6 +335,22 @@ enum Demo {
             break
         }
         status?.openPanel()
+        // QA: TAPDROP_DEMO_CYCLE=<gaps> closes and reopens it quickly (gaps in seconds, comma-separated), the way fast
+        // clicks on the menu bar icon do, then leaves it open: the snapshot shows whether it came back whole.
+        if let cycle = ProcessInfo.processInfo.environment["TAPDROP_DEMO_CYCLE"] {
+            let gaps = cycle.split(separator: ",").compactMap { Double($0) }
+            var t = 1.0
+            for (i, g) in gaps.enumerated() {
+                DispatchQueue.main.asyncAfter(deadline: .now() + t) {
+                    if i % 2 == 0 { state?.demoPinned = false; status?.panel.hide() } else { status?.panel.show(below: nil) }
+                }
+                t += g
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + t) {
+                if status?.panel.isShown != true { status?.panel.show(below: nil) }
+                state?.demoPinned = true
+            }
+        }
         // QA: TAPDROP_DEMO_CLOSE=1 closes it again once it has opened, to measure what a closed panel costs.
         if ProcessInfo.processInfo.environment["TAPDROP_DEMO_CLOSE"] == "1" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {

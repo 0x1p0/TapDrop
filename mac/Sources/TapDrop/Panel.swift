@@ -12,9 +12,6 @@ final class KeyPanel: NSPanel {
 @MainActor
 final class PanelState: ObservableObject {
     @Published var visible = false
-    /// Whether the card exists at all. It goes once the panel has closed, so nothing in it (a live dot's pulse,
-    /// a timeline) keeps drawing in a window nobody can see.
-    @Published var mounted = false
     @Published var dropTargeted = false
     /// The Mac has a network address phones can reach (checked each time the panel opens).
     @Published var macOnline = true
@@ -61,7 +58,6 @@ final class PanelController: NSObject, NSWindowDelegate {
         button?.highlight(true)
         state.macOnline = !state.demoOffline && Net.lanIPv4() != nil
         let p = ensurePanel()
-        state.mounted = true
         if let bw = button?.window, let screen = bw.screen ?? NSScreen.main {
             let w = Self.contentWidth + Self.margin * 2
             let vf = screen.visibleFrame
@@ -85,10 +81,9 @@ final class PanelController: NSObject, NSWindowDelegate {
         button?.highlight(false)
         withTDAnimation(.spring(response: 0.3, dampingFraction: 0.92)) { state.visible = false }
         removeMonitors()
-        let work = DispatchWorkItem { [weak self] in
-            self?.panel?.orderOut(nil)
-            self?.state.mounted = false
-        }
+        // The card stays built while hidden (rebuilding it on every open could leave the glass empty); nothing in it
+        // animates in SwiftUI while it's ordered out (the live dot pulses in Core Animation), so it costs nothing.
+        let work = DispatchWorkItem { [weak self] in self?.panel?.orderOut(nil) }
         hideWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.26, execute: work)
     }
@@ -180,7 +175,7 @@ struct PanelRoot: View {
                 .contentShape(Rectangle())
                 .onTapGesture { close() }
                 .accessibilityHidden(true)
-            if state.mounted { card }
+            card
         }
     }
 
