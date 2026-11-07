@@ -2,6 +2,16 @@
 
 What's new in each version, newest first. The notes under a version are what TapDrop shows in its update window, so write them for the people using it. Keep each bullet on one line.
 
+## 2.3.0
+
+### New
+- **Rename your Mac and your phone.** Give either a name of your own, on the Mac in Settings → General or Settings → Phones, on the phone in Settings. A new name shows up on the other side right away, or as soon as they're back on the same Wi-Fi.
+- **Recent, your way.** Hide the list of what you sent and received, or clear it: on the Mac in Settings → General → Recent (or right-click Recent in the menu bar panel), on the phone in Settings → Recent. Only the list goes; your files stay where they were saved.
+
+### Fixes
+- The folder link next to Recent in the menu bar panel sits flush on the right again.
+- The menu bar panel could open empty now and then. It keeps its content ready instead, still without using the Mac's CPU while it's closed.
+
 ## 2.2.1
 
 ### Fixes
