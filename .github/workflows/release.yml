@@ -4,6 +4,8 @@ name: Release
 # checksums and that version's notes from CHANGELOG.md. The apps' updaters read the latest release once a day.
 # Running it by hand (Actions → Release → Run workflow) builds everything and keeps the files as a build artifact;
 # tick "publish" to release the version in VERSION.
+# A version already published from a Mac with scripts/release.sh (which also pushes its tag) isn't built again: the
+# build is skipped and the run passes.
 #
 # Secrets (Settings → Secrets and variables → Actions):
 #   MAC_SIGNING_P12_BASE64, MAC_SIGNING_P12_PASSWORD   the Mac release identity, "TapDrop Release Signing"
@@ -27,7 +29,33 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Is this tag's release already out (published from a Mac with scripts/release.sh)? Then there's nothing to build.
+  # It waits a minute for one, since publishing from a Mac can push the tag a moment before the release exists.
+  published:
+    runs-on: ubuntu-latest
+    outputs:
+      already: ${{ steps.look.outputs.already }}
+    steps:
+      - id: look
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          already=false
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            for _ in 1 2 3 4 5 6; do
+              if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+                already=true
+                echo "::notice::$GITHUB_REF_NAME is already published; nothing to build."
+                break
+              fi
+              sleep 10
+            done
+          fi
+          echo "already=$already" >> "$GITHUB_OUTPUT"
+
   release:
+    needs: published
+    if: needs.published.outputs.already != 'true'
     runs-on: macos-26
     timeout-minutes: 60
     steps:

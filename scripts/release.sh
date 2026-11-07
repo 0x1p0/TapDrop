@@ -93,4 +93,5 @@ echo
 ls -lh "$OUT"
 echo
 echo "Publish by pushing the tag (GitHub Actions builds and publishes it):  git tag v$V && git push origin v$V"
-echo "Or publish these files yourself:  gh release create v$V $OUT/TapDrop* $OUT/SHA256SUMS.txt --title \"TapDrop $V\" --notes-file $OUT/NOTES.md"
+echo "Or publish these files yourself (this pushes the tag too; Actions then sees the release is out and skips its build):"
+echo "  gh release create v$V $OUT/TapDrop* $OUT/SHA256SUMS.txt --title \"TapDrop $V\" --notes-file $OUT/NOTES.md --target \$(git rev-parse HEAD) --latest"
