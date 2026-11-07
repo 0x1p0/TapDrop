@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { to } from './url';
 // All visible copy for the TapDrop site lives here.
 // Facts come from README.md, PROTOCOL.md, docs/INSTALL.md and docs/DESIGN.md in this repository. Nothing here is
@@ -38,9 +40,15 @@ export const links = {
   guide: to('/get-started/'),
 };
 
+/** The apps' version, from the repository's VERSION file (the build runs in site/), so the site never lags a release. */
+const release = readFileSync(join(process.cwd(), '..', 'VERSION'), 'utf8').trim();
+
 export const site = {
   name: 'TapDrop',
-  version: '2.1',
+  /** "2.2": what the page shows. */
+  version: release.split('.').slice(0, 2).join('.'),
+  /** "2.2.1": for search engines. */
+  release,
   url: 'https://tapdrop.pages.dev/',
   tagline: 'Touch. It’s there.',
   title: 'TapDrop: touch your phone to your Mac’s notch',
@@ -55,7 +63,7 @@ export const nav = [
 ];
 
 export const hero = {
-  meta: 'TapDrop 2.1 · Android and Mac',
+  meta: `TapDrop ${release.split('.').slice(0, 2).join('.')} · Android and Mac`,
   open: 'Free and open source (MIT). No accounts, no cloud, no tracking.',
   lede:
     'Touch the top of your Android phone’s screen to your Mac’s notch and hold it until it buzzes. The page, photo, video or PDF on it lands on your Mac.',
