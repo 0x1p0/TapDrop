@@ -707,7 +707,7 @@ private struct PairStep: View {
             StepWords(eyebrow: "Step 2 of 3", title: "Pair with this Mac")
             StepList(items: [
                 Text("Open TapDrop on your phone and tap \(StepList.em("Pair with your Mac"))."),
-                Text("Choose \(StepList.em(Store.computerName))."),
+                Text("Choose \(StepList.em(Store.macName))."),
                 Text("Check that the codes match, then click \(StepList.em("Pair")) here."),
             ])
             .padding(.top, TD.Space.l)
@@ -746,8 +746,8 @@ private struct PairArt: View {
         .overlay(RoundedRectangle(cornerRadius: SetupStage.radius, style: .continuous).strokeBorder(TD.hairline, lineWidth: 1))
         .tdAnimation(TD.Motion.standard, value: paired)
         .accessibilityElement()
-        .accessibilityLabel(paired ? "Your phone, paired with \(Store.computerName)"
-                                   : "On your phone, choose \(Store.computerName)")
+        .accessibilityLabel(paired ? "Your phone, paired with \(Store.macName)"
+                                   : "On your phone, choose \(Store.macName)")
     }
 
     private var phone: some View {
@@ -775,7 +775,7 @@ private struct PairArt: View {
                     .foregroundStyle(.white.opacity(0.55))
                     .padding(.top, 3)
                 VStack(spacing: 6) {
-                    macRow(Store.computerName, highlighted: true)
+                    macRow(Store.macName, highlighted: true)
                     macRow("Studio iMac", highlighted: false).opacity(0.5)
                 }
                 .padding(.top, 14)

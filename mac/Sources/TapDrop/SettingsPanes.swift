@@ -12,11 +12,29 @@ struct GeneralPane: View {
     @ObservedObject private var store = Store.shared
     @State private var login = GeneralPane.readLogin()
     @State private var loginError: String?
+    @State private var renaming = false
+    @State private var confirmClear = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: TD.Space.xxl) {
             SettingsPaneHeader(.general)
                 .tdReveal(0, visible)
+
+            SettingsGroup("This Mac") {
+                SettingsRow("laptopcomputer", tint: TDTint.gray, title: store.macName,
+                            subtitle: store.devices.count > 1
+                                ? "Your phones see this name. A new one reaches them right away."
+                                : "Your phone sees this name. A new one reaches it right away.") {
+                    Button("Rename…") { renaming = true }
+                        .buttonStyle(.td(.secondary, size: .small))
+                }
+            }
+            .tdReveal(1, visible)
+            .renameAlert("Rename this Mac", message: "Your phones show this name. It changes there too.",
+                         isPresented: $renaming, current: store.macName,
+                         reset: store.settings.macName == nil ? nil
+                             : ("Use “\(Store.computerName)”", { withTDAnimation { store.renameMac(nil) } }),
+                         save: { name in withTDAnimation { store.renameMac(name) } })
 
             SettingsGroup("Received files") {
                 SettingsRow(folderExists ? "folder.fill" : "exclamationmark.triangle.fill",
@@ -31,6 +49,27 @@ struct GeneralPane: View {
                 }
             }
             .tdReveal(1, visible)
+
+            SettingsGroup("Recent", footer: "Only the list. Files you received stay where they were saved.") {
+                SettingsRow("clock.arrow.circlepath", tint: TDTint.slate, title: "Show recent in the menu bar panel",
+                            subtitle: "What you sent and received lately.") {
+                    Toggle("Show recent in the menu bar panel", isOn: $store.settings.showRecent).tdSwitch()
+                }
+                SettingsRow("trash", tint: TDTint.gray, title: "Clear recent",
+                            subtitle: store.recent.isEmpty ? "Nothing to clear."
+                                : store.recent.count == 1 ? "1 item." : "\(store.recent.count) items.") {
+                    Button("Clear…") { confirmClear = true }
+                        .buttonStyle(.td(.secondary, size: .small))
+                        .disabled(store.recent.isEmpty)
+                }
+            }
+            .tdReveal(2, visible)
+            .confirmationDialog("Clear recent?", isPresented: $confirmClear, titleVisibility: .visible) {
+                Button("Clear Recent", role: .destructive) { withTDAnimation { store.clearRecent() } }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("The list of what you sent and received goes. The files themselves stay where they were saved.")
+            }
 
             SettingsGroup("Look") {
                 SettingsRow("circle.lefthalf.filled", title: "Appearance",

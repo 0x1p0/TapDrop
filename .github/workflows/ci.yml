@@ -40,4 +40,4 @@ jobs:
         run: scripts/release-notes.sh "$(tr -d '[:space:]' < VERSION)" > /dev/null
 
       - name: Android checks and app
-        run: cd android && ./gradlew :core:keyCheck :core:otpCheck :core:timeCheck :app:assembleDebug --console=plain
+        run: cd android && ./gradlew :core:keyCheck :core:nameCheck :core:otpCheck :core:timeCheck :app:assembleDebug --console=plain

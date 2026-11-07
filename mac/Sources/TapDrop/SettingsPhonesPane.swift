@@ -9,6 +9,7 @@ struct PhonesPane: View {
     @ObservedObject private var store = Store.shared
     @StateObject private var caps = PhoneCaps()
     @State private var forgetting: PairedDevice?
+    @State private var renaming: PairedDevice?
 
     /// Connected first, then most recently seen.
     private var phones: [PairedDevice] {
@@ -39,7 +40,8 @@ struct PhonesPane: View {
             } else {
                 VStack(spacing: TD.Space.m) {
                     ForEach(phones) { d in
-                        PhoneCard(device: d, live: store.liveDevices.contains(d.id), needsUpdate: caps.outdated.contains(d.name)) {
+                        PhoneCard(device: d, live: store.liveDevices.contains(d.id), needsUpdate: caps.outdated.contains(d.name),
+                                  rename: { renaming = d }) {
                             forgetting = d
                         }
                         .transition(.asymmetric(insertion: .opacity.combined(with: .scale(scale: 0.98)),
@@ -64,6 +66,11 @@ struct PhonesPane: View {
         }
         .tdAnimation(TD.Motion.standard, value: store.devices.map(\.id))
         .tdAnimation(TD.Motion.standard, value: store.outbox.isEmpty)
+        .renameAlert("Rename \(renaming?.name ?? "this phone")",
+                     message: "This is the phone's own name: it changes on the phone too.",
+                     isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } }),
+                     current: renaming?.name ?? "",
+                     save: { name in if let d = renaming { withTDAnimation { store.renamePhone(d.id, name) } } })
         .confirmationDialog(
             "Forget \(forgetting?.name ?? "this phone")?",
             isPresented: Binding(get: { forgetting != nil }, set: { if !$0 { forgetting = nil } }),
@@ -128,6 +135,7 @@ private struct PhoneCard: View {
     let device: PairedDevice
     let live: Bool
     let needsUpdate: Bool
+    let rename: () -> Void
     let forget: () -> Void
     @State private var hover = false
 
@@ -170,6 +178,9 @@ private struct PhoneCard: View {
                         FactChip(text: "Paired \(device.pairedAt.formatted(.dateTime.month(.abbreviated).day().year()))",
                                  symbol: "link")
                         Spacer(minLength: TD.Space.s)
+                        Button("Rename…", action: rename)
+                            .buttonStyle(.tdQuiet)
+                            .help("Give \(device.name) a new name, here and on the phone")
                         Button("Forget…", action: forget)
                             .buttonStyle(.tdQuiet)
                             .help("Unpair \(device.name) from this Mac")

@@ -179,6 +179,7 @@ fun HomeScreen(
     val mac = lastMac
     val state by app.transfers.state.collectAsStateWithLifecycle()
     val history by app.prefs.history.collectAsStateWithLifecycle()
+    val showRecent by app.prefs.showRecent.collectAsStateWithLifecycle()
     val live by NotchTapService.live.collectAsStateWithLifecycle()
     val tap = rememberTapSetupState()
     var online by remember { mutableStateOf<Boolean?>(null) }
@@ -349,12 +350,14 @@ fun HomeScreen(
                 )
             }
             item("extras") { ExtrasChecklist(Modifier.padding(top = 24.dp).entrance(4, enabled = intro)) }
-            item("recentHeader") {
+            if (showRecent) item("recentHeader") {
                 SectionHeader("Recent", Modifier.padding(top = 10.dp).entrance(5, enabled = intro)) {
                     Text("Sent & received", style = TdType.caption, color = Td.colors.textTertiary)
                 }
             }
-            if (history.isEmpty()) {
+            if (!showRecent) {
+                // Recent is hidden (Settings → Recent).
+            } else if (history.isEmpty()) {
                 item("recentEmpty") {
                     EmptyState(
                         icon = Icons.Rounded.History,

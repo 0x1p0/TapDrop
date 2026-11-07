@@ -26,6 +26,7 @@ import app.tapdrop.data.HistoryEntry
 import app.tapdrop.data.Prefs
 import app.tapdrop.data.SavedMac
 import app.tapdrop.ui.Haptics
+import app.tapdrop.tap.NotchTapService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -100,7 +101,7 @@ class Transfers(
     private val finder: MacFinder,
     private val scope: CoroutineScope,
 ) {
-    val client = TapDropClient(prefs.identity)
+    val client = TapDropClient { prefs.identity }
     private val mutex = Mutex()
     private val _state = MutableStateFlow<TState>(TState.Idle)
     val state: StateFlow<TState> = _state.asStateFlow()
@@ -148,6 +149,29 @@ class Transfers(
     }
 
     suspend fun ping(mac: SavedMac): Pong? = runCatching { onMac(mac) { client.ping(it, mac.macKey) } }.getOrNull()
+
+    /**
+     * Swaps names with [mac] over a short session (PROTOCOL.md → "Names"): what this phone and that Mac are called,
+     * newest change wins. For Macs without a live link; the live link swaps names by itself. False when the Mac
+     * couldn't be reached (it hears the new names the next time it is).
+     */
+    suspend fun syncNames(mac: SavedMac): Boolean = runCatching {
+        val answer = onMac(mac) { client.names(it, mac.macKey, prefs.namesFor(prefs.mac(mac.id) ?: mac)) }
+        if (prefs.takeNames(mac.id, answer).myNameChanged) namesChanged(except = mac.id)
+        true
+    }.getOrDefault(false)
+
+    /**
+     * A name changed on this phone (its own, or a Mac's): every paired Mac hears it. The Mac on the live link right
+     * away; the others over a short session, if they're around ([except]: the Mac it came from).
+     */
+    fun namesChanged(except: String? = null) {
+        val live = NotchTapService.pushNames()
+        for (mac in prefs.macs.value) {
+            if (mac.id == except || mac.id == live) continue
+            scope.launch { syncNames(mac) }
+        }
+    }
 
     private val unpairing = Mutex()
 

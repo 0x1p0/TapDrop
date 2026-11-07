@@ -18,7 +18,7 @@ final class WatchHub: @unchecked Sendable {
 
     private final class Watcher {
         let deviceId: String
-        let name: String
+        var name: String
         let channel: SecureChannel
         var key = 0
         var diag = false
@@ -132,6 +132,17 @@ final class WatchHub: @unchecked Sendable {
         guard let ch = lock.withLock({ watchers[id]?.channel }) else { return false }
         ch.sendJSONNow(msg)
         return true
+    }
+
+    /// Sends [msg] down phone [deviceId]'s live link, if it has one.
+    func send(toDevice deviceId: String, _ msg: JSON) {
+        let targets = lock.withLock { watchers.values.filter { $0.deviceId == deviceId }.map(\.channel) }
+        for ch in targets { ch.sendJSONNow(msg) }
+    }
+
+    /// Phone [deviceId] has a new name (renamed here or on the phone).
+    func renamed(deviceId: String, name: String) {
+        lock.withLock { for w in watchers.values where w.deviceId == deviceId { w.name = name } }
     }
 
     func broadcast(_ msg: JSON) {

@@ -8,6 +8,10 @@ struct PairedDevice: Codable, Identifiable, Equatable {
     var key: Data
     var pairedAt: Date
     var lastSeen: Date?
+    /// When a person last named this phone (epoch ms; nil/0: the name it paired with). PROTOCOL.md → "Names".
+    var nameAt: Int64?
+
+    var named: Names.Named { Names.Named(name: name, at: nameAt ?? 0) }
 }
 
 /// A phone this Mac forgot, kept (with its key) only to tell it so: the next time it connects it gets an authenticated
@@ -40,6 +44,12 @@ struct AppSettings: Codable, Equatable {
     var checkForUpdates = true
     /// "system" (follow the Mac), "light" or "dark".
     var appearance = "system"
+    /// This Mac's name as its phones see it, when set in TapDrop (here or from a phone); nil: the computer's name.
+    var macName: String?
+    /// When a person last set it (epoch ms; 0: never). A reset to the computer's name counts too.
+    var macNameAt: Int64 = 0
+    /// Show what was sent and received lately in the menu bar panel (Settings → General → Recent).
+    var showRecent = true
 
     init() {}
 
@@ -52,6 +62,9 @@ struct AppSettings: Codable, Equatable {
         notchTap = try c.decodeIfPresent(Bool.self, forKey: .notchTap) ?? true
         checkForUpdates = try c.decodeIfPresent(Bool.self, forKey: .checkForUpdates) ?? true
         appearance = try c.decodeIfPresent(String.self, forKey: .appearance) ?? "system"
+        macName = try c.decodeIfPresent(String.self, forKey: .macName)
+        macNameAt = try c.decodeIfPresent(Int64.self, forKey: .macNameAt) ?? 0
+        showRecent = try c.decodeIfPresent(Bool.self, forKey: .showRecent) ?? true
     }
 }
 
@@ -79,6 +92,7 @@ final class Store: ObservableObject {
             if settings.notchTap != oldValue.notchTap { WatchHub.shared.settingsChanged() }
             if settings.checkForUpdates != oldValue.checkForUpdates { Updater.shared.settingsChanged() }
             if settings.appearance != oldValue.appearance { Store.applyAppearance(settings.appearance) }
+            if settings.macName != oldValue.macName || settings.macNameAt != oldValue.macNameAt { macNameChanged() }
         }
     }
     /// What the update check remembers: the last check, what it found, a skipped version (Updater keeps it).
@@ -117,6 +131,12 @@ final class Store: ObservableObject {
 
     private static var stateURL: URL { dir.appendingPathComponent("state.json") }
 
+    /// This Mac's name, as its phones see it: one set in TapDrop, else the computer's name.
+    var macName: String { settings.macName ?? Store.computerName }
+
+    /// This Mac's name, from any thread.
+    nonisolated static var macName: String { MacNameBox.shared.name }
+
     nonisolated static var computerName: String {
         #if DEBUG
         // Test and screenshot runs can name the Mac (TAPDROP_TEST_NAME), so captures never show a real computer's name.
@@ -139,6 +159,7 @@ final class Store: ObservableObject {
             _settings = Published(initialValue: p.settings)
             updates = p.updates ?? UpdateRecord()
             forgotten = (p.forgotten ?? []).filter { Date().timeIntervalSince($0.at) < Self.tellForgottenFor }
+            if let n = p.settings.macName { MacNameBox.shared.set(n) }
         } else {
             macId = TDCrypto.random(8).map { String(format: "%02x", $0) }.joined()
             save()
@@ -238,6 +259,75 @@ final class Store: ObservableObject {
     func addRecent(_ e: RecentEvent) {
         recent.insert(e, at: 0)
         if recent.count > 8 { recent.removeLast(recent.count - 8) }
+    }
+
+    /// Forgets the list of what was sent and received. The files themselves stay where they are.
+    func clearRecent() {
+        recent.removeAll()
+    }
+
+    // MARK: names (PROTOCOL.md → "Names")
+
+    /// Names this Mac [name] (nil: back to the computer's own name). Its phones hear it at once.
+    func renameMac(_ name: String?, at: Int64 = Names.now) {
+        let clean = Names.clean(name)
+        // One change, so phones hear the new name with its time (not first with the old one).
+        var next = settings
+        next.macName = clean == Store.computerName ? nil : clean
+        next.macNameAt = at
+        settings = next
+    }
+
+    /// Names phone [id] [name]. That's the phone's own name now: it hears it at once, or the next time it connects.
+    func renamePhone(_ id: String, _ name: String, at: Int64 = Names.now) {
+        guard let clean = Names.clean(name), let i = devices.firstIndex(where: { $0.id == id }) else { return }
+        guard devices[i].name != clean || devices[i].nameAt != at else { return }
+        devices[i].name = clean
+        devices[i].nameAt = at
+        save()
+        WatchHub.shared.renamed(deviceId: id, name: clean)
+        tellNames(id)
+    }
+
+    /// What this Mac tells phone [id] about both names.
+    func namesMessage(for id: String) -> JSON? {
+        guard let d = device(id) else { return nil }
+        return Names.message(mac: Names.Named(name: macName, at: settings.macNameAt), phone: d.named)
+    }
+
+    /// Sends both names down phone [id]'s live link, if it has one.
+    func tellNames(_ id: String) {
+        guard let m = namesMessage(for: id) else { return }
+        WatchHub.shared.send(toDevice: id, m)
+    }
+
+    /// Takes what's newer from phone [id]'s `names` (its own entry is its word; its entry about this Mac is a rename
+    /// made on the phone). Returns whether the phone's view still differs from ours (then it should hear ours).
+    @discardableResult
+    func takeNames(from id: String, _ m: JSON) -> Bool {
+        let (theirMac, theirPhone) = Names.parse(m)
+        guard let d = device(id) else { return false }
+        if let theirPhone, Names.takeFromOwner(local: d.named, incoming: theirPhone),
+           let i = devices.firstIndex(where: { $0.id == id }) {
+            devices[i].name = theirPhone.name
+            devices[i].nameAt = theirPhone.at
+            save()
+            WatchHub.shared.renamed(deviceId: id, name: theirPhone.name)
+        }
+        let mine = Names.Named(name: macName, at: settings.macNameAt)
+        if let theirMac, Names.takeFromPeer(local: mine, incoming: theirMac) {
+            // Renamed on the phone: that's this Mac's name now, and every phone hears it (macNameChanged).
+            renameMac(theirMac.name, at: theirMac.at)
+        }
+        guard let now = device(id) else { return false }
+        return theirMac != Names.Named(name: macName, at: settings.macNameAt) || theirPhone != now.named
+    }
+
+    /// This Mac's name changed: it's advertised under the new one, and every live phone hears it.
+    private func macNameChanged() {
+        MacNameBox.shared.set(macName)
+        Server.shared.renamed(macName)
+        for d in devices where liveDevices.contains(d.id) { tellNames(d.id) }
     }
 }
 

@@ -122,6 +122,8 @@ class NotchTapService : AccessibilityService() {
 
     private var watchJob: Job? = null
     @Volatile private var session: WatchSession? = null
+    /** The Mac on the other end of [session]. */
+    @Volatile private var sessionMac: String? = null
 
     // Motion and proximity. Their listeners run on their own thread (not the main one, which draws the light key),
     // and motion readings come batched, a few wake-ups a second instead of fifty.
@@ -411,7 +413,10 @@ class NotchTapService : AccessibilityService() {
             backoff = 1500
             val openedAt = SystemClock.elapsedRealtime()
             session = s
+            sessionMac = mac.id
             _live.value = true
+            // Names first: what this phone and that Mac are called, newest change wins (PROTOCOL.md → "Names").
+            runCatching { s.send(app.prefs.namesFor(app.prefs.mac(mac.id) ?: mac)) }
             _videoIndex.value?.let { (done, total) -> runCatching { s.send("t" to "index", "done" to done, "total" to total) } }
             if (_diag.value) runCatching { s.diag(true) }
             if (s.pendingAtStart > 0) pullInbox(mac)
@@ -441,6 +446,12 @@ class NotchTapService : AccessibilityService() {
                         "room" -> _roomDark.value = m.optBoolean("dark")
                         "lux" -> if (_diag.value) _lux.value = m.optDouble("v").toFloat() to m.optDouble("b").toFloat()
                         "inbox" -> pullInbox(mac)
+                        "names" -> {
+                            val taken = app.prefs.takeNames(mac.id, m)
+                            if (taken.answer) runCatching { s.send(app.prefs.namesFor(app.prefs.mac(mac.id) ?: mac)) }
+                            // Renamed on the Mac: the other Macs hear this phone's new name too.
+                            if (taken.myNameChanged) scope.launch { app.transfers.namesChanged(except = mac.id) }
+                        }
                     }
                 }
             } catch (e: CancellationException) {
@@ -452,7 +463,10 @@ class NotchTapService : AccessibilityService() {
             } finally {
                 keepAlive.cancel()
                 runCatching { s.close() }
-                if (session === s) session = null
+                if (session === s) {
+                    session = null
+                    sessionMac = null
+                }
                 _live.value = false
                 _roomDark.value = null
                 _lux.value = null
@@ -1333,6 +1347,19 @@ class NotchTapService : AccessibilityService() {
             _diag.value = on
             if (!on) _lux.value = null
             instance?.sendDiag(on)
+        }
+
+        /**
+         * Sends the current names down the live link, if there is one. Returns the id of that link's Mac (it has
+         * them now), or null when there's no live link.
+         */
+        fun pushNames(): String? {
+            val svc = instance ?: return null
+            val s = svc.session ?: return null
+            val macId = svc.sessionMac ?: return null
+            val mac = svc.app.prefs.mac(macId) ?: return null
+            svc.scope.launch(Dispatchers.IO) { runCatching { s.send(svc.app.prefs.namesFor(mac)) } }
+            return macId
         }
 
         private val _videoIndex = MutableStateFlow<Pair<Int, Int>?>(null)

@@ -151,7 +151,7 @@ extension Demo {
             // after a few seconds the confirmation settles into a Copy button
             a.showCode("482915", source: "Lumen Bank", peer: "Android phone")
         case "paired":
-            a.notice(.paired, title: "Paired with Android phone", detail: "Share anything to “\(Store.computerName)” from your phone",
+            a.notice(.paired, title: "Paired with Android phone", detail: "Share anything to “\(Store.macName)” from your phone",
                      peer: "Android phone", sound: false, hideAfter: 60)
         case "clipboard":
             a.notice(.clipboard, title: "Clipboard sent to Android phone", detail: "Gate B32 · boarding at 7:40", peer: "Android phone",

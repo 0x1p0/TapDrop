@@ -53,7 +53,12 @@ fun interface Progress {
 /**
  * Phone side of the TapDrop protocol (see PROTOCOL.md). Blocking; call from a background thread.
  */
-class TapDropClient(private val identity: Identity) {
+class TapDropClient(private val identityOf: () -> Identity) {
+    /** A phone whose name never changes (checks and tools). */
+    constructor(identity: Identity) : this({ identity })
+
+    /** Who this phone is right now: its name can change while the app runs (Settings → This phone). */
+    private val identity: Identity get() = identityOf()
 
     private fun connect(ep: Endpoint, readTimeoutMs: Int): FrameIO {
         val s = Socket()
@@ -155,6 +160,17 @@ class TapDropClient(private val identity: Identity) {
         val r = ch.recvJson()
         if (r.type != "pong") throw ProtocolException("unexpected ${r.type}")
         Pong(r.optString("name"), r.optInt("pending"))
+    }
+
+    /**
+     * Swaps names with [mac] without a live link (PROTOCOL.md → "Names"): sends [message] and returns the Mac's own
+     * `names` answer. A Mac that predates names hangs up instead (an [Exception]).
+     */
+    fun names(ep: Endpoint, mac: MacKey, message: JSONObject): JSONObject = session(ep, mac, readTimeoutMs = 4000) { ch ->
+        ch.sendJson(message)
+        val r = ch.recvJson()
+        if (r.type != "names") throw ProtocolException("unexpected ${r.type}")
+        r
     }
 
     /** This phone forgot [mac]: asks it to forget this phone too. */

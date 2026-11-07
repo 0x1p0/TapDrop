@@ -36,7 +36,7 @@ phone ⇒ encrypted request
 Requests: `ping` → `pong{name,pending}`; `send` (phone pushes a batch) → `ok`;
 `getclip` (Mac answers with a batch holding its clipboard); `inbox` (Mac answers
 with a batch of everything queued for the phone; phone replies `ok`, Mac dequeues);
-`unpair` (the phone forgot this Mac) → `ok`.
+`unpair` (the phone forgot this Mac) → `ok`; `names` (below) → the Mac's `names`.
 
 ## Forgetting
 
@@ -50,6 +50,30 @@ Forgetting on either side reaches the other:
   that). It shows it instead, and ignores one whose `mac` isn't the Mac it meant to reach (another Mac at that address).
 - **Forgotten on the phone.** The phone sends `unpair` and the Mac forgets it (with no `forgotten` to keep). If the Mac
   can't be reached, the phone keeps asking: at launch, and whenever that Mac turns up on the network.
+
+## Names
+
+Each device has one name, and it can be changed on the device itself or from the other side (rename the Mac from the
+phone, or the phone from the Mac). Both sides keep both names, each with `at`: when a person last set it (epoch ms; 0
+for the system name nobody chose, the one sent at pairing).
+
+```
+{"t":"names","mac":{"name":"Desk Mac","at":1794060999184},"phone":{"name":"Pocket","at":1794061042481}}
+```
+
+Each side sends its view of both names: the Mac right after `watching` (and whenever a name changes while the phone is
+live), the phone right after `caps`. Without a live link the phone sends `names` as a request and the Mac answers with
+its own. The newest change wins:
+
+- an entry about the **sender itself** is the owner speaking: taken when it's at least as new as ours (so a computer
+  or phone renamed in macOS or Android, still at 0, reaches the other side too);
+- an entry about the **receiver** is a rename made on the other side: taken only when strictly newer. The receiver
+  adopts it as its own name, and tells its other phones or Macs.
+
+A side whose view still differs after taking what's newer answers with its own; owners win ties, so both settle on
+the same names. Names are cleaned on both sides: control characters become spaces, runs of spaces collapse, and at
+most 40 characters are kept. The Mac also re-advertises itself on Bonjour under its new name. Sides that predate
+names ignore the message (a `names` request to such a Mac just ends the session).
 
 ## Batch
 

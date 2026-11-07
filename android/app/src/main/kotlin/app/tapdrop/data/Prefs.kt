@@ -8,6 +8,7 @@ import androidx.core.content.edit
 import app.tapdrop.core.Endpoint
 import app.tapdrop.core.Identity
 import app.tapdrop.core.MacKey
+import app.tapdrop.core.Names
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,14 +16,25 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
-class SavedMac(val id: String, val name: String, val key: ByteArray, val host: String, val port: Int) {
+/** A paired Mac. [nameAt]: when a person last named it (epoch ms; 0 = the name it had when paired). */
+class SavedMac(
+    val id: String,
+    val name: String,
+    val key: ByteArray,
+    val host: String,
+    val port: Int,
+    val nameAt: Long = 0,
+) {
     val macKey get() = MacKey(id, key)
     val endpoint get() = Endpoint(host, port)
+    val named get() = Names.Named(name, nameAt)
 
-    fun copy(name: String = this.name, host: String = this.host, port: Int = this.port) = SavedMac(id, name, key, host, port)
+    fun copy(name: String = this.name, host: String = this.host, port: Int = this.port, nameAt: Long = this.nameAt) =
+        SavedMac(id, name, key, host, port, nameAt)
 
     override fun equals(other: Any?) =
-        other is SavedMac && other.id == id && other.name == name && other.host == host && other.port == port
+        other is SavedMac && other.id == id && other.name == name && other.host == host && other.port == port &&
+            other.nameAt == nameAt
 
     override fun hashCode() = id.hashCode()
 }
@@ -46,7 +58,24 @@ data class HistoryEntry(
 class Prefs(ctx: Context) {
     private val sp = ctx.getSharedPreferences("tapdrop", Context.MODE_PRIVATE)
 
-    val identity: Identity
+    private val deviceId: String =
+        sp.getString("deviceId", null) ?: UUID.randomUUID().toString().also { v -> sp.edit { putString("deviceId", v) } }
+
+    /** Android's own name for this phone (Settings → About phone), or its model. */
+    val systemName: String = Settings.Global.getString(ctx.contentResolver, Settings.Global.DEVICE_NAME)
+        ?.takeIf { it.isNotBlank() } ?: Build.MODEL
+
+    private val _myName = MutableStateFlow(
+        Names.Named(sp.getString("myName", null) ?: systemName, sp.getLong("myNameAt", 0))
+    )
+    /** This phone's name, as its Macs see it: one set in TapDrop (here or on a Mac), else [systemName]. */
+    val myName: StateFlow<Names.Named> = _myName.asStateFlow()
+
+    /** Whether this phone's name was set in TapDrop (rather than Android's own). */
+    val hasCustomName: Boolean get() = sp.getString("myName", null) != null
+
+    /** Who this phone is, right now (its name can change while TapDrop runs). */
+    val identity: Identity get() = Identity(deviceId, _myName.value.name)
 
     private val _macs = MutableStateFlow(loadMacs())
     val macs: StateFlow<List<SavedMac>> = _macs.asStateFlow()
@@ -120,11 +149,16 @@ class Prefs(ctx: Context) {
     private val _history = MutableStateFlow(loadHistory())
     val history: StateFlow<List<HistoryEntry>> = _history.asStateFlow()
 
+    private val _showRecent = MutableStateFlow(sp.getBoolean("showRecent", true))
+    /** Whether Home shows what was sent and received lately (Settings → Recent). */
+    val showRecent: StateFlow<Boolean> = _showRecent.asStateFlow()
+
+    fun setShowRecent(on: Boolean) {
+        _showRecent.value = on
+        sp.edit { putBoolean("showRecent", on) }
+    }
+
     init {
-        val id = sp.getString("deviceId", null) ?: UUID.randomUUID().toString().also { v -> sp.edit { putString("deviceId", v) } }
-        val name = Settings.Global.getString(ctx.contentResolver, Settings.Global.DEVICE_NAME)
-            ?.takeIf { it.isNotBlank() } ?: Build.MODEL
-        identity = Identity(id, name)
         // A calibration value older versions kept; taps don't use it any more.
         if (sp.contains("spotPeak")) sp.edit { remove("spotPeak") }
     }
@@ -187,6 +221,60 @@ class Prefs(ctx: Context) {
 
     fun mac(id: String?): SavedMac? = _macs.value.firstOrNull { it.id == id }
 
+    // MARK: names (PROTOCOL.md → "Names")
+
+    /**
+     * Names this phone [name] (null: back to Android's own name), as set at [at]. Returns false when nothing changed.
+     */
+    @Synchronized
+    fun setMyName(name: String?, at: Long = System.currentTimeMillis()): Boolean {
+        val clean = Names.clean(name)
+        val next = Names.Named(clean ?: systemName, at)
+        if (next == _myName.value) return false
+        _myName.value = next
+        sp.edit {
+            if (clean == null) remove("myName") else putString("myName", clean)
+            putLong("myNameAt", at)
+        }
+        return true
+    }
+
+    /** Names Mac [id] [name], as set at [at]. Returns false when nothing changed. */
+    @Synchronized
+    fun setMacName(id: String, name: String, at: Long = System.currentTimeMillis()): Boolean {
+        val clean = Names.clean(name) ?: return false
+        val cur = mac(id) ?: return false
+        if (cur.name == clean && cur.nameAt == at) return false
+        _macs.value = _macs.value.map { if (it.id == id) it.copy(name = clean, nameAt = at) else it }
+        persistMacs()
+        return true
+    }
+
+    /** What this phone tells Mac [mac] about both names. */
+    fun namesFor(mac: SavedMac): org.json.JSONObject = Names.message(mac = mac.named, phone = _myName.value)
+
+    /**
+     * Takes what's newer from Mac [macId]'s `names` (the Mac's own entry is its word; its entry about this phone is
+     * a rename made on the Mac). Returns whether this phone's own name changed, and whether the Mac's view still
+     * differs from ours (then it should hear ours).
+     */
+    @Synchronized
+    fun takeNames(macId: String, m: org.json.JSONObject): NamesTaken {
+        val (theirMac, theirPhone) = Names.parse(m)
+        val mac = mac(macId) ?: return NamesTaken(false, false)
+        if (theirMac != null && Names.takeFromOwner(mac.named, theirMac)) setMacName(macId, theirMac.name, theirMac.at)
+        var mine = false
+        if (theirPhone != null && Names.takeFromPeer(_myName.value, theirPhone)) {
+            // Renamed on the Mac: that's this phone's name now (a name equal to Android's own stays "not set").
+            mine = setMyName(theirPhone.name.takeIf { it != systemName }, theirPhone.at)
+        }
+        val now = mac(macId) ?: return NamesTaken(mine, false)
+        val differs = theirMac != now.named || theirPhone != _myName.value
+        return NamesTaken(mine, differs)
+    }
+
+    class NamesTaken(val myNameChanged: Boolean, val answer: Boolean)
+
     private fun persistMacs() = sp.edit { putString("macs", macsJson(_macs.value)) }
 
     private fun macsJson(macs: List<SavedMac>): String {
@@ -195,7 +283,7 @@ class Prefs(ctx: Context) {
             arr.put(
                 JSONObject()
                     .put("id", it.id).put("name", it.name).put("host", it.host).put("port", it.port)
-                    .put("key", Base64.encodeToString(it.key, Base64.NO_WRAP))
+                    .put("key", Base64.encodeToString(it.key, Base64.NO_WRAP)).put("nameAt", it.nameAt)
             )
         }
         return arr.toString()
@@ -209,7 +297,7 @@ class Prefs(ctx: Context) {
             val o = arr.getJSONObject(it)
             SavedMac(
                 o.getString("id"), o.getString("name"), Base64.decode(o.getString("key"), Base64.NO_WRAP),
-                o.getString("host"), o.getInt("port"),
+                o.getString("host"), o.getInt("port"), o.optLong("nameAt", 0),
             )
         }
     }.getOrDefault(emptyList())
@@ -269,6 +357,13 @@ class Prefs(ctx: Context) {
             )
         }
         sp.edit { putString("history", arr.toString()) }
+    }
+
+    /** Forgets the list of what was sent and received. The files themselves stay where they are. */
+    @Synchronized
+    fun clearHistory() {
+        _history.value = emptyList()
+        sp.edit { putString("history", "[]") }
     }
 
     private fun loadHistory(): List<HistoryEntry> = runCatching {

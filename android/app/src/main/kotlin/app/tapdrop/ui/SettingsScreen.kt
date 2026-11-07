@@ -42,6 +42,9 @@ import androidx.compose.material.icons.rounded.Flare
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.LaptopMac
+import androidx.compose.material.icons.rounded.DeleteSweep
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Smartphone
 import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.Nfc
 import androidx.compose.material.icons.rounded.PhotoLibrary
@@ -102,6 +105,7 @@ import app.tapdrop.ui.design.TdShapes
 import app.tapdrop.ui.design.TdTextButton
 import app.tapdrop.ui.design.sheetSegment
 import app.tapdrop.ui.design.tdSharedBounds
+import app.tapdrop.ui.design.pressable
 import app.tapdrop.update.UpdatesSettingsGroup
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -146,6 +150,9 @@ fun SettingsScreen(
     val copyOnPhone by app.prefs.otpCopyOnPhone.collectAsStateWithLifecycle()
     val tapAction by app.prefs.tapAction.collectAsStateWithLifecycle()
     val sticker by app.prefs.stickerMac.collectAsStateWithLifecycle()
+    val myName by app.prefs.myName.collectAsStateWithLifecycle()
+    val history by app.prefs.history.collectAsStateWithLifecycle()
+    val showRecent by app.prefs.showRecent.collectAsStateWithLifecycle()
     val tap = rememberTapSetupState()
     val perms = rememberPermissions()
     val keepAlive = DeviceSupport.keepAlive
@@ -155,6 +162,9 @@ fun SettingsScreen(
     var forget by remember { mutableStateOf<String?>(null) }
     var actionSheet by remember { mutableStateOf(false) }
     var confirmOff by remember { mutableStateOf(false) }
+    var renamingMe by remember { mutableStateOf(false) }
+    var renamingMac by remember { mutableStateOf<String?>(null) }
+    var confirmClear by remember { mutableStateOf(false) }
 
     LargeTitleScaffold(
         title = "Settings",
@@ -172,6 +182,7 @@ fun SettingsScreen(
                         mac = shownMac,
                         live = live && shownMac.id == macs.firstOrNull()?.id,
                         stickerHere = sticker == shownMac.id,
+                        onRename = { renamingMac = shownMac.id },
                         onForget = {
                             if (macs.size <= 1) {
                                 // The last Mac: the app goes back to its welcome screen, sheet and all.
@@ -200,6 +211,19 @@ fun SettingsScreen(
                     icon = Icons.Rounded.Add,
                     accent = c.textSecondary,
                     onClick = onPairAnother,
+                    trailing = { RowChevron() },
+                )
+            }
+        }
+
+        item("phone") {
+            SettingsGroup(title = "This phone") {
+                row(
+                    myName.name,
+                    subtitle = if (macs.size > 1) "What your Macs call this phone" else "What your Mac calls this phone",
+                    icon = Icons.Rounded.Smartphone,
+                    accent = c.text,
+                    onClick = { renamingMe = true },
                     trailing = { RowChevron() },
                 )
             }
@@ -318,6 +342,34 @@ fun SettingsScreen(
                         )
                     }
                 }
+            }
+        }
+
+        item("recent") {
+            SettingsGroup(title = "Recent", footer = "Only the list. Files you received stay where they were saved.") {
+                item { shape ->
+                    SwitchRow(
+                        title = "Show recent on Home",
+                        checked = showRecent,
+                        onCheckedChange = { app.prefs.setShowRecent(it) },
+                        shape = shape,
+                        subtitle = "What you sent and received lately",
+                        icon = Icons.Rounded.History,
+                        accent = c.text,
+                    )
+                }
+                row(
+                    "Clear recent",
+                    subtitle = when (history.size) {
+                        0 -> "Nothing to clear"
+                        1 -> "1 item"
+                        else -> "${history.size} items"
+                    },
+                    icon = Icons.Rounded.DeleteSweep,
+                    accent = c.dangerText,
+                    onClick = { confirmClear = true },
+                    enabled = history.isNotEmpty(),
+                )
             }
         }
 
@@ -467,6 +519,59 @@ fun SettingsScreen(
         item("about") { AboutFooter() }
     }
 
+    if (renamingMe) {
+        RenameDialog(
+            title = "Rename this phone",
+            message = if (macs.size > 1) "Your Macs show this name. It changes there too."
+            else "Your Mac shows this name. It changes there too.",
+            current = myName.name,
+            icon = Icons.Rounded.Smartphone,
+            systemName = app.prefs.systemName,
+            custom = app.prefs.hasCustomName,
+            onSave = { name ->
+                renamingMe = false
+                if (app.prefs.setMyName(name)) app.transfers.namesChanged()
+            },
+            onDismiss = { renamingMe = false },
+        )
+    }
+
+    macs.firstOrNull { it.id == renamingMac }?.let { m ->
+        RenameDialog(
+            title = "Rename your Mac",
+            message = "This is the Mac's own name: it changes on the Mac, and on your other phones too.",
+            current = m.name,
+            icon = Icons.Rounded.LaptopMac,
+            onSave = { name ->
+                renamingMac = null
+                if (name != null && app.prefs.setMacName(m.id, name)) app.transfers.namesChanged()
+            },
+            onDismiss = { renamingMac = null },
+        )
+    }
+
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            icon = { IconChip(Icons.Rounded.History, c.text, size = 48.dp, shape = TdShapes.Cookie9, iconSize = 24.dp) },
+            title = { Text("Clear recent?", style = TdType.title, textAlign = TextAlign.Center) },
+            text = {
+                Text(
+                    "The list of what you sent and received goes. The files themselves stay where they were saved.",
+                    style = TdType.bodySmall, color = c.textSecondary, textAlign = TextAlign.Center,
+                )
+            },
+            confirmButton = {
+                TdTextButton("Clear", {
+                    confirmClear = false
+                    app.prefs.clearHistory()
+                }, color = c.dangerText)
+            },
+            dismissButton = { TdTextButton("Cancel", { confirmClear = false }) },
+            containerColor = c.surfaceRaised,
+        )
+    }
+
     if (confirmOff) {
         AlertDialog(
             onDismissRequest = { confirmOff = false },
@@ -552,7 +657,14 @@ private fun MacRow(mac: SavedMac, live: Boolean, shape: Shape, onClick: () -> Un
 }
 
 @Composable
-private fun MacSheet(mac: SavedMac, live: Boolean, stickerHere: Boolean, onForget: () -> Unit, close: () -> Unit) {
+private fun MacSheet(
+    mac: SavedMac,
+    live: Boolean,
+    stickerHere: Boolean,
+    onRename: () -> Unit,
+    onForget: () -> Unit,
+    close: () -> Unit,
+) {
     val c = Td.colors
     var confirming by remember { mutableStateOf(false) }
     val haptics = rememberHaptics()
@@ -566,6 +678,7 @@ private fun MacSheet(mac: SavedMac, live: Boolean, stickerHere: Boolean, onForge
         )
         Spacer(Modifier.height(22.dp))
         SettingsGroup {
+            item { shape -> SheetValueRow("Name", mac.name, shape, onClick = onRename) }
             item { shape -> SheetValueRow("Address", "${mac.host}:${mac.port}", shape, mono = true) }
             if (stickerHere) item { shape -> SheetValueRow("NFC sticker", "Linked", shape) }
         }
@@ -605,12 +718,13 @@ private fun MacSheet(mac: SavedMac, live: Boolean, stickerHere: Boolean, onForge
 
 /** A label and its value, on a segment that stands off the sheet. */
 @Composable
-private fun SheetValueRow(title: String, value: String, shape: Shape, mono: Boolean = false) {
+private fun SheetValueRow(title: String, value: String, shape: Shape, mono: Boolean = false, onClick: (() -> Unit)? = null) {
     val c = Td.colors
     Row(
         Modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp)
+            .then(if (onClick != null) Modifier.pressable(shape, pressedScale = 0.985f, onClickLabel = "Rename", onClick = onClick) else Modifier)
             .background(c.sheetSegment, shape)
             .semantics(mergeDescendants = true) {}
             .padding(horizontal = 18.dp, vertical = 12.dp),
@@ -621,8 +735,11 @@ private fun SheetValueRow(title: String, value: String, shape: Shape, mono: Bool
             value,
             style = if (mono) TdType.mono.copy(fontSize = TdType.bodySmall.fontSize) else TdType.bodySmall,
             color = c.textSecondary,
-            modifier = Modifier.padding(start = 12.dp),
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 12.dp).weight(1f, fill = false),
         )
+        if (onClick != null) RowChevron()
     }
 }
 

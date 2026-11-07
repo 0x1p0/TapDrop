@@ -119,6 +119,7 @@ struct PanelView: View {
         }
         .tdAnimation(TD.Motion.standard, value: store.outbox.map(\.id))
         .tdAnimation(TD.Motion.standard, value: store.recent.map(\.id))
+        .tdAnimation(TD.Motion.standard, value: store.settings.showRecent)
         .tdAnimation(TD.Motion.standard, value: link)
         .tdAnimation(TD.Motion.standard, value: showsTransfer)
     }
@@ -558,9 +559,9 @@ private struct RecentSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: TD.Space.s) {
-            SectionHeader("Recent") {
+            SectionHeader(store.settings.showRecent ? "Recent" : "Received files") {
                 // where things land, one click away
-                let folder = FileManager.default.displayName(atPath: store.saveFolder.path)
+                let folder = Self.short(FileManager.default.displayName(atPath: store.saveFolder.path))
                 Button {
                     close()
                     NSWorkspace.shared.open(store.saveFolder)
@@ -575,7 +576,7 @@ private struct RecentSection: View {
                             .font(.system(size: 8.5, weight: .bold))
                             .opacity(0.7)
                     }
-                    .frame(maxWidth: 170)
+                    .fixedSize()
                 }
                 .buttonStyle(.tdQuiet)
                 .help("Open \(folder) in Finder")
@@ -583,8 +584,19 @@ private struct RecentSection: View {
             }
             .padding(.leading, TD.Space.l + 4)
             .padding(.trailing, TD.Space.m)
+            .contextMenu {
+                if store.settings.showRecent {
+                    Button("Clear Recent") { withTDAnimation { store.clearRecent() } }
+                        .disabled(store.recent.isEmpty)
+                    Button("Hide Recent") { withTDAnimation { store.settings.showRecent = false } }
+                } else {
+                    Button("Show Recent") { withTDAnimation { store.settings.showRecent = true } }
+                }
+            }
 
-            if store.recent.isEmpty {
+            if !store.settings.showRecent {
+                // Hidden (Settings → General → Recent): just where things land.
+            } else if store.recent.isEmpty {
                 EmptyState("tray", title: "Nothing yet",
                            message: "Photos, links and files you share show up here.", compact: true)
                     .padding(.vertical, TD.Space.l)
@@ -604,6 +616,15 @@ private struct RecentSection: View {
                 .padding(.horizontal, TD.Space.s)
             }
         }
+    }
+}
+
+extension RecentSection {
+    /// A folder name short enough for the header, cut in the middle ("Screenshots…2026").
+    static func short(_ name: String, max: Int = 22) -> String {
+        guard name.count > max else { return name }
+        let half = (max - 1) / 2
+        return String(name.prefix(half)) + "…" + String(name.suffix(max - 1 - half))
     }
 }
 

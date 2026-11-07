@@ -19,13 +19,31 @@ final class Server: @unchecked Sendable {
     private let queue = DispatchQueue(label: "app.tapdrop.net")
     private var listener: NWListener?
     private var macId = ""
-    private var macName = ""
+    /// This Mac's name as phones see it (Settings → General → Name; it can change while TapDrop runs).
+    private var macName: String { Store.macName }
     /// Test runs only (debug builds): accepts any pairing request without asking.
     private let autoPair = TestHooks.on && ProcessInfo.processInfo.environment["TAPDROP_TEST_AUTOPAIR"] == "1"
 
+    /// What phones find on the network: this Mac's name, its id and the protocol version.
+    private func service() -> NWListener.Service {
+        var txt = NWTXTRecord()
+        txt["id"] = macId
+        txt["v"] = "1"
+        return NWListener.Service(name: macName, type: Self.serviceType, domain: nil, txtRecord: txt)
+    }
+
+    /// This Mac was renamed: advertised under its new name from now on (phones that are paired find it by its id).
+    func renamed(_ name: String) {
+        queue.async { [self] in
+            guard let l = listener else { return }
+            l.service = service()
+            NSLog("TapDrop: now advertised as %@", name)
+        }
+    }
+
     @MainActor func start() {
         macId = Store.shared.macId
-        macName = Store.computerName
+        MacNameBox.shared.set(Store.shared.macName)
         let port = ProcessInfo.processInfo.environment["TAPDROP_PORT"].flatMap(UInt16.init) ?? Self.preferredPort
         queue.async { self.listen(on: port) }
     }
@@ -53,10 +71,7 @@ final class Server: @unchecked Sendable {
             if port != nil { listen(on: nil) }
             return
         }
-        var txt = NWTXTRecord()
-        txt["id"] = macId
-        txt["v"] = "1"
-        l.service = NWListener.Service(name: macName, type: Self.serviceType, domain: nil, txtRecord: txt)
+        l.service = service()
         l.stateUpdateHandler = { [weak self, weak l] state in
             guard let self else { return }
             switch state {
@@ -185,6 +200,13 @@ final class Server: @unchecked Sendable {
             try await sendInbox(ch, to: dev.name)
         case "watch":
             try await runWatch(ch, device: dev)
+        case "names":
+            // A phone without a live link swaps names (PROTOCOL.md → "Names"): it hears ours either way.
+            let answer: JSON = await MainActor.run {
+                Store.shared.takeNames(from: dev.id, req)
+                return Store.shared.namesMessage(for: dev.id) ?? ["t": "names"]
+            }
+            try await ch.sendJSON(answer)
         case "unpair":
             // The phone forgot this Mac: forget it here too (it knows already, so no "forgotten" for it).
             await MainActor.run {
@@ -223,12 +245,25 @@ final class Server: @unchecked Sendable {
         try await ch.sendJSON(["t": req.type == "unpair" ? "ok" : "forgotten"])
     }
 
+    /// A phone's name as it is now (it can be renamed while its live link is open).
+    @MainActor private static func nameOf(_ d: PairedDevice) -> String { Store.shared.device(d.id)?.name ?? d.name }
+
     private func runWatch(_ ch: SecureChannel, device: PairedDevice) async throws {
         let pending = await MainActor.run { Store.shared.outbox.count }
         // "watching" is always the first message: the hub may push "room" (or a grab) as soon as the phone is added.
         ch.sendJSONNow(["t": "watching", "pending": pending, "notch": NotchSensor.shared.available])
         let id = WatchHub.shared.add(deviceId: device.id, name: device.name, channel: ch)
+        // Names next: what this Mac and that phone are called, newest change wins (PROTOCOL.md → "Names").
+        if let names = await MainActor.run(body: { Store.shared.namesMessage(for: device.id) }) { ch.sendJSONNow(names) }
         #if DEBUG
+        // Test mode: rename a phone called "Rename…" a second after its live link opens (NameCheck: a rename made on
+        // the Mac reaches the phone down its link).
+        if TestHooks.on, let to = ProcessInfo.processInfo.environment["TAPDROP_TEST_RENAME_LIVE"], device.name.hasPrefix("Rename") {
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(1))
+                Store.shared.renamePhone(device.id, to)
+            }
+        }
         // Test mode: forget the phone a second after its live link opens (ForgetCheck: "forgotten" down the link).
         if TestHooks.on, ProcessInfo.processInfo.environment["TAPDROP_TEST_FORGET_LIVE"] == "1" {
             Task { @MainActor in
@@ -266,6 +301,11 @@ final class Server: @unchecked Sendable {
                 await MainActor.run { Store.shared.touch(device.id) }
             case "caps":
                 WatchHub.shared.setCaps(id, key: Int(m.int("key") ?? 0))
+            case "names":
+                let answer: JSON? = await MainActor.run {
+                    Store.shared.takeNames(from: device.id, m) ? Store.shared.namesMessage(for: device.id) : nil
+                }
+                if let answer { ch.sendJSONNow(answer) }
             case "knock":
                 KeyRounds.shared.knock(from: id, at: at)
             case "key-on":
@@ -277,18 +317,18 @@ final class Server: @unchecked Sendable {
             case "index":
                 // The phone's progress fingerprinting its videos (Settings → Tap to Send → Status).
                 let (done, total) = (Int(m.int("done") ?? 0), Int(m.int("total") ?? 0))
-                await MainActor.run { TapStatus.shared.videoIndex(device.name, done: done, total: total) }
+                await MainActor.run { TapStatus.shared.videoIndex(Self.nameOf(device), done: done, total: total) }
             case "tap-note":
                 // What the phone sent for a tap and why (which file it matched), for the tap log.
                 if let text = m.str("text")?.prefix(1500) {
-                    await MainActor.run { TapLog.shared.note("\(device.name) \(text)") }
+                    await MainActor.run { TapLog.shared.note("\(Self.nameOf(device)) \(text)") }
                 }
             case "grab-ack" where !m.bool("ok"):
                 if TestMode.on { NSLog("TapDrop[test]: grab declined by phone (%@)", m.str("why") ?? "?") }
                 let why = m.str("why") ?? ""
                 KeyRounds.shared.declined(from: id, round: round, why: why)
                 await MainActor.run {
-                    if let say = TapLog.shared.declined(device.name, why: why) {
+                    if let say = TapLog.shared.declined(Self.nameOf(device), why: why) {
                         Activity.shared.notice(.queued, title: say, detail: "Then touch the top of its screen to the notch.",
                                                sound: false, hideAfter: 2.6)
                     }
@@ -305,15 +345,16 @@ final class Server: @unchecked Sendable {
                 }
                 // The phone is on its way — open the island right away so the tap feels instant.
                 await MainActor.run {
-                    TapLog.shared.accepted(device.name, kind: kind ?? "", spot: bySpot)
+                    let name = Self.nameOf(device)
+                    TapLog.shared.accepted(name, kind: kind ?? "", spot: bySpot)
                     if kind == "inbox" {
                         // The phone is collecting what's queued here; that transfer shows its own progress.
                     } else if kind == "pick" {
-                        Activity.shared.beginPick(peer: device.name)
+                        Activity.shared.beginPick(peer: name)
                     } else {
                         Activity.shared.begin(
-                            incoming: true, peer: device.name,
-                            title: kind == "link" ? "Opening from \(device.name)" : "Receiving from \(device.name)")
+                            incoming: true, peer: name,
+                            title: kind == "link" ? "Opening from \(name)" : "Receiving from \(name)")
                     }
                 }
             case "grab-cancel":

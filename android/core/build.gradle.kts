@@ -35,6 +35,17 @@ tasks.register<JavaExec>("forgetCheck") {
     )
 }
 
+// Names, both ways, against a headless test Mac it starts itself (see NameCheck.kt):
+//   gradle :core:nameCheck -Pmac=../mac/.build/debug/TapDrop -Pport=47961
+tasks.register<JavaExec>("nameCheck") {
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("app.tapdrop.core.NameCheckKt")
+    args(
+        (project.findProperty("mac") ?: rootProject.file("../mac/.build/debug/TapDrop").path).toString(),
+        (project.findProperty("port") ?: "47961").toString(),
+    )
+}
+
 tasks.register<JavaExec>("watchCheck") {
     classpath = sourceSets["test"].runtimeClasspath
     mainClass.set("app.tapdrop.core.WatchCheckKt")

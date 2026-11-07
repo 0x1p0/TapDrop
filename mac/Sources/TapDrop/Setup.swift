@@ -193,7 +193,7 @@ final class InstallServer: @unchecked Sendable {
             $0.lastVisit = Date()
         }
         let apkSize = apkURL.map { Int64(FileNames.size(of: $0)) }
-        let body = Data(InstallPage.html(macName: Store.computerName, apkSize: apkSize, version: apkVersion).utf8)
+        let body = Data(InstallPage.html(macName: Store.macName, apkSize: apkSize, version: apkVersion).utf8)
         let head = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: \(body.count)\r\n"
             + "Cache-Control: no-store\r\nConnection: close\r\n\r\n"
         try? await c.write(Data(head.utf8) + body)
