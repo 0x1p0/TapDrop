@@ -2,6 +2,13 @@
 
 What's new in each version, newest first. The notes under a version are what TapDrop shows in its update window, so write them for the people using it. Keep each bullet on one line.
 
+## 2.4.0
+
+### New
+- **Banking apps just work.** Many banking and UPI apps (BHIM, Google Pay, PhonePe, SBI, HDFC, ICICI, Axis and more) won't open while tap to send is on. Now it pauses while one is open and works as usual everywhere else, with nothing to switch back on.
+- **Resumes by itself.** Allow Usage access on the phone in Settings → Banking apps, and tap to send resumes as you leave the app. Without it, tap Resume in its notification.
+- **Your list.** Choose the apps it pauses in, on the phone in Settings → Banking apps → Apps. TapDrop also learns an app by itself the first time it asks to turn accessibility off.
+
 ## 2.3.0
 
 ### New

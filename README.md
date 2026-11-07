@@ -156,6 +156,8 @@ rules, timings and every verdict are in [PROTOCOL.md](PROTOCOL.md#light-key-tap-
   or reordered frames fail.
 - **Only at the moment you tap.** The phone looks at its screen only when a tap passes. Screens that block screenshots
   (banking apps, for example) are never captured.
+- **Steps aside for banking apps.** Many banking and UPI apps won't open while an accessibility service runs. Tap to
+  send pauses while one is open (it really stops, nothing is hidden) and resumes when you leave.
 - **Nothing for show.** Test hooks (simulated sensor, auto-pairing) exist only in debug builds.
 
 ## Get started
