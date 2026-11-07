@@ -39,6 +39,7 @@ import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Sms
 import androidx.compose.material.icons.rounded.WarningAmber
+import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -432,6 +433,24 @@ fun TapSetupCard(onSetup: () -> Unit, modifier: Modifier = Modifier) {
             PrimaryButton("Turn on tap to send", onSetup, Modifier.fillMaxWidth())
         }
     }
+}
+
+/** Home card while tap to send is off for a banking app ([app.tapdrop.tap.Guard]): calm, with a one-tap way back. */
+@Composable
+fun TapPausedCard(pkg: String, modifier: Modifier = Modifier) {
+    val ctx = LocalContext.current
+    val name = remember(pkg) { app.tapdrop.tap.Guard.label(ctx, pkg) ?: "a banking app" }
+    SettingsRow(
+        title = "Tap to send is paused for $name",
+        subtitle = "$name won't run with it on. It resumes when you leave $name.",
+        modifier = modifier,
+        leading = { IconChip(Icons.Rounded.AccountBalance, Td.colors.text, size = 40.dp, shape = TdShapes.Cookie6, iconSize = 20.dp) },
+        trailing = {
+            SmallButton("Resume", {
+                if (!app.tapdrop.tap.Guard.resume(ctx)) ctx.startActivity(app.tapdrop.tap.Guard.openSettingsIntent(ctx))
+            }, prominent = true)
+        },
+    )
 }
 
 /** Home card when tap to send is switched on but Android stopped it. */

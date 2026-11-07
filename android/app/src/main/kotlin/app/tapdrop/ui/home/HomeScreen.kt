@@ -122,6 +122,7 @@ import app.tapdrop.ui.ReceivedStrip
 import app.tapdrop.ui.TapCopy
 import app.tapdrop.ui.TapSetupCard
 import app.tapdrop.ui.TapStalledCard
+import app.tapdrop.ui.TapPausedCard
 import app.tapdrop.ui.Td
 import app.tapdrop.ui.TdType
 import app.tapdrop.ui.design.ActionTile
@@ -180,6 +181,7 @@ fun HomeScreen(
     val state by app.transfers.state.collectAsStateWithLifecycle()
     val history by app.prefs.history.collectAsStateWithLifecycle()
     val showRecent by app.prefs.showRecent.collectAsStateWithLifecycle()
+    val pausedFor by app.prefs.pausedFor.collectAsStateWithLifecycle()
     val live by NotchTapService.live.collectAsStateWithLifecycle()
     val tap = rememberTapSetupState()
     var online by remember { mutableStateOf<Boolean?>(null) }
@@ -316,6 +318,10 @@ fun HomeScreen(
                 )
             }
             when {
+                // Off on purpose, for a banking app that won't run with it on: say so calmly, one tap back.
+                !tap.accessibility && pausedFor != null -> item("tapPaused") {
+                    TapPausedCard(pausedFor!!, Modifier.padding(top = 18.dp).entrance(1, enabled = intro))
+                }
                 !tap.accessibility -> item("tapSetup") {
                     TapSetupCard(onSetup = onOpenTapSetup, modifier = Modifier.padding(top = 18.dp).entrance(1, enabled = intro))
                 }

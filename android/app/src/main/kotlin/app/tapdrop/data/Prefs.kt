@@ -149,6 +149,69 @@ class Prefs(ctx: Context) {
     private val _history = MutableStateFlow(loadHistory())
     val history: StateFlow<List<HistoryEntry>> = _history.asStateFlow()
 
+    // MARK: apps TapDrop steps aside for (banking and UPI apps that won't run with accessibility on)
+
+    private val _guardOn = MutableStateFlow(sp.getBoolean("guardOn", true))
+    /** Turn tap to send off while an app in [guarded] is open (Settings → Banking apps). */
+    val guardOn: StateFlow<Boolean> = _guardOn.asStateFlow()
+
+    fun setGuardOn(on: Boolean) {
+        _guardOn.value = on
+        sp.edit { putBoolean("guardOn", on) }
+    }
+
+    // The list is the known apps (Guard.KNOWN, which can grow with updates), plus the ones added (by hand or learned),
+    // minus the ones taken off by hand. A removed app is never learned again; adding it back is one switch.
+    private val _guardAdded = MutableStateFlow(sp.getStringSet("guardAdded", null)?.toSet() ?: emptySet())
+    private val _guardRemoved = MutableStateFlow(sp.getStringSet("guardRemoved", null)?.toSet() ?: emptySet())
+    private fun guardList() = app.tapdrop.tap.Guard.KNOWN + _guardAdded.value - _guardRemoved.value
+    private val _guarded = MutableStateFlow(guardList())
+    /** Apps TapDrop turns itself off for: the ones known to refuse accessibility, plus any it learned or was given. */
+    val guarded: StateFlow<Set<String>> = _guarded.asStateFlow()
+    /** Apps taken off the list by hand: TapDrop doesn't learn them again. */
+    val guardRemoved: StateFlow<Set<String>> = _guardRemoved.asStateFlow()
+
+    @Synchronized
+    fun setGuarded(pkg: String, on: Boolean) {
+        if (on) {
+            _guardRemoved.value -= pkg
+            if (pkg !in app.tapdrop.tap.Guard.KNOWN) _guardAdded.value += pkg
+        } else {
+            _guardAdded.value -= pkg
+            _guardRemoved.value += pkg
+        }
+        _guarded.value = guardList()
+        // Written at once: a pause ends the process right after learning an app.
+        sp.edit(commit = true) {
+            putStringSet("guardAdded", _guardAdded.value)
+            putStringSet("guardRemoved", _guardRemoved.value)
+        }
+    }
+
+    init {
+        // A test build kept the whole list under one key (when BHIM was the only known app); keep what it held.
+        sp.getStringSet("guarded", null)?.toSet()?.let { old ->
+            _guardAdded.value = old - app.tapdrop.tap.Guard.KNOWN
+            _guardRemoved.value = setOf("in.org.npci.upiapp") - old
+            _guarded.value = guardList()
+            sp.edit {
+                putStringSet("guardAdded", _guardAdded.value)
+                putStringSet("guardRemoved", _guardRemoved.value)
+                remove("guarded")
+            }
+        }
+    }
+
+    private val _pausedFor = MutableStateFlow(sp.getString("pausedFor", null))
+    /** The app tap to send is off for right now (it turned itself off when that app opened), or null. */
+    val pausedFor: StateFlow<String?> = _pausedFor.asStateFlow()
+
+    fun setPausedFor(pkg: String?) {
+        _pausedFor.value = pkg
+        // Written at once (with everything else still waiting to be saved): a pause ends the process right after.
+        sp.edit(commit = true) { putString("pausedFor", pkg) }
+    }
+
     private val _showRecent = MutableStateFlow(sp.getBoolean("showRecent", true))
     /** Whether Home shows what was sent and received lately (Settings → Recent). */
     val showRecent: StateFlow<Boolean> = _showRecent.asStateFlow()

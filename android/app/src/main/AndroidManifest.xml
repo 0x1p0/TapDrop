@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -17,12 +18,24 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Pausing for apps that won't run with accessibility on (tap/Guard.kt): knowing when such an app is closed
+         (Usage access, which the user grants in Settings), and, only where granted from a computer, switching tap to
+         send off and on in Accessibility settings. Neither is needed to pause and resume. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:ignore="ProtectedPermissions" />
 
     <!-- To list apps for the per-app "what gets sent" settings -->
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <!-- The launcher: a tap on a banking app's icon there turns tap to send off before the app opens -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
         </intent>
     </queries>
 
@@ -101,6 +114,26 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/notch_tap_service" />
         </service>
+
+        <!-- While tap to send is paused for a banking app (tap/Guard.kt): watches for that app to go, then resumes tap
+             to send. A process of its own, because TapDrop's main process is down during the pause. -->
+        <service
+            android:name=".tap.GuardService"
+            android:exported="false"
+            android:process=":guard"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Resumes the accessibility service once an app that refuses to run with it on is closed" />
+        </service>
+        <receiver
+            android:name=".tap.GuardReceiver"
+            android:exported="false"
+            android:process=":guard" />
+        <!-- Starts the main process after a pause, which reconnects tap to send -->
+        <receiver
+            android:name=".tap.WakeReceiver"
+            android:exported="false" />
 
         <!-- Smart codes: one-time passwords from SMS go straight to the Mac's clipboard -->
         <receiver

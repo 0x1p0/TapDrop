@@ -92,7 +92,7 @@ class MainActivity : ComponentActivity() {
 private enum class Root { Welcome, Pair, Main }
 
 /** Destinations inside the app once a Mac is paired. */
-enum class Dest { Home, TapSetup, Settings, Rules, TapTest, Compatibility, PairAnother }
+enum class Dest { Home, TapSetup, Settings, Rules, Banking, TapTest, Compatibility, PairAnother }
 
 @Composable
 private fun AppRoot() {
@@ -158,11 +158,13 @@ private fun MainNav(macs: List<SavedMac>) {
                     onPairAnother = { stack.push(Dest.PairAnother) },
                     onNotchSetup = { stack.push(Dest.TapSetup) },
                     onRules = { stack.push(Dest.Rules) },
+                    onBankingApps = { stack.push(Dest.Banking) },
                     onSticker = { sticker = true },
                     onTapTest = { stack.push(Dest.TapTest) },
                     onCompatibility = { stack.push(Dest.Compatibility) },
                 )
                 Dest.Rules -> AppRulesScreen(onClose = { stack.pop() })
+                Dest.Banking -> BankingAppsScreen(onClose = { stack.pop() })
                 Dest.TapTest -> TapTestScreen(
                     onClose = { stack.pop() },
                     // From the setup page, go back to it rather than opening a second one.

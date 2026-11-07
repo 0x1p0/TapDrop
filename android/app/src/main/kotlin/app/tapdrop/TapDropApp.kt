@@ -7,6 +7,7 @@ import android.service.quicksettings.TileService
 import app.tapdrop.data.Prefs
 import app.tapdrop.net.MacFinder
 import app.tapdrop.net.Transfers
+import app.tapdrop.tap.Guard
 import app.tapdrop.ui.Shortcuts
 import app.tapdrop.ui.TapActivity
 import app.tapdrop.update.Updates
@@ -30,6 +31,14 @@ class TapDropApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // The banking-app watcher's process (tap/GuardService.kt) needs none of what follows.
+        if (getProcessName().endsWith(":guard")) return
+        // Tap to send is paused for an app that's still open: end before it connects (tap/Guard.kt).
+        if (Guard.stayDown(this)) {
+            android.util.Log.i("TapDrop", "guard: staying paused")
+            android.os.Process.killProcess(android.os.Process.myPid())
+            return
+        }
         instance = this
         prefs = Prefs(this)
         finder = MacFinder(this, prefs)

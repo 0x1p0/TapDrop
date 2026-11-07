@@ -223,6 +223,7 @@ class NotchTapService : AccessibilityService() {
 
     override fun onServiceConnected() {
         instance = this
+        Guard.resumed(this)
         overlay = SendOverlay(this)
         matcher = MediaMatcher(
             this,
@@ -256,6 +257,9 @@ class NotchTapService : AccessibilityService() {
     private fun interactive() = getSystemService(PowerManager::class.java).isInteractive
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
+        // Apps that won't run with an accessibility service on: tap to send steps aside before they open.
+        if (Guard.check(this, event)) return
+        Guard.learn(this, event) { block -> scope.launch(Dispatchers.IO) { block() } }
         val pkg = event.packageName?.toString() ?: return
         when (event.eventType) {
             // The user touching the screen: a phone being used in the hand, not one on the notch.

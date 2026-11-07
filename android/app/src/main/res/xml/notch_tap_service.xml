@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- notificationTimeout 0: events arrive at once. Any delay lets a banking app that is already in memory check for
+     accessibility services before TapDrop hears its icon was tapped and steps aside (tap/Guard.kt). -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowStateChanged|typeNotificationStateChanged|typeViewClicked|typeViewLongClicked|typeViewTextChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
@@ -7,4 +9,4 @@
     android:canTakeScreenshot="true"
     android:description="@string/a11y_description"
     android:isAccessibilityTool="false"
-    android:notificationTimeout="150" />
+    android:notificationTimeout="0" />

@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.ContentCopy
@@ -81,6 +82,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tapdrop.TapDropApp
+import androidx.compose.material.icons.rounded.AccountBalance
+import androidx.compose.material.icons.rounded.Autorenew
+import app.tapdrop.tap.Guard
+import androidx.compose.foundation.shape.RoundedCornerShape
 import app.tapdrop.data.SavedMac
 import app.tapdrop.data.TapAction
 import app.tapdrop.tap.NotchTapService
@@ -126,6 +131,7 @@ fun SettingsScreen(
     onPairAnother: () -> Unit,
     onNotchSetup: () -> Unit,
     onRules: () -> Unit,
+    onBankingApps: () -> Unit,
     onSticker: () -> Unit,
     onTapTest: () -> Unit,
     onCompatibility: () -> Unit,
@@ -165,6 +171,20 @@ fun SettingsScreen(
     var renamingMe by remember { mutableStateOf(false) }
     var renamingMac by remember { mutableStateOf<String?>(null) }
     var confirmClear by remember { mutableStateOf(false) }
+    val guardOn by app.prefs.guardOn.collectAsStateWithLifecycle()
+    val guarded by app.prefs.guarded.collectAsStateWithLifecycle()
+    // Usage access and switching itself on can change in Settings or from a computer: read again on every return.
+    var guardTick by remember { mutableIntStateOf(0) }
+    LifecycleResumeEffect(Unit) {
+        guardTick++
+        onPauseOrDispose { }
+    }
+    val canWatch = remember(guardTick) { Guard.canWatch(ctx) }
+    // Only the apps on this phone count: known ones that aren't installed stay out of sight.
+    val guardedNames = remember(guarded, guardTick) {
+        guarded.mapNotNull { p -> Guard.label(ctx, p) }.sortedBy { it.lowercase() }
+    }
+    val canNotify = remember(guardTick) { androidx.core.app.NotificationManagerCompat.from(ctx).areNotificationsEnabled() }
 
     LargeTitleScaffold(
         title = "Settings",
@@ -370,6 +390,65 @@ fun SettingsScreen(
                     onClick = { confirmClear = true },
                     enabled = history.isNotEmpty(),
                 )
+            }
+        }
+
+        item("banking") {
+            SettingsGroup(
+                title = "Banking apps",
+                footer = "Many banking and UPI apps won't open while an app like TapDrop can see the screen. " +
+                    "Nothing is hidden from them: tap to send really stops while they're open. TapDrop also learns " +
+                    "new ones by itself, the first time an app asks to turn accessibility off.",
+            ) {
+                item { shape ->
+                    SwitchRow(
+                        title = "Pause in banking apps",
+                        checked = guardOn,
+                        onCheckedChange = { app.prefs.setGuardOn(it) },
+                        shape = shape,
+                        subtitle = "Tap to send pauses while one is open, and works as usual everywhere else",
+                        icon = Icons.Rounded.AccountBalance,
+                        accent = c.text,
+                    )
+                }
+                item { shape ->
+                    SettingsRow(
+                        title = "Apps",
+                        subtitle = guardedSummary(guardedNames),
+                        shape = shape,
+                        enabled = guardOn,
+                        onClick = onBankingApps,
+                        icon = Icons.Rounded.Apps,
+                        accent = c.text,
+                        trailing = { RowChevron() },
+                    )
+                }
+                item { shape ->
+                    SettingsRow(
+                        title = "Resume by itself",
+                        subtitle = if (canWatch) "Tap to send resumes as you leave the app"
+                        else "Usage access lets TapDrop see when you leave the app. Without it, tap Resume in its notification.",
+                        shape = shape,
+                        enabled = guardOn,
+                        icon = Icons.Rounded.Autorenew,
+                        accent = c.text,
+                        trailing = {
+                            if (canWatch) RowAllowed("Allowed")
+                            else SmallButton("Allow", { openUsageAccess(ctx) }, prominent = guardOn, enabled = guardOn)
+                        },
+                    )
+                }
+                if (!canNotify) item { shape ->
+                    SettingsRow(
+                        title = "Notifications",
+                        subtitle = "So TapDrop can say when tap to send is paused, with a button to resume",
+                        shape = shape,
+                        enabled = guardOn,
+                        icon = Icons.Rounded.Notifications,
+                        accent = c.text,
+                        trailing = { SmallButton("Allow", { openNotificationSettings(ctx) }, prominent = guardOn, enabled = guardOn) },
+                    )
+                }
             }
         }
 
@@ -917,3 +996,18 @@ private fun AboutFooter() {
 
 private fun appVersion(ctx: Context): String =
     runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: ""
+
+/** Usage access for TapDrop (its own page where the phone has one). */
+private fun openUsageAccess(ctx: Context) {
+    val own = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, Uri.parse("package:${ctx.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { ctx.startActivity(own) }.onFailure {
+        ctx.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+}
+
+/** TapDrop's notification settings (where Android 13+ also asks for the permission). */
+private fun openNotificationSettings(ctx: Context) {
+    val i = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { ctx.startActivity(i) }
+}

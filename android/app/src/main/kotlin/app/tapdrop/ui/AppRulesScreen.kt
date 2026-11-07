@@ -73,6 +73,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tapdrop.TapDropApp
+import app.tapdrop.ui.design.SwitchRow
+import androidx.compose.material.icons.rounded.AccountBalance
 import app.tapdrop.data.AppRules
 import app.tapdrop.data.SendMode
 import app.tapdrop.ui.design.ChoiceRow
@@ -131,7 +133,7 @@ fun SendMode.icon(): ImageVector = when (this) {
 @Composable
 fun SendMode.hue(): Color = if (this == SendMode.OFF) Td.colors.textTertiary else Td.colors.text
 
-private fun loadApps(ctx: Context): List<AppEntry> {
+internal fun loadApps(ctx: Context): List<AppEntry> {
     val pm = ctx.packageManager
     val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
     return pm.queryIntentActivities(intent, 0)
@@ -352,7 +354,7 @@ private fun SendMode.ink(): Color {
  * hairline follows the icon's own mask, so white icons (Calendar, Drive, Maps…) keep their edge on a white row.
  */
 @Composable
-private fun AppIcon(pkg: String, size: Dp) {
+internal fun AppIcon(pkg: String, size: Dp) {
     val ctx = LocalContext.current
     val c = Td.colors
     val art by produceState(iconCache[pkg], pkg) {
@@ -422,6 +424,20 @@ private fun ModeSheet(a: AppEntry, current: SendMode, close: () -> Unit) {
                         },
                     )
                 }
+            }
+        }
+        val guarded by app.prefs.guarded.collectAsStateWithLifecycle()
+        SettingsGroup(modifier = Modifier.padding(top = 14.dp)) {
+            item { shape ->
+                SwitchRow(
+                    title = "Pause tap to send in this app",
+                    checked = a.pkg in guarded,
+                    onCheckedChange = { app.prefs.setGuarded(a.pkg, it) },
+                    shape = shape,
+                    subtitle = "For banking and UPI apps that won't open while it's on",
+                    icon = Icons.Rounded.AccountBalance,
+                    accent = c.text,
+                )
             }
         }
     }
