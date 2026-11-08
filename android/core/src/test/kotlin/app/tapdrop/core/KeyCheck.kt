@@ -787,9 +787,15 @@ private fun calibrationKept(mac: TestMac, id: String) {
     }
     // A phone that connects (so its calibration starts) and goes away stops the calibration.
     Phone("Gone Pixel", ep, caps = LightKeyRules.VERSION).use { it.expect("room", 2500) }
-    Thread.sleep(5000)
-    val log = mac.logText()
-    check("a phone that leaves mid-calibration stops it (after a grace period)", log.contains("Calibration stopped · Gone Pixel · Gone Pixel disconnected"),
+    // The Mac gives a phone 4 s to come back before it stops; a slow machine (CI) needs a little longer than that.
+    val stopped = "Calibration stopped · Gone Pixel · Gone Pixel disconnected"
+    val until = System.currentTimeMillis() + 12_000
+    var log = mac.logText()
+    while (stopped !in log && System.currentTimeMillis() < until) {
+        Thread.sleep(250)
+        log = mac.logText()
+    }
+    check("a phone that leaves mid-calibration stops it (after a grace period)", stopped in log,
         log.lines().filter { "Calibration" in it }.joinToString(" | ").takeLast(300))
     val all = runCatching { JSONObject(File(mac.home, "calibration.json").readText()) }.getOrNull()
     check("each phone keeps its own calibration (Cal Pixel 666, Dim Pixel 189)",
