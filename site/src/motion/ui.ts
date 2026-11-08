@@ -42,6 +42,27 @@ function closeMenu(restore = true) {
 }
 
 export function startUI() {
+  // Links within the page ("Go to Part 2", the guide's index, "Skip to content"): one smooth scroll, ours. Left alone,
+  // Astro's router jumps natively and then restores the old scroll position, Lenis starts its own scroll, and the
+  // address changes while the page stays put. Cancelling the click first makes the router stand aside (Lenis's own
+  // anchor handling is off, see engine/scroll.ts); other listeners (closing the guide's index on a phone) still run.
+  document.addEventListener('click', (e) => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const a = (e.target as Element).closest?.<HTMLAnchorElement>('a[href]');
+    if (!a || (a.target && a.target !== '_self') || a.hasAttribute('download')) return;
+    const url = new URL(a.href, location.href);
+    if (url.origin !== location.origin || url.pathname !== location.pathname || url.search !== location.search || url.hash.length < 2) return;
+    const el = document.getElementById(decodeURIComponent(url.hash.slice(1)));
+    if (!el) return;
+    e.preventDefault();
+    if (url.hash !== location.hash) history.replaceState(history.state, '', url.hash);
+    // A frame later, so a menu closing on the same click has started scrolling again first.
+    requestAnimationFrame(() => {
+      scrollToTarget(el);
+      if (el.hasAttribute('tabindex')) el.focus({ preventScroll: true });
+    });
+  }, true);
+
   // The theme buttons, wherever they are (bar, menu): one listener for the document.
   document.addEventListener('click', (e) => {
     const b = (e.target as Element).closest?.<HTMLElement>('[data-theme-set]');

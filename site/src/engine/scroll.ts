@@ -19,7 +19,8 @@ export function initScroll() {
     if (!lenis) addEventListener('scroll', nativeTick, { passive: true });
     return;
   }
-  lenis = new Lenis({ lerp: 0.075, wheelMultiplier: 0.9, touchMultiplier: 1.2, anchors: true });
+  // In-page links are scrolled by motion/ui.ts (startUI), not by Lenis: Astro's router would fight it.
+  lenis = new Lenis({ lerp: 0.075, wheelMultiplier: 0.9, touchMultiplier: 1.2 });
   lenis.on('scroll', (l: Lenis) => {
     state.y = l.scroll;
     state.velocity = l.velocity;
