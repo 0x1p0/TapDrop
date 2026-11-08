@@ -786,8 +786,18 @@ private fun calibrationKept(mac: TestMac, id: String) {
             ok.desc() == "key-ok" && ok?.optDouble("need") == 189.0, "${seen.desc()} need ${seen.need()} / ${ok.desc()} $ok")
     }
     // A phone that connects (so its calibration starts) and goes away stops the calibration.
-    Phone("Gone Pixel", ep, caps = LightKeyRules.VERSION).use { it.expect("room", 2500) }
-    // The Mac gives a phone 4 s to come back before it stops; a slow machine (CI) needs a little longer than that.
+    // It has to be mid-calibration when it leaves: on a slow machine (CI) a phone that hangs up as soon as the Mac
+    // answers can be gone before its calibration has started, and then there's nothing to stop. So it stays until
+    // the Mac says calibration started (announcing the light key once more, now that its link is surely in place).
+    val started = "Calibration started · Gone Pixel"
+    Phone("Gone Pixel", ep, caps = LightKeyRules.VERSION).use { g ->
+        g.expect("room", 2500)
+        g.s.send("t" to "caps", "key" to LightKeyRules.VERSION)
+        val until = System.currentTimeMillis() + 8_000
+        while (started !in mac.logText() && System.currentTimeMillis() < until) Thread.sleep(200)
+    }
+    check("a phone that connects to be calibrated starts its calibration", started in mac.logText())
+    // The Mac gives a phone 4 s to come back before it stops; a slow machine needs a little longer than that.
     val stopped = "Calibration stopped · Gone Pixel · Gone Pixel disconnected"
     val until = System.currentTimeMillis() + 12_000
     var log = mac.logText()
