@@ -33,6 +33,15 @@ jobs:
         with:
           packages: platform-tools platforms;android-37.0 build-tools;37.0.0
 
+      # Gradle itself and the libraries it fetched, kept between runs: a slow download can't fail the checks.
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.gradle/wrapper
+            ~/.gradle/caches
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/**/*.gradle.kts', 'android/gradle/libs.versions.toml') }}
+          restore-keys: gradle-${{ runner.os }}-
+
       - name: Mac app
         run: cd mac && swift build
 
