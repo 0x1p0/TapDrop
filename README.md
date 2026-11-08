@@ -6,6 +6,15 @@
 
 **Touch your phone to your Mac's notch. Whatever's on its screen is there.**
 
+<img width="360" height="640" alt="An Android phone touched to a MacBook's notch: the PDF on its screen arrives in the Mac's Downloads" src="https://github.com/user-attachments/assets/b66429c0-6b01-46d7-8296-2fbba68abc08" />
+
+<details>
+<summary><b>▶ Watch it with sound</b></summary>
+
+https://github.com/user-attachments/assets/ba149a2a-3bde-4419-943e-235fd1ea0914
+
+</details>
+
 AirDrop-style sharing between Android and Mac: tap to send, share sheets both ways, a shared clipboard and
 one-time codes. Everything stays on your own Wi-Fi, end-to-end encrypted.
 
@@ -437,5 +446,8 @@ Issues and pull requests are welcome. Run the checks above before sending a chan
 [MIT](LICENSE). Free to use, change and share.
 
 <div align="center">
+
+**⭐ Star it if it saved you a cable.**
+
 <sub>Made for tapping things on Macs.</sub>
 </div>
