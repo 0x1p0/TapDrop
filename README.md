@@ -19,7 +19,7 @@ AirDrop-style sharing between Android and Mac: tap to send, share sheets both wa
 one-time codes. Everything stays on your own Wi-Fi, end-to-end encrypted.
 
 ![macOS 15+](https://img.shields.io/badge/macOS-15%2B-2a2a2e?logo=apple&logoColor=white&style=flat-square&labelColor=0b0b0d&color=2a2a2e)
-![Apple silicon](https://img.shields.io/badge/Apple%20silicon-notch%20Macs-2a2a2e?style=flat-square&labelColor=0b0b0d&color=2a2a2e)
+![Apple silicon](https://img.shields.io/badge/Apple%20silicon-notch%20or%20NFC%20sticker-2a2a2e?style=flat-square&labelColor=0b0b0d&color=2a2a2e)
 ![Android 13+](https://img.shields.io/badge/Android-13%2B-2a2a2e?logo=android&logoColor=white&style=flat-square&labelColor=0b0b0d&color=2a2a2e)
 ![Swift](https://img.shields.io/badge/Swift-SwiftUI-2a2a2e?logo=swift&logoColor=white&style=flat-square&labelColor=0b0b0d&color=2a2a2e)
 ![Kotlin](https://img.shields.io/badge/Kotlin-Compose-2a2a2e?logo=kotlin&logoColor=white&style=flat-square&labelColor=0b0b0d&color=2a2a2e)
@@ -76,6 +76,7 @@ Free and open source. No accounts, no cloud, no tracking.
 |---|---|
 | **Tap to send** | Touch the top of your phone's screen to the notch and hold it until it buzzes, about half a second. The page, PDF, original photo or video, or text on screen lands on the Mac. |
 | **Share both ways** | Photos, videos, files, links and text, from the Android share sheet or the Mac's menu bar. Drop files on the menu bar icon to queue them for your phone. |
+| **NFC sticker** | No notch, or a Mac mini? Stick a cheap NFC sticker on your Mac or desk and tap your phone on it: it shows what to send, or sends your latest photo or your clipboard straight away. |
 | **Shared clipboard** | Send the Mac's clipboard to the phone, or the phone's to the Mac, in one tap. |
 | **One-time codes** | Codes from texts and notifications appear in the notch and are copied, ready to paste. |
 | **Notch island** | Transfers, results and codes animate out of the notch, Dynamic Island style, and never sit under the camera. |
@@ -93,6 +94,20 @@ The phone's screen flashes white, then black, against the notch. The Mac sees it
 **Pick before sending** on, you get a moment to tap one photo or drag over some text to send just that part.
 
 <p align="center"><picture><source media="(prefers-color-scheme: light)" srcset="docs/images/mac-tap-to-send-light.png"><img src="docs/images/mac-tap-to-send.png" width="760" alt="Mac Settings, Tap to Send, with the live Test your tap graph and a tap that counted"></picture></p>
+
+### No notch? Tap an NFC sticker
+
+A Mac mini, an iMac, a Mac Studio or a MacBook without a notch can't see a tap, but your phone can read an NFC sticker
+stuck on the Mac or the desk next to it. The phone does the reading, so the Mac needs no NFC hardware.
+
+1. Get any **NTAG213** or **NTAG215** sticker. They're cheap and sold in packs.
+2. On the phone, open **Settings → NFC sticker** and hold the sticker to the back of the phone, just below the camera
+   bar. TapDrop writes your Mac to it.
+3. Stick it on the Mac or the desk.
+
+Tapping the phone on it then does what you chose in **Settings → When you tap the sticker**: show the options, send your
+latest photo or video, send your clipboard, or get the Mac's clipboard. Unlike a notch tap, it doesn't send what's on
+the screen. The sticker only says which Mac to send to; what's sent still goes over your Wi‑Fi, encrypted.
 
 ## What a tap sends
 
@@ -172,7 +187,8 @@ rules, timings and every verdict are in [PROTOCOL.md](PROTOCOL.md#light-key-tap-
 ## Get started
 
 **You need:**
-- A Mac with a notch (MacBook Air or MacBook Pro with Apple silicon) on macOS 15 Sequoia or newer. Without a notch you can still share; you just can't tap.
+- A Mac with Apple silicon on macOS 15 Sequoia or newer. Tapping the notch needs a MacBook Air or MacBook Pro with a
+  notch; on any other Mac, [tap an NFC sticker](#no-notch-tap-an-nfc-sticker) instead, or share from the phone.
 - An Android phone on Android 13 or newer, any brand.
 - Both on the same Wi‑Fi. Not a guest network.
 
