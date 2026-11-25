@@ -26,6 +26,7 @@ object AppRules {
         "org.mozilla.firefox_beta" to listOf("mozac_browser_toolbar_url_view"),
         "org.mozilla.focus" to listOf("display_url", "mozac_browser_toolbar_url_view"),
         "com.sec.android.app.sbrowser" to listOf("location_bar_edit_text"),
+        "com.sec.android.app.sbrowser.beta" to listOf("location_bar_edit_text"),
         "com.duckduckgo.mobile.android" to listOf("omnibarTextInput"),
         "com.opera.browser" to listOf("url_field"),
     )
